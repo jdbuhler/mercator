@@ -63,7 +63,7 @@ namespace input {
   // Output may be a list of channels,
   // the special "Sink", or the special
   // "void" indicating a non-sink with no
-  // outputs (but presumably some side-effects.
+  // outputs (but presumably some side-effects).
   //
   struct OutputSpec {
     
@@ -116,7 +116,8 @@ namespace input {
     {
       assert(inputType);
       
-      channels = *(outputSpec->channels);
+      if (outputSpec->channels)
+	channels = *(outputSpec->channels);
       
       delete outputSpec; // clean up spec now that we've used it
     }
