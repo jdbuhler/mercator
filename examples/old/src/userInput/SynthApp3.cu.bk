@@ -1,0 +1,112 @@
+#ifndef __SynthApp3_CU
+#define __SynthApp3_CU
+
+
+/* *** MODULE TYPE IMPLEMENTATION FILE ***
+ * 
+ * Notes to user on usage:
+ * 1) This should be the ONLY Mercator file that you modify.
+ * 
+ * 2) To write output to a channel from within a run() fcn:
+ * 	   push(item, `nodeIdx', Out::channelname), where
+ * 	  'item' is the item to be written, 'nodeIdx' is the current node's index variable (no single quotes) 
+ * 	  passed in as a parameterand 'channelname' is the name
+ * 	  given to the channel in the input spec 
+ * 	  (which can be found in the comment above the run() header,
+ * 	  or in the .cuh header file associated with this implementation).
+ * 
+ * 3) To access user-defined data from within run() fcn 
+ *    (only works if set in user Driver file):
+ * 	Full app data: get_appUserData()
+ * 	Per-module-type data: this->get_userData()
+ * 	Per-module-instance data: node->get_userData()
+ * 
+ * 4) When using multiple threads per item:
+ *      -To access thread's offset relative to other threads assigned
+ *        to same input item, call eltOffset(threadIdx.x) .
+ *      -To access correct output-channel slot, accounting for 
+ *        offset, pass offset as third parameter to push() function: 
+ *        push(..., ..., eltOffset(threadIdx.x)).
+ * 
+ * 5) When using multiple items per thread:
+ *      -To access number of items assigned to each thread,  *         call this->itemsPerThread(threadIdx.x) .
+ *      -To access input items and nodes, use array notation:
+  *       inputItems[i] or nodes[i], where 0 <= i < this->itemsPerThread() .
+ * 
+ */
+
+
+////  module Filter1<MyModuleData>(int[32] -> accept<int>:4, reject<int>:4 | 4 : 1)
+__device__
+void SynthApp3::Filter1::run(int* inputItems, unsigned char* nodeIdxs)
+{
+    auto moduleData = this->get_userData();
+//    printf("Block %d thread %d outer loop: processing items %d, %d, %d, %d.\n", blockIdx.x, threadIdx.x, inputItems[0], inputItems[1],
+//    inputItems[2], inputItems[3]);
+
+    int myNumItems = this->itemsPerThread(threadIdx.x);
+
+  for(int i=0; i < myNumItems; ++i)
+  {
+
+    auto inputItem = inputItems[i];
+    auto nodeIdx = nodeIdxs[i];
+
+#if 1
+    if(inputItem % moduleData->factor == 0)
+//    if(inputItem % 2 == 0)
+    {
+      push(inputItem, nodeIdx, Out::accept, 0);
+      push(inputItem, nodeIdx, Out::accept, 1);
+      push(inputItem, nodeIdx, Out::accept, 2);
+      push(inputItem, nodeIdx, Out::accept, 3);
+    }
+//    else
+//    if(inputItem % nodeData->factor == 0)
+    if(inputItem % moduleData->factor == 1)
+    {
+      push(inputItem, nodeIdx, Out::reject, 0);
+      push(inputItem, nodeIdx, Out::reject, 1);
+      push(inputItem, nodeIdx, Out::reject, 2);
+      push(inputItem, nodeIdx, Out::reject, 3);
+    }
+#endif
+  }
+	
+	
+}
+
+
+////  module Filter2<MyModuleData>(int[32] -> accept<int>:4, reject<int>:4 | 1 : 1)
+__device__
+void SynthApp3::Filter2::run(int inputItem, unsigned char nodeIdx)
+{
+    auto moduleData = this->get_userData();
+
+#if 1
+  if(inputItem % moduleData->factor == 0)
+//  if(inputItem % 4 == 0)
+  {
+    push(inputItem, nodeIdx, Out::accept, 0);
+    push(inputItem, nodeIdx, Out::accept, 1);
+    push(inputItem, nodeIdx, Out::accept, 2);
+    push(inputItem, nodeIdx, Out::accept, 3);
+  }
+//  else
+//  if(inputItem % nodeData->factor == 0)
+  if(inputItem % moduleData->factor == 1)
+  {
+    push(inputItem, nodeIdx, Out::reject, 0);
+    push(inputItem, nodeIdx, Out::reject, 1);
+    push(inputItem, nodeIdx, Out::reject, 2);
+    push(inputItem, nodeIdx, Out::reject, 3);
+  }
+#endif
+	
+	
+}
+
+
+
+#endif	// __SynthApp3_CU
+

@@ -1,0 +1,69 @@
+#ifndef __SynthApp1_CU
+#define __SynthApp1_CU
+
+
+#include "SynthApp1.cuh"
+
+/* *** MODULE TYPE IMPLEMENTATION FILE ***
+ * 
+ * Notes to user on usage:
+ * 1) This should be the ONLY Mercator file that you modify.
+ * 
+ * 2) To write output to a channel from within a run() fcn:
+ * 	   push(item, `nodeIdx', Out::channelname), where
+ * 	  'item' is the item to be written, 'nodeIdx' is the current node's index variable (no single quotes) 
+ * 	  passed in as a parameterand 'channelname' is the name
+ * 	  given to the channel in the input spec 
+ * 	  (which can be found in the comment above the run() header,
+ * 	  or in the .cuh header file associated with this implementation).
+ * 
+ * 3) To access user-defined data from within run() fcn 
+ *    (only works if set in user Driver file):
+ * 	Full app data: get_appUserData()
+ * 	Per-module-type data: this->get_userData()
+ * 	Per-module-instance data: this->get_nodeUserData(nodeIdx)
+ * 
+ * 4) When using multiple threads per item:
+ *      -To access thread's offset relative to other threads assigned
+ *        to same input item, call eltOffset(threadIdx.x) .
+ *      -To access correct output-channel slot, accounting for 
+ *        offset, pass offset as third parameter to push() function: 
+ *        push(..., ..., eltOffset(threadIdx.x)).
+ * 
+ * 5) When using multiple items per thread:
+ *      -To access number of items assigned to each thread,  *         call this->itemsPerThread(threadIdx.x) .
+ *      -To access input items and nodes, use array notation:
+  *       inputItems[i] or nodeIdxs[i], where 0 <= i < this->itemsPerThread() .
+ * 
+ */
+
+
+////  module Filter1<MyModuleData>(int[32] -> accept<int>:4, reject<int>:4 | 1 : 1)
+__device__
+void SynthApp1::Filter1::run(int inputItem, unsigned char nodeIdx)
+{
+  auto moduleData = this->get_userData();
+  auto nodeData   = this->get_nodeUserData(nodeIdx);
+  
+  if(inputItem % moduleData->factor == 0)
+  {
+    node->push(inputItem, Out::accept, 0);
+    node->push(inputItem, Out::accept, 1);
+    node->push(inputItem, Out::accept, 2);
+    node->push(inputItem, Out::accept, 3);
+  }
+
+  if(inputItem % nodeData->factor == 0)
+  {
+    node->push(inputItem, Out::reject, 0);
+    node->push(inputItem, Out::reject, 1);
+    node->push(inputItem, Out::reject, 2);
+    node->push(inputItem, Out::reject, 3);
+  }
+	
+}
+
+
+
+#endif	// __SynthApp1_CU
+

@@ -1,0 +1,32 @@
+//
+// ASYNCFILTER.MTR
+// Parameterized modular filter application
+//
+
+Application AsyncFilter;
+
+//
+// Same module signature as EvenFilter
+//
+
+Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+
+// nodes
+
+Node src : Source<{unsigned int}> ;
+
+Node f : Filter;
+
+Node snk : Sink<{unsigned int}> ;
+
+// edges
+
+Edge src -> f;
+
+Edge f -> snk;
+
+// Declare a per-module parameter for module type Filter
+// named "modulus", which has type unsigned int.
+// Parameters are read-only on the device.
+
+Param Filter::modulus : {unsigned int};

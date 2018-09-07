@@ -1,0 +1,125 @@
+#
+# MERCATOR-RULES.TXT
+# CMake rules for building MERCATOR applications
+#
+
+set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
+
+# add_mercator_app()
+# Construct a MERCATOR application from sources
+#
+# REQUIRED COMMAND OPTIONS
+#   TARGET <name>   
+#       app target to build
+#   SPECFILE <filename> 
+#       MERCATOR specification file that describes app
+#   SOURCES <filename> [<filename> ...] 
+#      list of user-supplied device code files for app
+#
+# RESULT:
+#  Generates CMake rules that
+#   - call mercator compiler on spec file to codegen auto-generated 
+#     pieces of app, including host-side header file needed by driver code
+#   - compile together generated code and user's code, producing
+#     a library lib${appname}.a associated with the given target name
+#
+function(add_mercator_app)
+   set(oneValueArgs TARGET SPECFILE)
+   set(multiValueArgs SOURCES)
+   cmake_parse_arguments(PARSE_ARGV 0 ADD_MERCATOR "" 
+   		         "${oneValueArgs}" 
+			 "${multiValueArgs}")
+
+   set(appname ${ADD_MERCATOR_TARGET})
+
+   # names of generated files depend on the app name
+   set(GENERATED_CUFILES ${CMAKE_CURRENT_BINARY_DIR}/${appname}_init.cu)
+   set(GENERATED_CUHFILES ${CMAKE_CURRENT_BINARY_DIR}/${appname}.cuh 
+                          ${CMAKE_CURRENT_BINARY_DIR}/${appname}_dev.cuh)
+
+   # teach cmake how to build the genenerated files from the spec
+   add_custom_command(OUTPUT ${GENERATED_CUFILES} ${GENERATED_CUHFILES}
+	COMMAND ${MERCATOR_CC} -a ${appname} ${CMAKE_CURRENT_SOURCE_DIR}/${ADD_MERCATOR_SPECFILE}
+	DEPENDS ${ADD_MERCATOR_SPECFILE}
+        COMMENT "Compiling MERCATOR spec file ${ADD_MERCATOR_SPECFILE}"
+   )
+
+   # gather all sources to be compiled
+   
+   # include all sources into a common translation unit for CUDA to
+   # avoid the overhead of separate compilation
+
+   # make sure user's source files are w/r to source directory
+   foreach(src ${ADD_MERCATOR_SOURCES})
+  	list(APPEND includes "#include \"${CMAKE_CURRENT_SOURCE_DIR}/${src}\"\\n")
+   endforeach()
+
+   foreach(src ${GENERATED_CUFILES})
+  	list(APPEND includes "#include \"${src}\"\\n")
+   endforeach()
+
+   set(COMBINED_CUFILE ${CMAKE_CURRENT_BINARY_DIR}/${appname}_dev_combined.cu)
+
+   add_custom_command(OUTPUT ${COMBINED_CUFILE}
+	COMMAND echo -e ${includes} > ${COMBINED_CUFILE}
+	DEPENDS ${userfiles} ${GENERATED_CUFILES}
+	IMPLICIT_DEPENDS c++ ${ADD_MERCATOR_SOURCES} ${GENERATED_CUFILES}
+        VERBATIM
+    )
+
+   # turn the combined object into a library
+   add_library(${appname} ${COMBINED_CUFILE})
+
+   target_include_directories(${appname}
+			      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+			      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
+			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
+		              PRIVATE ${CUB_ROOT_DIR})
+
+  target_compile_features(${appname} PUBLIC cxx_std_11)
+
+endfunction(add_mercator_app)
+
+
+# add_mercator_executable()
+# Build an executable that uses one or more MERCATOR apps
+#
+# REQUIRED OPTIONS
+#  TARGET <exename>
+#     name of executable target
+#  APPS <app> [<app> ...]
+#     list of MERCATOR app targets used by the executable
+# SOURCES <sourcefile> [<sourcefile> ...]
+#     list of other source code files needed for executable
+#
+function(add_mercator_executable)
+
+  set(oneValueArgs TARGET)
+  set(multiValueArgs APPS SOURCES)
+  cmake_parse_arguments(PARSE_ARGV 0 ADD_MERCATOR_EXE "" 
+  			"${oneValueArgs}" 
+			"${multiValueArgs}")
+
+  foreach(appname ${ADD_MERCATOR_EXE_APPS})
+     list(APPEND alldeps ${CMAKE_CURRENT_BINARY_DIR}/${appname}.cuh)
+  endforeach()
+
+  list(APPEND alldeps ${ADD_MERCATOR_EXE_SOURCES})
+
+  add_executable(${ADD_MERCATOR_EXE_TARGET} ${alldeps})
+
+  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_11)
+
+  target_include_directories(${ADD_MERCATOR_EXE_TARGET}
+			     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+			     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
+		             PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
+		             PRIVATE ${CUB_ROOT_DIR})
+
+  # Link the executable against all apps (which become its dependencies)
+  target_link_libraries(${ADD_MERCATOR_EXE_TARGET} "${ADD_MERCATOR_EXE_APPS}")
+
+  # MERCATOR apps need the CUDA driver API
+  target_link_libraries(${ADD_MERCATOR_EXE_TARGET} -lcuda)
+
+endfunction(add_mercator_executable)

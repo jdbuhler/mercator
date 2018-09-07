@@ -1,0 +1,48 @@
+#ifndef __ITEM_COUNTER_H
+#define __ITEM_COUNTER_H
+
+#ifdef INSTRUMENT_COUNTS
+
+template <int NUM_INSTS>
+struct ItemCounter {
+  
+  __device__
+  ItemCounter()
+  {
+    for (int j = 0; j < NUM_INSTS; j++)
+      counts[j] = 0;
+  }
+  
+  // multithreaded increment, using numInstances threads
+  __device__
+  void incr(unsigned long long count)
+  {
+    assert(threadIdx.x < NUM_INSTS);
+    
+    counts[threadIdx.x] += count;
+  }
+  
+  // multithreaded increment of a single value.
+  // We use atomic to let all threads that want
+  // to do the increment do it concurrently.
+  __device__
+  void incrSingle(int i, bool doIncr)
+  {
+    if (doIncr)
+      atomicAdd(&(counts[i]), 1ULL);
+  }
+  
+  unsigned long long counts[NUM_INSTS];
+};
+
+#endif
+
+#ifdef INSTRUMENT_COUNTS
+#define COUNT_ITEMS(n)    { itemCounter.incr(n); }
+#define COUNT_SINGLE(i,b) { itemCounter.incrSingle(i,b); }
+#else
+#define COUNT_ITEMS(n)    { }
+#define COUNT_SINGLE(i,b) { }
+#endif
+
+#endif

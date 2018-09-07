@@ -1,0 +1,16 @@
+//
+// BUILD_CONFIG.H
+// Supply selected options from the build system to the program.
+// This file is processed by CMake to fill in variables of the
+// form ${VAR} with the corresponding variable from CMakeLists.txt.
+//
+
+#ifndef __BUILD_CONFIG_H
+#define __BUILD_CONFIG_H
+
+#define LLVM_PATH    "${LLVM_PATH}"
+#define LLVM_VERSION "${LLVM_VERSION}"
+
+#define CUDA_INCLUDE_PATH "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
+
+#endif

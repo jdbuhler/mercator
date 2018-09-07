@@ -1,0 +1,48 @@
+//
+// MODFILTER.MTR
+// Parameterized modular filter application
+//
+
+Application ModFilter;
+
+//
+// Same module signature as EvenFilter
+//
+
+Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+
+//
+// this time, build a chain of three filters
+//
+
+// nodes
+
+Node src : Source<{unsigned int}> ;
+
+Node f1 : Filter;
+
+Node f2 : Filter;
+
+Node f3 : Filter;
+
+Node snk : Sink<{unsigned int}> ;
+
+// edges
+
+Edge src -> f1;
+
+Edge f1 -> f2;
+
+Edge f2 -> f3;
+
+Edge f3 -> snk;
+
+// Declare a per-node parameter for module type Filter
+// named "modulus", which has type unsigned int.
+// Host can set this parameter differently in each node.
+// Parameters are read-only on the device.
+//
+// (We can also declare module-wide and app-wide
+//  parameters using a similar syntax.)
+
+NodeParam Filter::modulus : {unsigned int};

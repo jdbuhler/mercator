@@ -1,0 +1,34 @@
+//
+// SPLITFILTER.MTR
+// Demonstrate splitting an input stream into two output
+// streams based on a runtime predicate.
+//
+
+reference "cstdint";
+
+Application SplitFilter;
+
+//
+// the Filter module now has two output channels
+//
+
+Module Filter : uint32_t -> 
+     accept<uint32_t>, reject<uint32_t> ;
+
+// nodes
+
+Node src : Source<uint32_t> ;
+
+Node f : Filter;
+
+Node snkAccept : Sink<uint32_t> ;
+
+Node snkReject : Sink<uint32_t> ;
+
+// edges
+
+Edge src -> f;
+
+Edge f::accept -> snkAccept; // specifies channel
+
+Edge f::reject -> snkReject; // specifies channel

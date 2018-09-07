@@ -1,0 +1,122 @@
+#!/usr/bin/tclsh
+
+# Runs the CUDA profiler nvprof with specified options.
+# Any un-commented options will be fed to nvprof for
+#  a single run of the app.
+
+set APP_BINARY dpAlign
+
+set RBWT_FILE /home/mercury/coles/dna_data/chr1_ambig2random_BWT_rev.txt
+set BWT_FILE  /home/mercury/coles/dna_data/chr1_ambig2random_BWT.txt
+set READ_FILE /home/mercury/coles/dna_data/chr1_reads_ambig2random.fa
+
+set APP_OPTIONS [list $RBWT_FILE $READ_FILE $BWT_FILE]
+
+set APP_KERNEL findMatchesKernel
+
+###########################################################################
+
+set EVENTS {}
+
+# Domain domain_a:
+#lappend EVENTS sm_cta_launched
+#lappend EVENTS l1_local_load_hit
+#lappend EVENTS l1_local_load_miss
+#lappend EVENTS l1_local_store_hit
+#lappend EVENTS l1_local_store_miss
+#lappend EVENTS l1_global_load_hit
+#lappend EVENTS l1_global_load_miss
+#lappend EVENTS uncached_global_load_transaction
+#lappend EVENTS global_store_transaction
+#lappend EVENTS l1_shared_bank_conflict
+#lappend EVENTS tex0_cache_sector_queries
+#lappend EVENTS tex0_cache_sector_misses
+
+# Domain domain_b:
+#lappend EVENTS fb_subp0_read_sectors
+#lappend EVENTS fb_subp1_read_sectors
+#lappend EVENTS fb_subp0_write_sectors
+#lappend EVENTS fb_subp1_write_sectors
+#lappend EVENTS l2_subp0_read_sector_misses
+#lappend EVENTS l2_subp1_read_sector_misses
+#lappend EVENTS l2_subp0_write_sector_misses
+#lappend EVENTS l2_subp1_write_sector_misses
+#lappend EVENTS l2_subp0_read_sector_queries
+#lappend EVENTS l2_subp1_read_sector_queries
+#lappend EVENTS l2_subp0_write_sector_queries
+#lappend EVENTS l2_subp1_write_sector_queries
+#lappend EVENTS l2_subp0_read_tex_sector_queries
+#lappend EVENTS l2_subp1_read_tex_sector_queries
+#lappend EVENTS l2_subp0_read_hit_sectors
+#lappend EVENTS l2_subp1_read_hit_sectors
+#lappend EVENTS l2_subp0_read_tex_hit_sectors
+#lappend EVENTS l2_subp1_read_tex_hit_sectors
+#lappend EVENTS l2_subp0_read_sysmem_sector_queries
+#lappend EVENTS l2_subp1_read_sysmem_sector_queries
+#lappend EVENTS l2_subp0_write_sysmem_sector_queries
+#lappend EVENTS l2_subp1_write_sysmem_sector_queries
+#lappend EVENTS l2_subp0_total_read_sector_queries
+#lappend EVENTS l2_subp1_total_read_sector_queries
+#lappend EVENTS l2_subp0_total_write_sector_queries
+#lappend EVENTS l2_subp1_total_write_sector_queries
+
+# Domain domain_c:
+#lappend EVENTS gld_inst_8bit
+#lappend EVENTS gld_inst_16bit
+#lappend EVENTS gld_inst_32bit
+#lappend EVENTS gld_inst_64bit
+#lappend EVENTS gld_inst_128bit
+#lappend EVENTS gst_inst_8bit
+#lappend EVENTS gst_inst_16bit
+#lappend EVENTS gst_inst_32bit
+#lappend EVENTS gst_inst_64bit
+#lappend EVENTS gst_inst_128bit
+
+# Domain domain_d:
+#lappend EVENTS local_load
+#lappend EVENTS local_store
+#lappend EVENTS gld_request
+#lappend EVENTS gst_request
+#lappend EVENTS shared_load
+#lappend EVENTS shared_store
+#lappend EVENTS branch
+#lappend EVENTS divergent_branch
+#lappend EVENTS warps_launched
+#lappend EVENTS threads_launched
+#lappend EVENTS active_warps
+#lappend EVENTS active_cycles
+#lappend EVENTS prof_trigger_00
+#lappend EVENTS prof_trigger_01
+#lappend EVENTS prof_trigger_02
+#lappend EVENTS prof_trigger_03
+#lappend EVENTS prof_trigger_04
+#lappend EVENTS prof_trigger_05
+#lappend EVENTS prof_trigger_06
+#lappend EVENTS prof_trigger_07
+#lappend EVENTS inst_issued
+#lappend EVENTS inst_executed
+#lappend EVENTS thread_inst_executed_0
+#lappend EVENTS thread_inst_executed_1
+#lappend EVENTS atom_count
+#lappend EVENTS gred_count
+
+###########################################################################
+
+set out_base ${APP_BINARY}-profile
+
+set nvprof_outfile $out_base.txt
+
+set nvprof_options [concat \
+    --aggregate-mode off \
+    --profile-from-start off \
+    --log-file $nvprof_outfile]
+
+if {$EVENTS != {}} {
+    set event_arg [list --events [join $EVENTS ","]]
+} else {
+    set event_arg {}
+}
+
+puts stdout "Profiling kernel $APP_KERNEL of '$APP_BINARY $APP_OPTIONS'"
+
+eval [concat exec nvprof --kernels "::$APP_KERNEL:" $event_arg --metrics all $nvprof_options $APP_BINARY $APP_OPTIONS]
