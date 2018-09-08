@@ -51,7 +51,7 @@ namespace Mercator  {
     // we want this to be quite small to optimize load-balancing,
     // so that we don't claim a big chunk of input and then take 
     // longer to process it than other blocks.
-    static const unsigned int REQ_SIZE = 2*THREADS_PER_BLOCK;
+    static const size_t REQ_SIZE = 2*THREADS_PER_BLOCK;
     
 
   public: 
@@ -122,7 +122,7 @@ namespace Mercator  {
       if (numPending == 0)
 	this->setInTail(true);
     }
-
+    
   private:
 
     using BaseType::getChannel;
@@ -264,7 +264,6 @@ namespace Mercator  {
 	  if (!this->isInTail() && numPending == 0)
 	    {
 	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
-	    
 	      if (numPending == 0) // no more input left to request!
 		this->setInTail(true);
 	    }
