@@ -12,7 +12,7 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-set(MERCATOR_ROOT_DIR /project/cassini/mercator)
+set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
@@ -31,10 +31,10 @@ set (CMAKE_CUDA_FLAGS_DEBUG
      "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG -Wall -DVERBOSE")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
-     "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
+     "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
 
 set (CMAKE_CUDA_FLAGS_RELEASE
-     "${CMAKE_CUDA_FLAGS_RELEASE} -UNDEBUG")
+     "${CMAKE_CUDA_FLAGS_RELEASE} -DNDEBUG")
 
 set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
@@ -45,7 +45,7 @@ string(APPEND CMAKE_CUDA_FLAGS ${NVCCFLAGS})
 
 ######################################################################
 
-include(../mercator-rules.txt)
+include(${MERCATOR_ROOT_DIR}/mercator-rules.txt)
 
 if(${BUILDING_IN_TREE})
   # Override default path to MERCATOR compiler to allow build from
