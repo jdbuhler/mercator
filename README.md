@@ -1,3 +1,4 @@
 # MERCATOR
 
-## A framework for writing irregular streaming applications for NVIDIA GPUs
+## A framework to implement irregular streaming applications on NVIDIA GPUs
+
