@@ -1,0 +1,43 @@
+reference "cstdint";
+reference "Pixel.h";
+
+application Mandelbrot;
+
+module MakePixel : uint32_t -> out<Pixel>;
+
+module IteratePixel : Pixel -> accept<Pixel>, repeat<Pixel>;
+
+module WritePixel : Pixel -> void;
+
+// nodes
+
+node src : Source<uint32_t>;
+
+node pixelMaker : MakePixel ;
+
+node iterator : IteratePixel ;
+
+node writer : WritePixel ;
+
+// edges
+
+edge src -> pixelMaker;
+
+edge pixelMaker -> iterator;
+
+edge iterator::repeat -> iterator;
+
+edge iterator::accept -> writer;
+
+//
+
+param image : uint8_t *;
+
+param nX : uint32_t;
+param nY : uint32_t;
+
+param rMin : float;
+param rMax : float;
+
+param cMin : float;
+param cMax : float;

@@ -32,8 +32,8 @@ struct CommandOptions {
     generateSkeletons = false;
     
     threadsPerBlock = 128;
-    deviceStackSize = (1024 * 8);         // 8 KB
-    deviceHeapSize  = (1024 * 1024 * 32); // 32 MB
+    deviceStackSize = (1024 * 8);          // 8 KB
+    deviceHeapSize  = (1024 * 1024 * 100); // 100 MB
     
     outputPath = "";
     appToBuild = "";

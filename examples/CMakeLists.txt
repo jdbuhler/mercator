@@ -12,7 +12,7 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-set(MERCATOR_ROOT_DIR /project/cassini/mercator/mercator-head)
+set(MERCATOR_ROOT_DIR /project/cassini/mercator)
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
@@ -25,12 +25,16 @@ set(MERCATOR_BUILD_DIR ${MERCATOR_ROOT_DIR}/build)
 #######################################################################
 
 set (CMAKE_CXX_FLAGS_DEBUG   
-     "${CMAKE_CXX_FLAGS_DEBUG} -O0 -UNDEBUG -Wall -DVERBOSE")
+     "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall -DVERBOSE")
+
+set (CMAKE_CUDA_FLAGS_DEBUG   
+     "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG -Wall -DVERBOSE")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
-     "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+     "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+set (CMAKE_CUDA_FLAGS_RELEASE
+     "${CMAKE_CUDA_FLAGS_RELEASE} -UNDEBUG")
 
 set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
@@ -60,3 +64,5 @@ add_subdirectory(SplitFilter)
 add_subdirectory(LoopFilter)
 
 add_subdirectory(AsyncFilter)
+
+add_subdirectory(Mandelbrot)

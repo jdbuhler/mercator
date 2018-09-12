@@ -120,15 +120,14 @@ namespace Mercator  {
 	      
 	      unsigned int numFireable =  
 		mod->computeNumFireableTotal(enforceFullEnsembles);
-	    unsigned int n = mod->computeNumPendingTotal();
-	    
-	    if (numFireable > 0)
-	      anyModuleFireable = true;
-	    
-	    if (IS_BOSS())
-	      {
-		fireableCounts[i] = numFireable;
-	      }
+	      
+	      if (numFireable > 0)
+		anyModuleFireable = true;
+	      
+	      if (IS_BOSS())
+		{
+		  fireableCounts[i] = numFireable;
+		}
 	    }
 	  
 	  // If no module can be fired, either all have zero items pending
