@@ -67,18 +67,18 @@ namespace Mercator  {
     //
     __device__
     static
-    Sink<T> *createSink(const SinkData<T> &sinkData)
+    Sink<T> *createSink(const SinkData<T> &sinkData,
+			SinkMemory<T> *mem)
     {
       Sink<T> *sink;
       
       switch (sinkData.kind)
 	{
 	case SinkData<T>::Buffer:
-	  sink = new SinkBuffer<T>(sinkData.bufferData);
+	  sink = new (mem) SinkBuffer<T>(sinkData.bufferData);
 	  break;
 	}
-
-      assert(sink != nullptr);
+      
       return sink;
     }
     

@@ -450,7 +450,7 @@ void genDeviceModuleClass(const App *app,
       f.add("{");
       f.indent();
       
-      f.add("state.source[0] = createSource(params->sourceData[0]);");
+      f.add("state.source[0] = createSource(params->sourceData[0], &state.sourceMem[0]);");
       f.add("setInputSource(state.source[0]);");
       
       f.unindent();
@@ -460,14 +460,6 @@ void genDeviceModuleClass(const App *app,
       f.add("}");
   
       f.add("");
-      
-      // clean up the created source object after the run
-      f.add("__device__");
-      f.add(genFcnHeader("void", "cleanup", ""));
-      f.add("{ if (threadIdx.x == 0) delete state.source[0]; }");
-      
-      f.add("");
-      
     }
   else if (mod->isSink())
     {
@@ -481,7 +473,7 @@ void genDeviceModuleClass(const App *app,
       f.add("{");
       f.indent();
       
-      f.add("state.sink[threadIdx.x] = createSink(params->sinkData[threadIdx.x]);");
+      f.add("state.sink[threadIdx.x] = createSink(params->sinkData[threadIdx.x], &state.sinkMem[threadIdx.x]);");
       f.add("setOutputSink(threadIdx.x, state.sink[threadIdx.x]);");
       
       f.unindent();
@@ -490,13 +482,6 @@ void genDeviceModuleClass(const App *app,
       f.unindent();
       f.add("}");
   
-      f.add("");
-      
-      // clean up the created sink object after the run
-      f.add("__device__");
-      f.add(genFcnHeader("void", "cleanup", ""));
-      f.add("{ if (threadIdx.x < getNumInstances()) delete state.sink[threadIdx.x]; }");
-      
       f.add("");
     } 
   

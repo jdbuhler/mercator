@@ -79,25 +79,25 @@ namespace Mercator  {
     // @return a Source object whose subtype matches the input data
     //
     __device__
-    Source<T> *createSource(const SourceData<T> &sourceData)
+    Source<T> *createSource(const SourceData<T> &sourceData,
+			    SourceMemory<T> *mem)
     {
       Source<T> *source;
       
       switch (sourceData.kind)
 	{
 	case SourceData<T>::Buffer:
-	  source = new SourceBuffer<T>(sourceData.bufferData,
-				       tailPtr);
+	  source = new (mem) SourceBuffer<T>(sourceData.bufferData,
+					     tailPtr);
 	  break;
 	  
 	case SourceData<T>::Range:
-	  source = new SourceRange<T>(sourceData.rangeData,
-				      tailPtr);
+	  source = new (mem) SourceRange<T>(sourceData.rangeData,
+					    tailPtr);
 	  
 	  break;
 	}
       
-      assert(source != nullptr);
       return source;
     }
     

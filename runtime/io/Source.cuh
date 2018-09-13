@@ -214,6 +214,23 @@ namespace Mercator {
     
     const RangeData<S> rd;
   };
+
+  
+  //
+  // Memory suitable for holding a Source object of any subtype
+  //
+  template <typename T>
+  struct alignas(SourceBuffer<T>) alignas(SourceRange<T>) 
+    SourceMemory {
+    
+    // C++11's max is not constexpr.  Sigh.
+    static constexpr size_t mymax(size_t a, size_t b)
+    { return (a > b ? a : b); }
+    
+    char c[mymax(sizeof(typename Mercator::SourceBuffer<T>),
+		 sizeof(typename Mercator::SourceRange<T>))];
+  };
+  
 }
 
 #endif

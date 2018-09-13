@@ -143,6 +143,16 @@ namespace Mercator {
     
     T *data;
   };
+
+
+  //
+  // Memory suitable for holding a Sink object of any subtype
+  //
+  template <typename T>
+  struct alignas(SinkBuffer<T>)
+    SinkMemory {
+    char c[sizeof(typename Mercator::SinkBuffer<T>)];
+  };
 }
 
 #endif

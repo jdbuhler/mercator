@@ -529,6 +529,12 @@ App *buildApp(const input::AppSpec *appSpec)
 					+ dataType
 					+ ">*"));
 	  mod->nodeState.push_back(v);
+	  
+	  v = new DataItem("sourceMem",
+			   new DataType("Mercator::SourceMemory<" 
+					+ dataType
+					+ ">"));
+	  mod->nodeState.push_back(v);
 	}
       else if (mod->isSink())
 	{
@@ -546,6 +552,13 @@ App *buildApp(const input::AppSpec *appSpec)
 					+ dataType
 					+ ">*"));
 	  mod->nodeState.push_back(v);
+
+	  v = new DataItem("sinkMem",
+			   new DataType("Mercator::SinkMemory<" 
+					+ dataType
+					+ ">"));
+	  mod->nodeState.push_back(v);
+
 	}
     }
   
