@@ -55,9 +55,13 @@ namespace Mercator  {
       for (unsigned int i = 0; i < numInstances; ++i)
 	{
 	  dataSizes[i] = capacities[i] + 1;
-	  data[i]      = new T [dataSizes[i]];
 	  heads[i]     = 0;
 	  tails[i]     = 0;
+	  
+	  data[i]      = new T [dataSizes[i]];
+	  
+	  // ensure allocation succeeded
+	  assert(data[i] != nullptr);
 	  
 	  totalCapacity += capacities[i];
 	}

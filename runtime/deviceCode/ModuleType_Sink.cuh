@@ -77,7 +77,8 @@ namespace Mercator  {
 	  sink = new SinkBuffer<T>(sinkData.bufferData);
 	  break;
 	}
-      
+
+      assert(sink != nullptr);
       return sink;
     }
     

@@ -39,6 +39,9 @@ namespace Mercator {
 
     deviceApps[blockIdx.x] = new DeviceAppClass(sourceTailPtr, hostParams);
     
+    // make sure alloc succeeded
+    assert(deviceApps[blockIdx.x] != nullptr);
+    
 #ifdef INSTRUMENT_TIME
     if (IS_BOSS_BLOCK())
       DeviceAppClass::printTimersCSVHeader();

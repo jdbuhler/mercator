@@ -97,6 +97,7 @@ namespace Mercator  {
 	  break;
 	}
       
+      assert(source != nullptr);
       return source;
     }
     

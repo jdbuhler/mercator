@@ -50,7 +50,7 @@ void genModuleConstruction(const string &moduleObj,
   // allocate the module object
   {
     string nextStmt =
-      moduleObj + " = new class " + deviceModuleType + "(";
+      moduleObj + " = new " + deviceModuleType + "(";
     
     if (mod->isSource())
       nextStmt += "tailPtr, ";
@@ -66,6 +66,7 @@ void genModuleConstruction(const string &moduleObj,
     nextStmt += ");";
     
     f.add(nextStmt);
+    f.add("assert(" + moduleObj + " != nullptr);"); // verify that allocation succeeded
   }
   
   f.unindent();
@@ -171,7 +172,7 @@ void genDeviceAppConstructor(const App *app,
       string deviceModuleType = mod->get_name();
       string moduleObj = "d" + mod->get_name();
       
-      f.add("class " + deviceModuleType + "* " + moduleObj + ";");
+      f.add(deviceModuleType + "* " + moduleObj + ";");
       
       genModuleConstruction(moduleObj, mod, app, f);
       f.add("");

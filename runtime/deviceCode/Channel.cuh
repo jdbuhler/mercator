@@ -58,6 +58,9 @@ namespace Mercator  {
       data = new T        [capacity];
       tags = new InstTagT [capacity];
       
+      // verify that alloc succeeded
+      assert(data != nullptr && tags != nullptr);
+      
       for(unsigned int i = 0; i < capacity; ++i)
 	tags[i] = NULLTAG;
       

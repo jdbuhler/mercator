@@ -136,6 +136,9 @@ namespace Mercator  {
 	    sizes[i] = minQueueSizes[i] * QUEUE_SCALER;
 	  
 	  queue = new Queue<T>(numInstances, sizes);
+	  
+	  // make sure allocation succeeded
+	  assert(queue != nullptr);
 	}
       else
 	queue = nullptr;
@@ -193,6 +196,9 @@ namespace Mercator  {
       channels[c] = new Channel<DST>(outputsPerInput, 
 				     maxRunsPerFiring,
 				     reservedSlots);
+      
+      // make sure alloc succeeded
+      assert(channels[c] != nullptr);
     }
     
     

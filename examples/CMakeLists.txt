@@ -25,10 +25,10 @@ set(BUILDING_IN_TREE true)
 #######################################################################
 
 set (CMAKE_CXX_FLAGS_DEBUG   
-     "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall -DVERBOSE")
+     "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall")
 
 set (CMAKE_CUDA_FLAGS_DEBUG   
-     "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG -Wall -DVERBOSE")
+     "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
      "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
