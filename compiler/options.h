@@ -11,18 +11,25 @@
 
 struct CommandOptions {
   
-  bool emitDeps;
-  bool generateSkeletons;
+  bool emitDeps;            // run in emit dependency mode
+  bool generateSkeletons;   // run in generate skeleton mode
   
-  unsigned int threadsPerBlock;
-  unsigned int deviceStackSize;
-  unsigned int deviceHeapSize;
+  unsigned int threadsPerBlock; // # threads per GPU block
+  unsigned int deviceStackSize; // size of device stack
+  unsigned int deviceHeapSize;  // size of device heap
   
-  std::string outputPath;
-  std::string appToBuild;
+  // multiplier used for minimum viable queue sizes
+  // to determine sizes actually built
+  unsigned int queueScaler;
   
+  std::string outputPath;  // where to write outputs
+  std::string appToBuild;  // name of app if multiple in file
+  
+  // list of paths to use to resolve filenames in 
+  // reference directives
   std::vector<std::string> typecheckIncludePaths;
-  
+
+  // list of spec files to compile
   std::vector<std::string> sourceFiles;
   
   // set default options
@@ -34,6 +41,8 @@ struct CommandOptions {
     threadsPerBlock = 128;
     deviceStackSize = (1024 * 8);          // 8 KB
     deviceHeapSize  = (1024 * 1024 * 100); // 100 MB
+    
+    queueScaler = 4;
     
     outputPath = "";
     appToBuild = "";

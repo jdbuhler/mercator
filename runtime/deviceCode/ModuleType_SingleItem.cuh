@@ -65,8 +65,8 @@ namespace Mercator  {
   public:
     
     __device__
-    ModuleType_SingleItem(const unsigned int *minQueueSizes)
-      : BaseType(minQueueSizes)
+    ModuleType_SingleItem(const unsigned int *queueSizes)
+      : BaseType(queueSizes)
     {}
     
   protected:

@@ -5,6 +5,8 @@
 
 #include "gen_deviceapp_ctor.h"
 
+#include "../options.h"
+
 #include "app.h"
 
 #include "Formatter.h"
@@ -37,11 +39,11 @@ void genModuleConstruction(const string &moduleObj,
   f.add("{");
   f.indent();
   
-  // create const array of minimum queue sizes per instance
+  // create const array of queue sizes per instance
   {
-    string nextStmt = "const unsigned int minQueueSizes[] = {";
+    string nextStmt = "const unsigned int queueSizes[] = {";
     for (const Node *node : mod->nodes)
-      nextStmt += to_string(node->get_queueSize()) + ", ";
+      nextStmt += to_string(node->get_queueSize() * options.queueScaler) + ", ";
     nextStmt += "};";
     
     f.add(nextStmt);
@@ -55,7 +57,7 @@ void genModuleConstruction(const string &moduleObj,
     if (mod->isSource())
       nextStmt += "tailPtr, ";
     
-    nextStmt += "minQueueSizes";
+    nextStmt += "queueSizes";
     
     if (mod->hasParams())
       nextStmt += ", &" + hostModuleParamObj;

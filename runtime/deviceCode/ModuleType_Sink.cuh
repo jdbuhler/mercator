@@ -46,12 +46,11 @@ namespace Mercator  {
     
     //
     // @brief constructor
-    // @param minQueueSizes - min required sizes for input queue of
-    //   each instance
+    // @param queueSizes - sizes for input queue of each instance
     //
     __device__
-    ModuleType_Sink(const unsigned int *minQueueSizes)
-      : BaseType(minQueueSizes)
+    ModuleType_Sink(const unsigned int *queueSizes)
+      : BaseType(queueSizes)
     {
       for (unsigned int j = 0; j < numInstances; j++)
 	sinks[threadIdx.x] = nullptr;

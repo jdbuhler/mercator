@@ -73,10 +73,6 @@ namespace Mercator  {
     static const unsigned int maxActiveThreads = Props::maxActiveThreads;
     static const bool runWithAllThreads        = Props::runWithAllThreads;
     
-    // multiplier for required queue sizes to allow some leeway for
-    // multiple run calls per firing.
-    static const unsigned int QUEUE_SCALER = 4;
-    
     // actual maximum # of possible active threads in this block
     static const unsigned int deviceMaxActiveThreads =
       (maxActiveThreads > Props::THREADS_PER_BLOCK 
@@ -114,28 +110,19 @@ namespace Mercator  {
     // @brief Constructor
     //
     // @param maxActiveThreads max allowed # of active threads per run
-    // @param iminQueueSizes array per node of minimum queue size needed
-    //         to accommodate one firing's worth of inputs from its
-    //         upstream node(s).
+    // @param iqueueSizes array per node of requested queue sizes
     //
     __device__
-    ModuleType(const unsigned int *minQueueSizes)
+    ModuleType(const unsigned int *queueSizes)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
 	channels[c] = nullptr;
       
       // only initialize queues for modules that have them
-      if (minQueueSizes)
+      if (queueSizes)
 	{
-	  __shared__ unsigned int sizes[numInstances];
-	  
-	  // scale up all queues by a constant factor so we can process more
-	  // inputs at a time
-	  for (unsigned int i = 0; i < numInstances; i++)
-	    sizes[i] = minQueueSizes[i] * QUEUE_SCALER;
-	  
-	  queue = new Queue<T>(numInstances, sizes);
+	  queue = new Queue<T>(numInstances, queueSizes);
 	  
 	  // make sure allocation succeeded
 	  assert(queue != nullptr);

@@ -220,8 +220,8 @@ void genDeviceModuleConstructor(const App *app,
       baseArgs.push_back("tailPtr");
     }
   
-  // all modules take array of min queue sizes
-  args.push_back({"const unsigned int*", "minQueueSizes"});
+  // all modules take array of queue sizes
+  args.push_back({"const unsigned int*", "queueSizes"});
     
   // modules with parameters have mod parameter accessor
   if (mod->hasParams())
@@ -241,9 +241,9 @@ void genDeviceModuleConstructor(const App *app,
       inits.push_back({"appParams", "iappParams"});
     }
   
-  // all modules but the source pass the min queue sizes to their base type
+  // all modules but the source pass the queue sizes to their base type
   if (!mod->isSource())
-    baseArgs.push_back("minQueueSizes");
+    baseArgs.push_back("queueSizes");
   
   // emit function declaration
   f.add("__device__");  
