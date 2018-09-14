@@ -33,7 +33,7 @@ public:
   {
     float elapsed;
     
-    cudaEventSynchronize(_stop); // ait for stop event to finish
+    cudaEventSynchronize(_stop); // wait for stop event to finish
     gpuErrchk( cudaEventElapsedTime(&elapsed, _start, _stop) );
     
     return elapsed;
