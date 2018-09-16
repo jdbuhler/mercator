@@ -37,23 +37,16 @@ namespace Mercator  {
     //
     __device__
     virtual
-    unsigned int dsCapacity(unsigned int instIdx) const = 0;
+    unsigned int dsCapacity(unsigned int) const = 0;
     
     //
-    // @brief After we finish a call to run() during firing, prepare
-    // to receive outptus from the next run.
+    // @brief After a call to run(), scatter its outputs
+    //  to the appropriate queues.
+    //  NB: must be called with all threads
     //
     __device__
     virtual
-    void finishRun() = 0;
-
-    //
-    // @brief When all runs in a firing are complete, remove items
-    //  from the output buffer and place them in the appropriate queues
-    //
-    __device__
-    virtual
-    void scatterToQueues() = 0;
+    void scatterToQueues(InstTagT, bool) = 0;
     
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel, accessed by ModuleType

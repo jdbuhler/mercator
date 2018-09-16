@@ -100,12 +100,11 @@ namespace Mercator  {
 #endif
 
     //
-    // @brief gather inputs from our queue and execute them, leaving
-    // the result in the channel output buffers for later scattering.
+    // @brief fire a module, consuming as much from its queue as possible
     //
     __device__
     virtual
-    void gatherAndRun()
+    void fire()
     {
       unsigned int tid = threadIdx.x;
       
@@ -170,7 +169,7 @@ namespace Mercator  {
 	  MOD_TIMER_START(scatter);
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    getChannel(c)->finishRun();
+	    getChannel(c)->scatterToQueues(instIdx, isThreadGroupLeader());
 	  
 	  __syncthreads(); // all threads must see reset channel state
 	  
@@ -189,36 +188,11 @@ namespace Mercator  {
 	  queue->release(tid, fireableCount);
 	}
       
-      MOD_TIMER_STOP(gather);
-    }
-    
-    
-    //
-    // @brief fire a module, consuming as much from its queue as possible
-    //
-    __device__
-    virtual
-    void fire()
-    {
-      gatherAndRun();
-      
-      // make sure all threads can see queue updates and state
-      // of channel buffers
-      __syncthreads(); 
-  
-      MOD_TIMER_START(scatter);
-      
-      // scatter outputs from channel buffers to
-      //   appropriate downstream queues
-      for (unsigned int c = 0; c < numChannels; ++c)
-	getChannel(c)->scatterToQueues();
-      
-      // make sure all threads can see queue updates
+      // make sure caller sees updated queue state
       __syncthreads();
       
-      MOD_TIMER_STOP(scatter);
+      MOD_TIMER_STOP(gather);
     }
-    
   };  // end ModuleType class
 }  // end Mercator namespace
 

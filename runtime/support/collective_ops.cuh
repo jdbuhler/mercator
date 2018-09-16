@@ -13,13 +13,13 @@
 namespace Mercator  {
   
   //
-  // @brief Block-wide scan opeations
+  // @brief Block-wide scan operations
   // @tparam T data type for sum
   // @tparam TPB threads per block
   //
   template <typename T, unsigned int TPB>
   class BlockScan {
-    
+         
     using Scanner =
       cub::BlockScan<T, TPB,
 		     cub::BLOCK_SCAN_WARP_SCANS>;
@@ -44,7 +44,72 @@ namespace Mercator  {
       return sv; 
     }
   };
+  
 
+  //
+  // @brief Block-wide segmented scan opeations
+  // @tparam T data type for sum
+  // @tparam TPB threads per block
+  //
+  template <typename T, unsigned int TPB>
+  class BlockSegScan {
+    
+    // We use a generic conversion from unsegmented to segmented
+    // ops given head flags, as described by Schwartz (1980)
+    // and suggested by by Sengupta, Harris, and Garland (2008).
+    
+    struct Tuple { 
+      T v;           // input value
+      bool isHead;   // head flag
+      
+      __device__
+      Tuple() {}
+      
+      __device__
+      Tuple(const T &iv, bool iisHead)
+	: v(iv), isHead(iisHead)
+      {}
+    };
+    
+    struct ScanOp {
+      __device__ __forceinline__
+      Tuple operator()(const Tuple &x, const Tuple &y) const
+      {
+	return Tuple(y.isHead ? y.v : y.v + x.v,
+		     y.isHead | x.isHead);
+      }
+    };
+    
+    using Scanner =
+      cub::BlockScan<Tuple, TPB,
+		     cub::BLOCK_SCAN_WARP_SCANS>;
+    
+  public:
+
+    //
+    // @brief segmented exclusive sum
+    // @param v input values per thread
+    // @param isHead indicate head of each segment
+    //
+    // @return exclusive sums per segment in each thread
+    //
+    __device__
+    static T exclusiveSumSeg(const T &v, bool isHead)
+    {
+      __shared__ typename Scanner::TempStorage CUB_tmp;
+      
+      Tuple tuple(v, isHead);
+      Tuple zero((T) 0, true); 
+      
+      Tuple sumTuple;
+      
+      Scanner(CUB_tmp).ExclusiveScan(tuple, sumTuple, zero, ScanOp());
+      
+      return (isHead ? (T) 0 : sumTuple.v);
+    }
+  };
+      
+      
   //
   // @brief warp-wide scan opeations
   // @tparam T data type for sum
@@ -270,7 +335,7 @@ namespace Mercator  {
     // @return true for the tail of each run of identical values
     //
     __device__
-    static bool flagTails(const T &v, const T &finalV)
+    static bool flagTails(const T &v, T finalV)
     {
       __shared__ typename Discontinuity::TempStorage CUB_tmp; 
       
@@ -286,8 +351,36 @@ namespace Mercator  {
       
       return tailFlags[0];
     }
+
+    //
+    // @brief flag threads whose value is the head or tail of a run of 
+    // identical values.
+    // @param v data over which to compute discontinuities
+    // @param finalV value that follows last thread's value
+    //
+    // @return a value whose 0th bit is true if input is a head, and
+    //                 whose 1th bit is true if input is a tail. 
+    //
+    __device__
+    static unsigned int flagHeadsAndTails(const T &v, T finalV)
+    {
+      __shared__ typename Discontinuity::TempStorage CUB_tmp; 
+      
+      T vs[1];
+      bool headFlags[1];
+      bool tailFlags[1];
+      
+      vs[0] = v;
+      
+      Discontinuity(CUB_tmp).FlagHeadsAndTails(headFlags,
+					       tailFlags,
+					       finalV,
+					       vs,
+					       cub::Inequality());
+      
+      return (headFlags[0] | (tailFlags[0] << 1));
+    }
   };
-  
 }
 
 #endif

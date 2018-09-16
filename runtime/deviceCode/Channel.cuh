@@ -12,8 +12,6 @@
 
 #include "options.cuh"
 
-#include "mapqueues/scatter.cuh"
-
 #include "Queue.cuh"
 
 namespace Mercator  {
@@ -38,31 +36,21 @@ namespace Mercator  {
     // @brief Constructor (called single-threaded)
     //
     // @param ioutputsPerInput Outputs per input for this channel
-    // @param maxRunsPerFiring how many times might we need to push on
-    //        each thread (ie,how many calls to run) in one firing?
     // @param reservedQueueEntries # queue entries reserved in 
     //          each ds instance
     //
     __device__
     Channel(unsigned int ioutputsPerInput,
-	    unsigned int maxRunsPerFiring,
 	    const unsigned int *ireservedQueueEntries)
       : outputsPerInput(ioutputsPerInput),
-        numSlotsPerGroup(numEltsPerGroup * outputsPerInput),
-        slotsUsedPerRun(numThreadGroups * numSlotsPerGroup)
+        numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
     {
-      // allocate enough total buffer capacity to hold outputs for all
-      // run() calls in one firing.
-      unsigned int capacity = slotsUsedPerRun * maxRunsPerFiring;
-      
-      data = new T        [capacity];
-      tags = new InstTagT [capacity];
+      // allocate enough total buffer capacity to hold outputs 
+      // for one run() call
+      data = new T [numThreadGroups * numSlotsPerGroup];
       
       // verify that alloc succeeded
-      assert(data != nullptr && tags != nullptr);
-      
-      for(unsigned int i = 0; i < capacity; ++i)
-	tags[i] = NULLTAG;
+      assert(data != nullptr);
       
       for (unsigned int j = 0; j < numInstances; j++)
 	{
@@ -73,8 +61,6 @@ namespace Mercator  {
       
       for (unsigned int j = 0; j < numThreadGroups; j++)
 	nextSlot[j] = 0;
-      
-      slotsUsed = 0;
     }
     
     //
@@ -85,7 +71,6 @@ namespace Mercator  {
     ~Channel()
     {
       delete [] data;
-      delete [] tags;
     }
     
     
@@ -120,7 +105,7 @@ namespace Mercator  {
       const Queue<T> *dsQueue = dsQueues[instIdx];
       int dsInstance          = dsInstances[instIdx];
       
-      if (dsQueue == nullptr) // no outgoign edge
+      if (dsQueue == nullptr) // no outgoing edge
 	return UINT_MAX;
       
       // find ds queue's budget for this node
@@ -143,104 +128,111 @@ namespace Mercator  {
     // @brief move items in each (live) thread to the output buffer
     // 
     // @param item item to be pushed
-    // @param tag instance tag of item to be pushed
+    // @param isWriter true iff thread is the writer for its group
     //
     __device__
-    void push(const T &item, InstTagT tag)
+      void push(const T &item, bool isWriter)
     {
-      int groupId = threadIdx.x / threadGroupSize;
-      
-      assert(nextSlot[groupId] < numSlotsPerGroup);
-      
-      unsigned int slotIdx =
-	slotsUsed + groupId * numSlotsPerGroup + nextSlot[groupId];
-      
-      data[slotIdx] = item;
-      tags[slotIdx] = tag;
-      
-      nextSlot[groupId]++;
-    }
-    
-
-    //
-    // @brief After a call to run, move to next chunk of output buffer
-    //  and reset next slot counters.
-    //
-    __device__
-    void finishRun()
-    {
-      if (IS_BOSS())
-	slotsUsed += slotsUsedPerRun;
-      
-      if (threadIdx.x < numThreadGroups)
-	nextSlot[threadIdx.x] = 0;
-    }
-    
-    
-    //
-    // @brief Remove items from channel and place in appropriate queues.
-    // Calls directReserve/Write internally
-    //
-    __device__
-    void scatterToQueues()
-    { 
-      int tid = threadIdx.x;
-      
-      // main loop: stride through channel in block-sized chunks
-      for (unsigned int base = 0; 
-	   base < slotsUsed;
-	   base += Props::THREADS_PER_BLOCK)
+      if (isWriter)
 	{
-	  unsigned int myIdx = base + tid;
+	  int groupId = threadIdx.x / threadGroupSize;
 	  
-	  // get instance tag of my slot
-	  InstTagT itemTag = 
-	    (myIdx < slotsUsed
-	     ? tags[myIdx]
-	     : NULLTAG);
+	  assert(nextSlot[groupId] < numSlotsPerGroup);
 	  
-	  // nullify used positions in Channel for next round
-	  if (itemTag != NULLTAG)
-	    tags[myIdx] = NULLTAG;
+	  unsigned int slotIdx =
+	    groupId * numSlotsPerGroup + nextSlot[groupId];
 	  
-	  // parallel sort vars
-	  unsigned short idx;
-	  unsigned short offset;
-	  __shared__ unsigned short aggs[numInstances];
+	  data[slotIdx] = item;
 	  
-	  // determine for each item with a valid tag where it goes in
-	  // its target queue.  While we're at it, calculate the
-	  // total number of items going onto each instance's queue.
-	  using Scatter = QueueScatter<numInstances, Props::THREADS_PER_BLOCK>;
-	  
-	  offset = Scatter::WarpSortAndComputeOffsets(itemTag, idx, aggs);
-	  
-	  __shared__ unsigned int dsBase[numInstances];
-	  
-	  if (tid < numInstances) 
+	  nextSlot[groupId]++;
+	}
+    }
+    
+    //
+    // @brief After a call to run(), scatter its outputs
+    //  to the appropriate queues.
+    //  NB: must be called with all threads
+    //
+    // @param instIdx instance corresponding to current thread
+    // @param isWriter true iff thread is the writer for its group
+    //
+    __device__
+      void scatterToQueues(InstTagT instIdx, bool isWriter)
+    {
+      int tid = threadIdx.x;
+      int groupId = tid / threadGroupSize;
+      
+      //
+      // Find the first and last thread for each instance.  Inputs
+      // to one node are assigned to a contiguous set of threads.
+      //
+      
+      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
+      
+
+      unsigned int res = disc.flagHeadsAndTails(instIdx, NULLTAG);
+      bool isHead = res & 0x01;
+      bool isTail = res & 0x02;
+      
+      //
+      // Compute a segmented exclusive sum of the number of outputs to
+      // be written back to queues by each thread group.  Only the
+      // writer threads contribute to the sums.
+      //
+      
+      BlockSegScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
+      
+      unsigned int count = (isWriter ? nextSlot[groupId] : 0);
+      unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
+      
+      //
+      // The last thread with a given instance can compute the total
+      // number of outputs written for that instance.  That total
+      // is used to reserve space in the instance's downstream queue. 
+      //
+      __shared__ unsigned int dsBase[numInstances];
+      if (isTail && instIdx < numInstances)
+	{
+	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
+	  	  
+	  COUNT_ITEMS(instTotal);  // instrumentation
+	      
+	  dsBase[instIdx] = directReserve(instIdx, instTotal);
+	}
+      
+      __syncthreads(); // all threads must see updates to dsBase[]
+      
+      //
+      // Finally, writer threads move the data to its queue.  We
+      // take some loss of occupancy by looping over the outputs, 
+      // but it saves us from having to tag each output with its
+      // instance number (which would be needed if we tried to do
+      // the writes using contiguous threads.)
+      //
+      
+      if (isWriter)
+	{
+	  for (unsigned int j = 0; j < count; j++)
 	    {
-	      // reserve space in all downstream queues
+	      // where is the item in the ouput buffer?
+	      unsigned int srcOffset = tid * outputsPerInput + j;
 	      
-	      COUNT_ITEMS(aggs[tid]);  // instrumentation
+	      // here is the item going in the ds queue?
+	      unsigned int dstOffset = sum + j;
 	      
-	      dsBase[tid] = directReserve(tid, aggs[tid]);
-	    }
-	  
-	  // make sure all threads see queue state after reservation
-	  __syncthreads();  
-	  
-	  if (itemTag < numInstances)  // if new item valid
-	    {
-	      // write data to all downstream queues
-	      
-	      const T &myData = data[base + idx];
-	      
-	      directWrite(itemTag, myData, dsBase[itemTag], offset);
+	      if (instIdx < numInstances) // is this thread active?
+		{
+		  const T &myData = data[srcOffset];
+		  
+		  directWrite(instIdx, myData, dsBase[instIdx], dstOffset);
+		}
 	    }
 	}
       
-      slotsUsed = 0; // reset for next firing
-    }  
+      // finally, reset the output counters per thread group
+      if (tid < numThreadGroups)
+	nextSlot[tid] = 0;
+    }
     
     
     //
@@ -283,17 +275,15 @@ namespace Mercator  {
     }
     
   private:
-
+    
     const unsigned int outputsPerInput;  // max # outputs per input to module
     const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
-    const unsigned int slotsUsedPerRun;  // max # outputs from one run() call
     
     //
     // output buffer
     //
     
-    T*               data;     // buffered output
-    InstTagT *       tags;     // node tag associated with each output
+    T* data;                              // buffered output
     
     //
     // tracking data for usage of output buffer slots
@@ -301,8 +291,6 @@ namespace Mercator  {
     
     // next buffer slot avail for thread to push output
     unsigned int nextSlot[numThreadGroups];
-    
-    unsigned int slotsUsed; // how many slots consumed in this firing?
     
     //
     // targets (edges) for scattering items from output buffer

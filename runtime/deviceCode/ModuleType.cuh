@@ -181,7 +181,6 @@ namespace Mercator  {
       assert(channels[c] == nullptr);
       
       channels[c] = new Channel<DST>(outputsPerInput, 
-				     maxRunsPerFiring,
 				     reservedSlots);
       
       // make sure alloc succeeded
@@ -567,8 +566,7 @@ namespace Mercator  {
       Channel<DST>* channel = 
 	static_cast<Channel<DST> *>(channels[channelIdx]);
       
-      if (isThreadGroupLeader())
-	  channel->push(item, instTag);
+      channel->push(item, isThreadGroupLeader());
     }
 
   };  // end ModuleType class
