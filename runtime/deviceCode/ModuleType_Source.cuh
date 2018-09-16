@@ -200,6 +200,9 @@ namespace Mercator  {
       
       if (tid == 0)
 	COUNT_ITEMS(totalFireable);
+
+      MOD_TIMER_STOP(gather);
+      MOD_TIMER_START(scatter);
       
       // Reserve space on all channels' downstream queues
       // for the data we are about to write, and get the
@@ -214,8 +217,8 @@ namespace Mercator  {
 	}
       __syncthreads(); // all threads must see dsBase[] values
       
-      MOD_TIMER_STOP(gather);
-      MOD_TIMER_START(run);	
+      MOD_TIMER_STOP(scatter);
+      MOD_TIMER_START(gather);
       
       //
       // move the data from the source to the downstream queues,
@@ -227,13 +230,18 @@ namespace Mercator  {
 	   base += THREADS_PER_BLOCK)
 	{
 	  unsigned int idx = base + tid;
-	  
+	  	  
 	  // access input buffer only if we need an element, to avoid
 	  // non-copy construction of a T.
+	  T myData;
+	  if (idx < totalFireable)
+	    myData = source->get(pendingOffset + idx);
+	  
+	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_START(scatter);
+
 	  if (idx < totalFireable)
 	    {
-	      T myData = source->get(pendingOffset + idx);
-	    
 	      // data needs no compaction, so transfer it directly to
 	      // the output queue for each channel, bypassing the
 	      // channel buffer
@@ -245,13 +253,13 @@ namespace Mercator  {
 		  channel->directWrite(0, myData, dsBase[c], idx); 
 		}
 	    }
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
 	}
       
       __syncthreads(); // protect run from later changes to pending
       
-      MOD_TIMER_STOP(run);
-      MOD_TIMER_START(scatter);
-    
       //
       // Decrement the available data from our current reservation.
       // If we've exhausted it, try to get more.
@@ -272,7 +280,7 @@ namespace Mercator  {
     
       __syncthreads(); // make sure all can see tail status
     
-      MOD_TIMER_STOP(scatter);
+      MOD_TIMER_STOP(gather);
     }
 
     

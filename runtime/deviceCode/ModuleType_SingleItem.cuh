@@ -137,10 +137,8 @@ namespace Mercator  {
 	{
 	  unsigned int groupId = tid / threadGroupSize;
 	  unsigned int idx     = base + groupId;
-	  uint8_t instIdx;
+	  InstTagT     instIdx = NULLTAG;
 	  unsigned int instOffset;
-	  
-	  InstTagT myTag = NULLTAG;
 	  
 	  // activeWarps = ceil( max run size / WARP_SIZE )
 	  unsigned int activeWarps = 
@@ -151,13 +149,10 @@ namespace Mercator  {
 	    {
 	      // Compute queue and offset values for each thread's input 
 	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
-	      
-	      if (idx < totalFireable)
-		myTag = instIdx;
 	    }
 	  
 	  const T &myData = 
-	    (myTag < numInstances
+	    (idx < totalFireable
 	     ? queue->getElt(instIdx, instOffset)
 	     : queue->getDummy()); // don't create a null reference
 	  
@@ -166,18 +161,21 @@ namespace Mercator  {
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
-	  if (runWithAllThreads || myTag < numInstances)
-	    mod->run(myData, myTag);
+	  if (runWithAllThreads || idx < totalFireable)
+	    mod->run(myData, instIdx);
 	  
 	  __syncthreads(); // all threads must see active channel state
 	  
 	  MOD_TIMER_STOP(run);
-	  MOD_TIMER_START(gather);
+	  MOD_TIMER_START(scatter);
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    getChannel(c)->finishRun();
 	  
 	  __syncthreads(); // all threads must see reset channel state
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
 	}
       
       // protect use of queue->getElt() from changes to head pointer due

@@ -94,6 +94,9 @@ namespace Mercator  {
     
   private:
     
+    using typename BaseType::InstTagT;
+    using          BaseType::NULLTAG;
+    
     using BaseType::getFireableCount;
     using BaseType::maxRunSize;
     
@@ -160,7 +163,7 @@ namespace Mercator  {
 	   base += maxRunSize)
 	{
 	  unsigned int idx = base + tid;
-	  uint8_t instIdx;
+	  InstTagT instIdx = NULLTAG;
 	  unsigned int instOffset;
 	  
 	  // activeWarps = ceil( max run size / WARP_SIZE )
@@ -172,16 +175,25 @@ namespace Mercator  {
 	    {
 	      // Compute queue and offset values for each thread's input 
 	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
-	      
-	      if (idx < totalFireable)
-		{
-		  const T &myData = queue->getElt(instIdx, instOffset);
-		  
-		  sinks[instIdx]->put(basePtrs[instIdx],
-				      instOffset,
-				      myData);
-		}
 	    }
+	  
+	  const T &myData =
+	    (idx < totalFireable
+	     ? queue->getElt(instIdx, instOffset)
+	     : queue->getDummy()); // don't create a null reference
+
+	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_START(scatter);
+	  
+	  if (idx < totalFireable)
+	    {
+	      sinks[instIdx]->put(basePtrs[instIdx],
+				  instOffset,
+				  myData);
+	    }
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
 	}
       
       // protect use of queue->getElt() from changes to head pointer due
