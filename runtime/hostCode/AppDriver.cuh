@@ -285,7 +285,7 @@ namespace Mercator  {
       cudaDeviceProp prop;
       cudaGetDeviceProperties(&prop, deviceId);
       cout << "GPU clock rate (cycles/ms): "
-	   << prop.clockRate;    
+	   << prop.clockRate    
 	   << endl;
 #endif
       
