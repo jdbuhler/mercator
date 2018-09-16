@@ -5,6 +5,6 @@
 
 #define MERCATOR_MINOR 9
 
-#define MERCATOR_PATCHLEVEL 0
+#define MERCATOR_PATCHLEVEL 1
 
 #endif
