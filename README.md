@@ -5,7 +5,7 @@
 Copyright (C) 2018 Washington University in St. Louis.  All rights reserved.
 
 Development of MERCATOR has been sponsored by NSF awards CNS-1500173 and
-XXXXX.
+CNS-1763503.
 
 When using MERCATOR, please cite the following publication:
 
