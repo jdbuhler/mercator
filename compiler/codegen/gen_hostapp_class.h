@@ -1,9 +1,12 @@
 #ifndef GEN_HOSTAPP_CLASS_H
-#define GEN_HOstAPP_CLASS_H
+#define GEN_HOSTAPP_CLASS_H
 
 //
 // @file gen_hostapp_class.h
 // @brief code generator for MERCATOR app class on host
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #include <vector>

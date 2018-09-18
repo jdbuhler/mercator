@@ -2,6 +2,8 @@
 // OPTIONS.H
 // Command-line option parser
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 #ifndef __OPTIONS_H
 #define __OPTIONS_H

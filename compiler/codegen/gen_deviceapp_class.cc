@@ -2,6 +2,9 @@
 // @file gen_deviceapp_class.cc
 // @brief code-gen a MERCATOR app on the device
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <iostream>
 

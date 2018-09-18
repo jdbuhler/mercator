@@ -5,6 +5,9 @@
 // @file device_config.cuh
 // @brief Device-side parameters and macros
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 // number of threads in a warp
 #define WARP_SIZE 32

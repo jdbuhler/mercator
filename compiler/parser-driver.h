@@ -1,6 +1,10 @@
 //
 // PARSER-DRIVER.H
 // Parser driver for MERCATOR spec filess
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #ifndef PARSER_DRIVER_H
 #define PARSER_DRIVER_H

@@ -2,6 +2,9 @@
 // PARSER-DRIVER.CC
 // Parser driver for MERCATOR spec files
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <iostream>
 

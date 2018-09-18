@@ -4,6 +4,9 @@
 // This file is processed by CMake to fill in variables of the
 // form ${VAR} with the corresponding variable from CMakeLists.txt.
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #ifndef __BUILD_CONFIG_H
 #define __BUILD_CONFIG_H

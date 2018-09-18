@@ -1,6 +1,8 @@
 #
 # CMake build rules for MERCATOR front end
 #
+# MERCATOR
+# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 project(MERCATOR_FRONTEND
         LANGUAGES CUDA CXX)

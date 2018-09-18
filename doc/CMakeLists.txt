@@ -1,3 +1,6 @@
+# MERCATOR
+# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+
 project(MERCATOR_MANUAL)
 
 cmake_minimum_required(VERSION 3.8)

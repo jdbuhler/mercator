@@ -3,6 +3,9 @@
 //
 // These objects are used directly inside the parser to build up all
 // the information gleaned from the spec about an application.
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
  
 #ifndef __INPUTSPEC_H
 #define __INPUTSPEC_H

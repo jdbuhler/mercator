@@ -2,6 +2,8 @@
 // MERCATOR-PARSER.YY
 // Parser for MERCATOR spec files
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 %skeleton "lalr1.cc" /* -*- C++ -*- */
 %require "3.0.4"

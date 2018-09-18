@@ -2,6 +2,8 @@
 # MERCATOR-RULES.TXT
 # CMake rules for building MERCATOR applications
 #
+# MERCATOR
+# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
 

@@ -2,6 +2,9 @@
 // TYPECHECK.CC
 // Interface to LLVM type checker
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <iostream>
 #include <vector>

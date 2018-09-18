@@ -6,6 +6,9 @@
 // Internal representation of MERCATOR application for validation
 // and code generation.
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <string>
 #include <vector>

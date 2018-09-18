@@ -1,3 +1,11 @@
+//
+// SYMBOLTABLE.H
+// Symbol tables for spec file parser
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #ifndef __SYMBOLTABLE_H
 #define __SYMBOLTABLE_H
 

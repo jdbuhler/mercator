@@ -1,3 +1,11 @@
+//
+// VERSION_H
+// MERCATOR version strings (set by CMake)
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #ifndef __VERSION_H
 #define __VERSION_H
 

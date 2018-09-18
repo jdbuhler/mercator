@@ -1,3 +1,11 @@
+//
+// OPTIONS.CC
+// Command-line option parser
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <iostream>
 #include <cstdlib>
 #include <cassert>

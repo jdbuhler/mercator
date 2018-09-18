@@ -2,6 +2,10 @@
 
 // MERCATOR-LEXER.LL
 // Lexer for MERCATOR specification parser
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cerrno>
 #include <climits>

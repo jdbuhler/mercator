@@ -1,6 +1,14 @@
 #ifndef CODEGEN_UTILS_H
 #define CODEGEN_UTILS_H
 
+//
+// CODEGEN_UTILS.H
+// Utilities to assist with code generation
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <string>
 #include <cassert>
 

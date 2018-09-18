@@ -1,3 +1,6 @@
+# MERCATOR
+# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+
 # for VERSION
 cmake_policy(SET CMP0048 NEW)
 

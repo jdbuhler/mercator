@@ -1,6 +1,14 @@
 #ifndef __TYPECHECK_H
 #define __TYPECHECK_H
 
+//
+// TYPECHECK.H
+// Interface to LLVM type checker
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <vector>
 #include <string>
 

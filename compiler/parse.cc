@@ -1,3 +1,11 @@
+//
+// PARSE.CC
+// Parser interface for spec files
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include "parse.h"
 
 #include <unordered_set>

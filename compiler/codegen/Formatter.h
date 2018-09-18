@@ -1,8 +1,10 @@
 //
 // FORMATTER.H
-//
 // Collect lines of a source code file, maintaining running indentation
 // throughout.
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #ifndef __FORMATTER_H

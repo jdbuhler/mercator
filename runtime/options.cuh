@@ -1,11 +1,12 @@
 #ifndef __OPTIONS_CUH
 #define __OPTIONS_CUH
 
-/**
- * @file options.cuh
- * @brief Define execution options for MERCATOR
- *
- */
+// @file options.cuh
+// @brief Define execution options for MERCATOR
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 //
 // Enable device instrumenation

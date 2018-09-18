@@ -5,6 +5,9 @@
 // @file gen_deviceapp_ctor.h
 // @brief code gneerator for device-side app constructor
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <string>
 

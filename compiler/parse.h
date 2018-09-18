@@ -1,3 +1,11 @@
+//
+// PARSE.H
+// Parser interface for spec files
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #ifndef __PARSE_H
 #define __PARSE_H
 

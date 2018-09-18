@@ -1,8 +1,10 @@
-/*
- * @file Driver.cu
- * @brief Driver file for testing.
- *
- */
+//
+// MAIN.CC
+// Main program for MERCATOR spec compiler
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <iostream>
 #include <vector>

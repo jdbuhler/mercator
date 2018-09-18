@@ -1,3 +1,11 @@
+//
+// APP.CC
+// Internal representation of an application
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <iostream>
 #include <climits>
 
@@ -166,6 +174,7 @@ void Node::print() const
   if (cycleEdge)
     cout << " * Cycle predecessor: " << cycleEdge->usNode->name << endl;
 }
+
 
 void ModuleType::print() const
 {
