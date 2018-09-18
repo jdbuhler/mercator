@@ -1,6 +1,14 @@
 #ifndef __GPU_TIMER_H
 #define __GPU_TIMER_H
 
+//
+// HOST_TIMER.CUH
+// Host-side timers based on CUDA events
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include "support/util.cuh"
 
 class GpuTimer

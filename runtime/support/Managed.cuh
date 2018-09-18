@@ -1,13 +1,15 @@
 #ifndef __MANAGED_CUH
 #define __MANAGED_CUH
 
-/**
- * @file Managed.cuh
- * @brief Defines class to handle CUDA-managed mem.
- *
- * NB: Based on Mark Harris's Par4All blog entry on cudaMallocManaged.
- *
- */
+//
+// @file Managed.cuh
+// @brief Defines class to handle CUDA-managed mem.
+//
+// NB: Based on Mark Harris's Par4All blog entry on cudaMallocManaged.
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstdlib>
 #include <new>

@@ -7,6 +7,8 @@
 // the host app's .cuh file, and hence the user's host-side codebase,
 // from having to include any device app code.
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 namespace Mercator  {
 

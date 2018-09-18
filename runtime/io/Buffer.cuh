@@ -5,6 +5,9 @@
 // @file Buffer.cuh
 // Specification of typed device buffers used for I/O to MERCATOR apps
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstddef>
 #include <cassert>

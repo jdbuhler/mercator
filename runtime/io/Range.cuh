@@ -5,6 +5,10 @@
 // @file Range.cuh
 // Compact description of a numerical range as an input to a MERCATOR app
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <cstddef>
 #include <type_traits>
 

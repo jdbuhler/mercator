@@ -5,6 +5,9 @@
 // @file initKernel.cu
 // @brief initialize a MERCATOR app on the device
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstddef>
 #include <cassert>

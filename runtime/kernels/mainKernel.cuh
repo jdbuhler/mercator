@@ -5,6 +5,9 @@
 // @file mainKernel.cuh
 // @brief main kernel to execute a MERCATOR app
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cassert>
 

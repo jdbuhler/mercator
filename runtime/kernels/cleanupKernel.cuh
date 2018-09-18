@@ -5,6 +5,9 @@
 // @file cleanupKernel.cuh
 // @brief clean up after a MERCATOR app
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cassert>
 

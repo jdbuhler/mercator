@@ -5,6 +5,9 @@
 // @file AppDriver.cuh
 // @brief User-facing host object used to set up and run the app
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstddef>
 #include <iostream>

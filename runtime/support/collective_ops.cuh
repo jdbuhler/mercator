@@ -5,6 +5,9 @@
 // @file collective_ops.cuh
 // @brief block-wide and warp-side collective operations needed by MERCATOR
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 // Currently, we implement these operators in terms of the CUB library
 

@@ -5,6 +5,9 @@
 // @file Source.cuh
 // device-side source object associated with ModuleType_Source
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cassert>
 

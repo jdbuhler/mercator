@@ -1,6 +1,14 @@
 #ifndef __OCC_COUNTER_CUH
 #define __OCC_COUNTER_CUH
 
+//
+// OCC_COUNTER.H
+// Occupancy tracking statistics
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include "options.cuh"
 
 #ifdef INSTRUMENT_OCC

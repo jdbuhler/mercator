@@ -5,6 +5,9 @@
 // @file Sink.cuh
 // device-side sink object associated with ModuleType_Sink
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstddef>
 #include <cassert>

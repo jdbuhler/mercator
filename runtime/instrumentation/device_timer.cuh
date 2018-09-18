@@ -1,6 +1,14 @@
 #ifndef __DEVICE_TIMER_H
 #define __DEVICE_TIMER_H
 
+//
+// DEVICE_TIMER.CUH
+// Device-side timers based on cycle counter
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include "options.cuh"
 
 #ifdef INSTRUMENT_TIME

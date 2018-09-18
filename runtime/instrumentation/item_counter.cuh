@@ -1,6 +1,14 @@
 #ifndef __ITEM_COUNTER_H
 #define __ITEM_COUNTER_H
 
+//
+// ITEM_COUNTER.H
+// Instrumentation to count itms into/out of a module
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #ifdef INSTRUMENT_COUNTS
 
 template <int NUM_INSTS>
