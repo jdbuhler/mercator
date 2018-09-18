@@ -55,6 +55,12 @@
 //      config script to work
 #define FILTER_RATE 0.5
 
+// Number of iterations of dummy work to be done at each node or pseudo-node.
+// NB: release-scale experiments (176 blocks, 1M inputs): 5k-25k iters
+// debug-scale experiments: 20-100 iters
+//#define WORK_ITERS_4THREADS 12500
+#define WORK_ITERS_4THREADS 12500
+
 //--- others derived from num iters when many threads are mapped
 //---  to each element
 //--- x4 normalizes for up to 1:4 elts:threads ratio
