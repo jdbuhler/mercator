@@ -5,6 +5,9 @@
 // @file ModuleType_Source.cuh
 // @brief Module type that gets its input from a source object
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstddef>
 

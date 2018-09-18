@@ -5,6 +5,9 @@
 // @file Scheduler.cuh
 // @brief MERCATOR device-side application
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstdio>
 #include <cassert>

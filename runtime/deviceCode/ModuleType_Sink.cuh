@@ -5,6 +5,9 @@
 // @file ModuleType_Sink.cuh
 // @brief Module type that writes its input to a sink object
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "ModuleType.cuh"
 

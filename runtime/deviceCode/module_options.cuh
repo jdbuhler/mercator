@@ -1,12 +1,17 @@
 #ifndef __MODULE_OPTIONS_CUH
 #define __MODULE_OPTIONS_CUH
 
-#include "options.cuh"
-
 //
-// these timer calls count time only when a module is
+// MODULE_OPTIONS.CUH
+//
+// These timer calls count time only when a module is
 // not in the tail of its execution
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
+#include "options.cuh"
 
 #ifndef INSTRUMENT_TAIL
 #define MOD_TIMER_START(tm)			\

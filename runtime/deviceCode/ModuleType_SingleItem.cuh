@@ -6,6 +6,9 @@
 // @brief general MERCATOR module that assumes that each thread
 //        group processes a single input per call to run()
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cassert>
 

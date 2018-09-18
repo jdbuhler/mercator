@@ -1,6 +1,14 @@
 #ifndef __GATHER_CUH
 #define __GATHER_CUH
 
+//
+// GATHER.CUH
+// Routines to assign indices for gathering inputs from queues
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <cstdint>
 
 #include <cub/cub.cuh>

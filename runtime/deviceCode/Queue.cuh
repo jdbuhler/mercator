@@ -1,8 +1,12 @@
 #ifndef __QUEUE_CUH
 #define __QUEUE_CUH
+
 //
 // @file Queue.cuh
 // @brief MERCATOR queue object
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>

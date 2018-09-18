@@ -1,8 +1,12 @@
 #ifndef __CHANNEL_BASE_CUH
 #define __CHANNEL_BASE_CUH
+
 //
 // @file ChannelBase.cuh
 // @brief Base class of MERCATOR channel object
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #include "options.cuh"

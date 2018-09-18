@@ -6,6 +6,10 @@
 // @brief Base class of MERCATOR module type object,  used to
 //   access different modules uniformly for scheduling,
 //   initialziation, and finalization, and instrumentation printing.
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "options.cuh"
 

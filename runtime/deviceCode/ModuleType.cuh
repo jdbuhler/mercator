@@ -1,8 +1,12 @@
 #ifndef __MODULE_TYPE_CUH
 #define __MODULE_TYPE_CUH
+
 //
 // @file ModuleType.cuh
 // @brief a MERCATOR module type that knows its input type
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>

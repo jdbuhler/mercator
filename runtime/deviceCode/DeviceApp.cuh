@@ -4,6 +4,10 @@
 //
 // @file DeviceApp
 // base class of all MERCATOR device-side apps
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include <cstdio>
 

@@ -1,8 +1,12 @@
 #ifndef __CHANNEL_CUH
 #define __CHANNEL_CUH
+
 //
 // @file Channel.cuh
 // @brief MERCATOR channel object
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
