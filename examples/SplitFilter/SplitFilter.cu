@@ -2,6 +2,10 @@
 // SPLITFILTER.CU
 // Device-side splitting filter application
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include "SplitFilter_dev.cuh"
 
 __device__

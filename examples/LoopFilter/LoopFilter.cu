@@ -1,6 +1,10 @@
 //
 // LOOPFILTER.CU
 // Device-side code for a loop-based filter cascade
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "LoopFilter_dev.cuh"
 

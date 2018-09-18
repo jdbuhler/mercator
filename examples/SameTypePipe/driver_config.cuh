@@ -55,12 +55,6 @@
 //      config script to work
 #define FILTER_RATE 0.5
 
-// Number of iterations of dummy work to be done at each node or pseudo-node.
-// NB: release-scale experiments (176 blocks, 1M inputs): 5k-25k iters
-// debug-scale experiments: 20-100 iters
-//#define WORK_ITERS_4THREADS 12500
-#define WORK_ITERS_4THREADS 12500
-
 //--- others derived from num iters when many threads are mapped
 //---  to each element
 //--- x4 normalizes for up to 1:4 elts:threads ratio
@@ -83,36 +77,5 @@
 #else
   #define WORK_ITERS 0
 #endif
-
-////////////////////////////////////////////////////////////////////////
-// FOR REPPIPE ONLY
-////////////////////////////////////////////////////////////////////////
-
-// skew factor: in case of 2x-replicated pipeline,
-//  send 1/REPPIPE_SKEWFACTOR fraction of inputs
-//  down one pipeline, and the rest down the other
-//  E.g. REPPIPE_SKEWFACTOR of 2 distributes inputs evenly,
-//     and SKEWFACTOR of 4 distributes them 75/25
-#define REPPIPE_SKEWFACTOR 4
-
-////////////////////////////////////////////////////////////////////////
-// FOR BLAST ONLY
-////////////////////////////////////////////////////////////////////////
-
-// Utility fcns to build BLAST filename strings
-//#define STR_HELP(x) #x
-//#define STR(x) STR_HELP(x)
-//// for debug-scale experiments
-//#define DBFILENAME "./bin/BlastData/ecoli-k12-binary-rep.txt"
-//#define QUERYFILENAME "./bin/BlastData/salmonella-" STR(QUERYSIZE_K) "k.txt"
-////#define DBFILENAME "./bin/BlastData/ecoli-k12-binary.txt"
-//// for release-scale experiments
-//#define DBFILENAME "./bin/BlastData/hu-chr1-binary.txt"
-
-// BLAST input files
-// NB: QUERYSIZE_K options: 2 4 6 8 10 20 30 40 50
-#define QUERYSIZE_K 2
-#define DBFILENAME    "/export1/project/hondius/mercatorData/BlastData/human/partial2-binary.data"
-#define QUERYFILENAME "/export1/project/hondius/mercatorData/BlastData/gallus-" STR(QUERYSIZE_K) "k.txt"
 
 #endif

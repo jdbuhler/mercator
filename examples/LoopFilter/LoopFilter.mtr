@@ -2,6 +2,10 @@
 // LOOPFILTER.MTR
 // Demonstrate a simple cyclic application
 // Does the same thing as ModFilter, but with a loop
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 reference "UIntWithCounter.h";
 

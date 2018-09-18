@@ -4,6 +4,9 @@
 // (there is nothing asynchronous about this code; all the magic
 //  happens in the host-side driver)
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "AsyncFilter_dev.cuh"
 

@@ -2,6 +2,9 @@
 // MANDELBROT.CU
 // Generate a Mandelbrot fractal
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "Mandelbrot_dev.cuh"
 

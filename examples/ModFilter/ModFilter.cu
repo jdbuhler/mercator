@@ -2,6 +2,9 @@
 // MODFILTER.CU
 // Device-side general modulo filtering application
 //
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
 
 #include "ModFilter_dev.cuh"
 

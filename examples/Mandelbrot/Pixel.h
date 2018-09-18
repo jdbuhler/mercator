@@ -1,3 +1,11 @@
+//
+// PIXEL.H
+// Pixel class for Mandelbrot renderer
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #ifndef _PIXEL_H
 #define _PIXEL_H
 

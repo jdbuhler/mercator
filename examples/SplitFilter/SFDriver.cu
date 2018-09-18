@@ -1,3 +1,11 @@
+//
+// SFDRIVER.CU
+// Splitting filter test
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
 #include <iostream>
 #include <cstdlib>
 

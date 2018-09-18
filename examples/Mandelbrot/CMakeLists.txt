@@ -1,6 +1,8 @@
 #
 # CMake build rules for MERCATOR app
 #
+# MERCATOR
+# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 project(Mandelbrot
 	LANGUAGES CUDA CXX)
