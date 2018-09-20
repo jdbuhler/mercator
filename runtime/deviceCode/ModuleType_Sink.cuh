@@ -156,7 +156,7 @@ namespace Mercator  {
       
       __syncthreads(); // make sure all threads see base values
       
-      Queue<T> *queue = this->queue; 
+      Queue<T> &queue = this->queue; 
       
       // Iterate over inputs to be run in block-sized chunks.
       // Transfer data directly from input queues for each instance
@@ -182,8 +182,8 @@ namespace Mercator  {
 	  
 	  const T &myData =
 	    (idx < totalFireable
-	     ? queue->getElt(instIdx, instOffset)
-	     : queue->getDummy()); // don't create a null reference
+	     ? queue.getElt(instIdx, instOffset)
+	     : queue.getDummy()); // don't create a null reference
 
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(scatter);
@@ -207,7 +207,7 @@ namespace Mercator  {
       if (tid < numInstances)
 	{
 	  COUNT_ITEMS(fireableCount);
-	  queue->release(tid, fireableCount);
+	  queue.release(tid, fireableCount);
 	}
       
       MOD_TIMER_STOP(gather);

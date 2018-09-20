@@ -128,7 +128,7 @@ namespace Mercator  {
       
       MOD_OCC_COUNT(totalFireable);
       
-      Queue<T> *queue = this->queue; 
+      Queue<T> &queue = this->queue; 
       
       // Iterate over inputs to be run in block-sized chunks.
       // Do both gathering and execution of inputs in each iteration.
@@ -155,8 +155,8 @@ namespace Mercator  {
 	  
 	  const T &myData = 
 	    (idx < totalFireable
-	     ? queue->getElt(instIdx, instOffset)
-	     : queue->getDummy()); // don't create a null reference
+	     ? queue.getElt(instIdx, instOffset)
+	     : queue.getDummy()); // don't create a null reference
 	  
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
@@ -195,7 +195,7 @@ namespace Mercator  {
       if (tid < numInstances)
 	{
 	  COUNT_ITEMS(fireableCount);
-	  queue->release(tid, fireableCount);
+	  queue.release(tid, fireableCount);
 	}
       
       // make sure caller sees updated queue state

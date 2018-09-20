@@ -56,7 +56,8 @@ namespace Mercator  {
     // longer to process it than other blocks.
     static const size_t REQ_SIZE = 2*THREADS_PER_BLOCK;
     
-
+    const unsigned int zero;
+    
   public: 
     
     //
@@ -68,7 +69,8 @@ namespace Mercator  {
     //
     __device__
     ModuleType_Source(size_t *itailPtr)
-      : BaseType(nullptr),
+      : zero(0),
+	BaseType(&zero),
 	source(nullptr),
 	numPending(0),
 	tailPtr(itailPtr)

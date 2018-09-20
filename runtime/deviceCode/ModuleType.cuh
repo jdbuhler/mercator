@@ -118,21 +118,11 @@ namespace Mercator  {
     //
     __device__
     ModuleType(const unsigned int *queueSizes)
+      : queue(numInstances, queueSizes)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
 	channels[c] = nullptr;
-      
-      // only initialize queues for modules that have them
-      if (queueSizes)
-	{
-	  queue = new Queue<T>(numInstances, queueSizes);
-	  
-	  // make sure allocation succeeded
-	  assert(queue != nullptr);
-	}
-      else
-	queue = nullptr;
       
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
@@ -147,9 +137,6 @@ namespace Mercator  {
     virtual
     ~ModuleType()
     {
-      if (queue)
-	delete queue;
-      
       for (unsigned int c = 0; c < numChannels; ++c)
 	{
 	  ChannelBase *channel = channels[c];
@@ -227,8 +214,8 @@ namespace Mercator  {
     // module is not necessarily of same type as us).
     //
     __device__
-    Queue<T> *getQueue() const
-    { return queue; }
+    Queue<T> *getQueue()
+    { return &queue; }
     
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
@@ -456,7 +443,7 @@ namespace Mercator  {
 
     ChannelBase* channels[numChannels];  // module's output channels
     
-    Queue<T> *queue;                     // module's input queue
+    Queue<T> queue;                     // module's input queue
     
     // most recently computed count of # fireable in each instance
     unsigned int lastFireableCount[numInstances];
@@ -497,9 +484,8 @@ namespace Mercator  {
     unsigned int numInputsPending(unsigned int instIdx) const
     {
       assert(instIdx < numInstances);
-      assert(queue);
       
-      return queue->getOccupancy(instIdx);
+      return queue.getOccupancy(instIdx);
     }
     
     //
@@ -509,7 +495,7 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int maxPending() const
-    { return queue->getTotalCapacity(); }
+    { return queue.getTotalCapacity(); }
     
     
     //
