@@ -172,7 +172,14 @@ namespace Mercator  {
 	  MOD_TIMER_START(scatter);
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    getChannel(c)->scatterToQueues(instIdx, isThreadGroupLeader());
+	    {
+	      // mark first thread writing to each instance
+	      bool isHead = (tid == 0 || instOffset == 0);
+	      
+	      getChannel(c)->scatterToQueues(instIdx,
+					     isHead,	
+					     isThreadGroupLeader());
+	    }
 	  
 	  __syncthreads(); // all threads must see reset channel state
 	  

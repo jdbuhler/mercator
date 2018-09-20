@@ -50,7 +50,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    void scatterToQueues(InstTagT, bool) = 0;
+    void scatterToQueues(InstTagT, bool, bool) = 0;
     
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel, accessed by ModuleType

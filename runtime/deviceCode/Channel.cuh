@@ -158,26 +158,15 @@ namespace Mercator  {
     //  NB: must be called with all threads
     //
     // @param instIdx instance corresponding to current thread
+    // @param isHead is this the first thread for its instance?
     // @param isWriter true iff thread is the writer for its group
     //
     __device__
-      void scatterToQueues(InstTagT instIdx, bool isWriter)
+      void scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
-      
-      //
-      // Find the first and last thread for each instance.  Inputs
-      // to one node are assigned to a contiguous set of threads.
-      //
-      
-      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
-      
-
-      unsigned int res = disc.flagHeadsAndTails(instIdx, NULLTAG);
-      bool isHead = res & 0x01;
-      bool isTail = res & 0x02;
-      
+  
       //
       // Compute a segmented exclusive sum of the number of outputs to
       // be written back to queues by each thread group.  Only the
@@ -189,6 +178,15 @@ namespace Mercator  {
       unsigned int count = (isWriter ? nextSlot[groupId] : 0);
       unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
       
+      //
+      // Find the first and last thread for each instance.  Inputs
+      // to one node are assigned to a contiguous set of threads.
+      //
+      
+      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
+      
+      bool isTail = disc.flagTails(instIdx, NULLTAG);
+        
       //
       // The last thread with a given instance can compute the total
       // number of outputs written for that instance.  That total
@@ -221,7 +219,7 @@ namespace Mercator  {
 	      // where is the item in the ouput buffer?
 	      unsigned int srcOffset = tid * outputsPerInput + j;
 	      
-	      // here is the item going in the ds queue?
+	      // where is the item going in the ds queue?
 	      unsigned int dstOffset = sum + j;
 	      
 	      if (instIdx < numInstances) // is this thread active?
