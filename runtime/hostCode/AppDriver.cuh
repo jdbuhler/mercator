@@ -31,8 +31,6 @@
 #include "instrumentation/host_timer.h"
 #endif
 
-//#define SYNC_DEBUG
-
 namespace Mercator  {
 
   //
@@ -168,11 +166,9 @@ namespace Mercator  {
       initKernel<<<nBlocks, 1, 0, stream>>>(sourceTailPtr, 
 					    hostParams, 
 					    deviceAppObjs);
-      gpuErrchk( cudaPeekAtLastError() );
       
-#ifdef SYNC_DEBUG
-      gpuErrchk( cudaDeviceSynchronize() );
-#endif
+      // synchronize to make sure the initialization was successful
+      gpuErrchk( cudaStreamSynchronize(stream) );
       
 #ifdef INSTRUMENT_TIME_HOST
       timer.stop(stream);
@@ -241,8 +237,7 @@ namespace Mercator  {
       int prevDeviceId = switchDevice(deviceId);
       
       // wait for the ops in the current stream to finish
-      cudaStreamSynchronize(stream);
-      gpuErrchk( cudaPeekAtLastError() );
+      gpuErrchk( cudaStreamSynchronize(stream) );
       
 #ifdef INSTRUMENT_TIME_HOST
       elapsedTime_main += timer.elapsed();
@@ -268,11 +263,9 @@ namespace Mercator  {
 #endif
       
       cleanupKernel<<<nBlocks, 1, 0, stream>>>(deviceAppObjs);
-      gpuErrchk( cudaPeekAtLastError() );
       
-#ifdef SYNC_DEBUG
-      gpuErrchk( cudaDeviceSynchronize() );
-#endif
+      // make sure we have caught any errors from this app
+      gpuErrchk( cudaStreamSynchronize(stream) );
 
 #ifdef INSTRUMENT_TIME_HOST
       timer.stop(stream);
@@ -333,8 +326,8 @@ namespace Mercator  {
     {
       int prevDeviceId = switchDevice(deviceId);
       
-      // finish all ops on old stream
-      cudaStreamSynchronize(stream);
+      // finish all ops on old stream and check for errors
+      gpuErrchk( cudaStreamSynchronize(stream) );
       
       stream = newStream;
       

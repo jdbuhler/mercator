@@ -54,7 +54,13 @@ namespace Mercator  {
       data = new T [numThreadGroups * numSlotsPerGroup];
       
       // verify that alloc succeeded
-      assert(data != nullptr);
+      if (data == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel buffer [block %d]\n",
+		 blockIdx.x);
+	  
+	  crash();
+	}
       
       for (unsigned int j = 0; j < numInstances; j++)
 	{

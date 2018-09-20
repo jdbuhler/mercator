@@ -43,7 +43,14 @@ namespace Mercator {
     deviceApps[blockIdx.x] = new DeviceAppClass(sourceTailPtr, hostParams);
     
     // make sure alloc succeeded
-    assert(deviceApps[blockIdx.x] != nullptr);
+      // make sure alloc succeeded
+      if (deviceApps[blockIdx.x] == nullptr)
+	{
+	  printf("ERROR: failed to allocate app object [block %d]\n",
+		 blockIdx.x);
+	  
+	  crash();
+	}
     
 #ifdef INSTRUMENT_TIME
     if (IS_BOSS_BLOCK())

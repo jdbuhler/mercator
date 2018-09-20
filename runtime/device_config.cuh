@@ -16,4 +16,10 @@
 #define IS_BOSS()       (threadIdx.x == 0)
 #define IS_BOSS_BLOCK() (blockIdx.x  == 0)
 
+__device__ __forceinline__
+void crash()
+{
+  asm("trap;");
+}
+
 #endif

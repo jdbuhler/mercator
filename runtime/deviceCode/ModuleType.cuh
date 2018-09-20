@@ -188,7 +188,13 @@ namespace Mercator  {
 				     reservedSlots);
       
       // make sure alloc succeeded
-      assert(channels[c] != nullptr);
+      if (channels[c] == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+	  
+	  crash();
+	}
     }
     
     

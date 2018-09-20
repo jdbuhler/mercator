@@ -65,7 +65,13 @@ namespace Mercator  {
 	  data[i]      = new T [dataSizes[i]];
 	  
 	  // ensure allocation succeeded
-	  assert(data[i] != nullptr);
+	  if (data[i] == nullptr)
+	    {
+	      printf("ERROR: failed to allocate queue [block %d]\n",
+		     blockIdx.x);
+	      
+	      crash();
+	    }
 	  
 	  totalCapacity += capacities[i];
 	}
