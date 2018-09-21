@@ -164,10 +164,6 @@ namespace Mercator  {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
       
-      // max # of times we could call run() in one firing
-      unsigned int maxRunsPerFiring = 
-	(maxPending() + maxRunSize - 1) / maxRunSize;
-      
       // init the output channel -- should only happen once!
       assert(channels[c] == nullptr);
       

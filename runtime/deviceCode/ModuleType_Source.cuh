@@ -40,8 +40,6 @@ namespace Mercator  {
 			 true,              
 			 THREADS_PER_BLOCK> > { 
     
-    // Q: can we make numElts 0 to avoid allocating channel buffers?
-    
     typedef ModuleType< ModuleTypeProperties<T,
 					     1,
 					     numChannels,
