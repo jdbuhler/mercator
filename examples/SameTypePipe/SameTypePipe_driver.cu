@@ -86,6 +86,8 @@ int main(int argc, char* argv[])
   // create app object
   APP_TYPE app;
   
+  cout << "# GPU BLOCKS = " << app.getNBlocks() << endl; 
+  
   for (int trial = 0; trial < NTRIALS; trial++)
     {
       // generate input data

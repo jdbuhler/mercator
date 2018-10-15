@@ -910,6 +910,24 @@ of an app may be changed at any time by calling the method
 This call will block until all pending operations on the app's
 previous stream are complete, then switch to thee new stream.
 
+\subsection{Querying App Properties}
+
+Presently, the only property of an app that can be queried from the
+host is the number of GPU blocks that it will use to execute.  This
+property can be accessed by the following function: two optional
+arguments:
+\begin{quote}
+\texttt{int getNBlocks() const}
+\end{quote}
+This property is set when an app is instantiated and remains
+constant for a given instance.
+
+% FOR LATER -- query bound device and maybe stream?
+%              also perhaps heap and stack size?
+%              we may want to rethink the interface if we are
+%              going to add a lot of accessors, since each
+%              one currently needs its own function in the codegen'd class
+
 \subsection{Setting the App's Parameters}
 
 Before running a MERCATOR app, the user must set its app-level,

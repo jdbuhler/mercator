@@ -45,6 +45,11 @@ namespace Mercator  {
     
   public:
     
+    // @brief get number of active blocks for this app
+    //
+    int getNBlocks() const { return nBlocks; }
+    
+    
     // @brief constructor sets up the device context
     //
     // @param stream CUDA stream in which to run
@@ -152,8 +157,6 @@ namespace Mercator  {
       elapsedTime_init = 0.0;
       elapsedTime_main = 0.0;
       elapsedTime_cleanup = 0.0;
-      
-      // cout << "Using " << nBlocks << " GPU blocks\n";
 #endif
 
 #ifdef INSTRUMENT_TIME_HOST
