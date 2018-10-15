@@ -13,9 +13,7 @@ application Mandelbrot;
 
 module MakePixel : uint32_t -> out<Pixel>;
 
-module IteratePixel : Pixel -> accept<Pixel>, repeat<Pixel>;
-
-module WritePixel : Pixel -> void;
+module IteratePixel : Pixel -> repeat<Pixel>;
 
 // nodes
 
@@ -25,8 +23,6 @@ node pixelMaker : MakePixel ;
 
 node iterator : IteratePixel ;
 
-node writer : WritePixel ;
-
 // edges
 
 edge src -> pixelMaker;
@@ -34,8 +30,6 @@ edge src -> pixelMaker;
 edge pixelMaker -> iterator;
 
 edge iterator::repeat -> iterator;
-
-edge iterator::accept -> writer;
 
 //
 
