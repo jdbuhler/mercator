@@ -346,6 +346,14 @@ inputtype:
 outputtype:
  "void"                  
 { $$ = new input::OutputSpec(input::OutputSpec::isVoid);  }
+| typename maxoutput
+{ 
+  // a single channel does not need a name
+  auto v = new std::vector<input::ChannelSpec *>;
+  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0));
+  v->push_back(c);
+  $$ = new input::OutputSpec(v);
+}
 | channels               
 { $$ = new input::OutputSpec($1); }
 ;

@@ -12,7 +12,7 @@ Application SameTypePipe_1to1map;
 //
 // MODULE TYPES
 //
-Module A : PipeEltT -> accept<PipeEltT>;
+Module A : PipeEltT -> PipeEltT;
 
 //
 // NODES
