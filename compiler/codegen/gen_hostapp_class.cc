@@ -387,6 +387,17 @@ void genHostAppHeader(const string &hostClassFileName,
   f.add("static const int NUM_MODULES = " + 
 	to_string(app->modules.size()) + ";");
   f.add("");
+
+  // report mapping of IDs to modules, used for statistics
+  f.add("// MODULE IDENTIFIERS: ");
+  for (unsigned int j = 0; j < app->modules.size(); j++)
+    {
+      const ModuleType *mod = app->modules[j];
+      f.add("// " + to_string(j) + " = " + mod->get_name() +
+	    (mod->isSink() ? " [" + mod->get_inputType()->name + "]" : ""));
+    }
+  f.add("// -1 = MERCATOR scheduler");
+  f.add("");
   
   // generate app-level parameter structure
   genHostAppParameterStruct(app, f);  
