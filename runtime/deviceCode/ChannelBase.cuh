@@ -11,6 +11,8 @@
 
 #include "options.cuh"
 
+#include "Signal.cuh"
+
 #include "instrumentation/item_counter.cuh"
 
 namespace Mercator  {
@@ -33,7 +35,7 @@ namespace Mercator  {
     ~ChannelBase() {}
     
     //
-    //  @brief get the number of inputs that can be safely be
+    //  @brief get the number of inputs that can be safely
     //  consumed by the specified instance of this channel's
     //  module without overrunning the available downstream
     //  queue space.  Virtual because it requires access to
@@ -43,6 +45,18 @@ namespace Mercator  {
     virtual
     unsigned int dsCapacity(unsigned int) const = 0;
     
+    //  stimcheck: Signal version of downstream capacity
+    //
+    //  @brief get the number of signals that can be safely
+    //  consumed by the specified instance of this channel's
+    //  module without overrunning the available downstream
+    //  queue space.  Virtual because it requires access to
+    //  the channel's queue, which does not have an untyped base.
+    //
+    __device__
+    virtual
+    unsigned int dsSignalCapacity(unsigned int) const = 0;
+
     //
     // @brief After a call to run(), scatter its outputs
     //  to the appropriate queues.
@@ -52,6 +66,17 @@ namespace Mercator  {
     virtual
     void scatterToQueues(InstTagT, bool, bool) = 0;
     
+    // stimcheck: Signal version of scattering to queues
+    // Used when sending all buffered signals downstream
+    //
+    // @brief After a call to run(), scatter its outputs
+    //  to the appropriate signal queues.
+    //  NB: must be called with all threads
+    //
+    __device__
+    virtual
+    void scatterToSignalQueues(InstTagT, bool, bool) = 0;
+
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel, accessed by ModuleType
     ItemCounter<numInstances> itemCounter;

@@ -13,6 +13,8 @@
 
 #include "options.cuh"
 
+#include "Signal.cuh"
+
 namespace Mercator  {
   
   //
@@ -42,6 +44,10 @@ namespace Mercator  {
     bool isInTail() const 
     { return inTail; }
 
+    __device__
+    bool isInTailInit() const 
+    { return inTailInit; }
+
     //
     // @brief Indicate whether the module is in the tail of execution.
     //
@@ -50,6 +56,15 @@ namespace Mercator  {
     __device__
     void setInTail(bool v)
     { inTail = v; }
+
+    __device__
+    void setInTailInit(bool v)
+    { inTailInit = v; }
+
+    //stimcheck: Signal handler stub
+    __device__
+    virtual
+    void signalHandler() = 0;
 
     ///////////////////////////////////////////////////////////////////
     // SCHEDULING INTERFACE (see ModuleType.cuh for details)
@@ -60,11 +75,21 @@ namespace Mercator  {
     virtual
     unsigned int computeNumFireableTotal(bool enforceFullEnsembles) = 0;
     
+    // called multithreaded, with enforceFullEnsembles same in all threads
+    __device__
+    virtual
+    unsigned int computeNumSignalFireableTotal(bool enforceFullEnsembles) = 0;
+
     // called multithreaded
     __device__
     virtual
     unsigned int computeNumPendingTotal() const = 0;
     
+    // called multithreaded
+    __device__
+    virtual
+    unsigned int computeNumPendingTotalSignal() const = 0;
+
     // fire a module to consume some input
     __device__
     virtual 
@@ -108,6 +133,7 @@ namespace Mercator  {
   private:
     
     bool inTail; // are we in the tail of execution?
+    bool inTailInit; // are we in the tail of execution, at start of app run?
     
   };    // end class ModuleTypeBase
 }   // end Mercator namespace

@@ -118,7 +118,7 @@ namespace Mercator  {
     //
     __device__
     ModuleType(const unsigned int *queueSizes)
-      : queue(numInstances, queueSizes)
+      : queue(numInstances, queueSizes), signalQueue(numInstances, queueSizes)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -181,6 +181,7 @@ namespace Mercator  {
     }
     
     
+    // stimcheck: Add setting of the downstream Signal edge
     //
     // @brief Set the edge from channel channelIdx of node usInstIdx of
     // this module type to point to node dsInstIdx of module type dsModule.
@@ -203,6 +204,7 @@ namespace Mercator  {
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
       
       channel->setDSEdge(usInstIdx, dsModule->getQueue(), dsInstIdx);
+      channel->setDSSignalEdge(usInstIdx, dsModule->getSignalQueue(), dsInstIdx);
     }
     
     //
@@ -212,6 +214,15 @@ namespace Mercator  {
     __device__
     Queue<T> *getQueue()
     { return &queue; }
+
+    // stimcheck: Return the Signal Queue of this module
+    //
+    // @brief return our queue (needed for setDSEdge(), since downstream
+    // module is not necessarily of same type as us).
+    //
+    __device__
+    Queue<Signal> *getSignalQueue()
+    { return &signalQueue; }
     
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
@@ -302,6 +313,13 @@ namespace Mercator  {
 	      if (numFireable + sf > totalFireable)
 		numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
 	    }
+	/*
+	  else {
+		if(IS_BOSS()) {
+			printf("Computed %d items to fire\n", totalFireable);
+		}
+	  }
+	*/
 	  
 	  // cache results of per-instance fireable calculation for later
 	  // use by module's firing function
@@ -317,6 +335,107 @@ namespace Mercator  {
       return tf;
     }
     
+    //stimcheck:  Compute the number of fireable signals, used for clearing queues that still have signals
+    //
+    // @brief Compute the number of inputs that can safely be consumed
+    // from one instance's input queue in one firing of this module.
+    // Of course, we cannot consume more inputs than are actually
+    // queued, but we are also limited by the amount of free space in
+    // each channel's downstream queue.
+    //
+    // This function is SINGLE-THREADED and may be called for all
+    // instances of a module concurrently.
+    //
+    // @param instIdx instance for which to compute fireable count.
+    //
+    __device__
+    unsigned int 
+    computeNumSignalFireable(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      // start at max fireable, then discover bottleneck
+      unsigned int numFireable = numInputsPendingSignal(instIdx);
+      
+      if (numFireable > 0)
+	{
+	  // for each channel
+	  for (unsigned int c = 0; c < numChannels; ++c)
+	    {
+	      unsigned int dsCapacity = 
+		channels[c]->dsSignalCapacity(instIdx);
+	      
+	      numFireable = min(numFireable, dsCapacity);
+	    }
+	}
+      
+      return numFireable;
+    }
+    
+    //stimcheck:  Compute num fireable signals, used for clearing out signal queues before next app run
+    //
+    // @brief Compute the number of inputs that can safely be consumed
+    // in one firing of all instances of this module.  We sum 
+    // the fireable counts from each instance and then round down to
+    // a full number of run ensembles.
+    //
+    // In addition to computing the result, cache the per-instance
+    // fireable counts computed here, so that they can be looked up
+    // when we actually fire.
+    //
+    // This function must be called with ALL THREADS in the block.
+    //
+    // @param instIdx instance for which to compute fireable count.
+    //
+    __device__
+    unsigned int 
+    computeNumSignalFireableTotal(bool enforceFullEnsembles)
+    {
+      enforceFullEnsembles = false;
+      int tid = threadIdx.x;
+      
+      __shared__ unsigned int tf;
+      
+      // The number of instances is <= the architectural warp size, so
+      // just do the computation in a single warp, and then propagate
+      // the final result out to all threads in the block.
+      if (tid < WARP_SIZE)
+	{
+	  unsigned int numFireable = 0;
+	  if (tid < numInstances)
+	    numFireable = computeNumSignalFireable(tid);
+	  
+	  unsigned int totalFireable;
+	  
+	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
+	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
+	  
+	  if (enforceFullEnsembles)
+	    {
+	      // round total fireable count down to a full multiple of # of
+	      // elements that can be consumed by one call to run()
+	      totalFireable = 
+		(totalFireable / maxRunSize) * maxRunSize;
+	      
+	      // adjust individual fireable counts to match reduced total 
+	      if (numFireable + sf > totalFireable)
+		numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
+	    }
+	  
+	  // cache results of per-instance fireable calculation for later
+	  // use by module's firing function
+	  //stimcheck: DO NOT OVERWRITE CACHED FIREABLE COUNT HERE.  This refers to DATA not SIGNALS.
+	  //if (tid < numInstances)
+	    //lastFireableCount[tid] = numFireable;
+	  
+	  if (tid == 0)
+	    tf = totalFireable;
+	}
+      
+      __syncthreads();
+      //printf("TOTAL SIGNALS FIREABLE FOUND: %d\n", tf);
+      return tf;
+    }
     
     //
     // @brief compute the total number of inputs queued in the input
@@ -338,7 +457,41 @@ namespace Mercator  {
 	  unsigned int numPending = 0;
 	  if (tid < numInstances)
 	    numPending = numInputsPending(tid);
+	 
+	  using Sum = WarpReduce<unsigned int, WARP_SIZE>;
+	  unsigned int totalPending = Sum::sum(numPending, numInstances);
 	  
+	  if (tid == 0)
+	    tp = totalPending;
+	}
+      
+      __syncthreads();
+      
+      return tp;
+    }
+
+    //stimcheck:  Signal debug equivalent
+    //
+    // @brief compute the total number of inputs queued in the input
+    // queues for all instances of this module.
+    //
+    __device__
+    unsigned int 
+    computeNumPendingTotalSignal() const
+    {
+      int tid = threadIdx.x;
+      
+      __shared__ unsigned int tp;
+      
+      // number of instances is <= architectural warp size, so just do
+      // the computation in a single warp, and then propagate the
+      // final result out to all threads in the block.
+      if (tid < WARP_SIZE)
+	{
+	  unsigned int numPending = 0;
+	  if (tid < numInstances)
+	    numPending = numInputsPendingSignal(tid);
+	 
 	  using Sum = WarpReduce<unsigned int, WARP_SIZE>;
 	  unsigned int totalPending = Sum::sum(numPending, numInstances);
 	  
@@ -440,10 +593,14 @@ namespace Mercator  {
     ChannelBase* channels[numChannels];  // module's output channels
     
     Queue<T> queue;                     // module's input queue
+    Queue<Signal> signalQueue;                     // module's input queue
     
     // most recently computed count of # fireable in each instance
     unsigned int lastFireableCount[numInstances];
     
+    // stimcheck: Current credit available to each node
+    int currentCredit[numInstances];
+
 #ifdef INSTRUMENT_TIME
     DeviceTimer gatherTimer;
     DeviceTimer runTimer;
@@ -483,6 +640,22 @@ namespace Mercator  {
       
       return queue.getOccupancy(instIdx);
     }
+
+    //stimcheck:  Signal debug equivalent
+    //
+    // @brief number of inputs currently enqueued for a particular
+    // instance of this module.
+    //
+    // @param instIdx index for which to check pending count
+    //
+    __device__
+    virtual
+    unsigned int numInputsPendingSignal(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      return signalQueue.getOccupancy(instIdx);
+    }
     
     //
     // @brief maximum number of inputs that could ever be enqueued for
@@ -504,6 +677,114 @@ namespace Mercator  {
       assert(instIdx < numInstances);
       
       return (lastFireableCount[instIdx]);
+    }
+
+    //stimcheck: Signal handler function, preforms actions based on signals
+    //that can currently be processed.
+    __device__
+    void signalHandler() {
+	//printf("%d\n", blockIdx.x);
+	//Perform actions based on signals in each instance's signal queue
+	unsigned int tid = threadIdx.x;
+	unsigned int instIdx = tid;
+	unsigned int i = 0;
+	Signal s;
+	__shared__ bool recomputeFireable;	//Used if we find that we have a tail signal, need to recompute fireable
+	__syncthreads();
+	recomputeFireable = false;	//Used if we find that we have a tail signal, need to recompute fireable
+	__syncthreads();
+	if(tid < numInstances) {
+		//printf("Signal Queue Occupancy: %d\n", signalQueue.getOccupancy(instIdx));
+		//if(signalQueue.getOccupancy(instIdx) > 0) {
+		//	printf("Signal Queue Occupancy: %d\n", signalQueue.getOccupancy(instIdx));
+		//}
+		//s = signalQueue.getElt(instIdx, i);
+		//while(s != nullptr) {
+		//while(&(s) != nullptr && i < 3) {
+		//while(signalQueue.getOccupancy(instIdx) && i < 3) {
+		while(signalQueue.getOccupancy(instIdx) > i) {
+			s = signalQueue.getElt(instIdx, i);
+			//printf("signal %d found, tid = %d\n", i, tid);
+			//Base case: we have credit to wait on
+			if(currentCredit[instIdx] > 0) {
+				break;
+			}
+
+			///////////////////
+			//Signal type cases
+			///////////////////
+
+			//Start Signal
+			if(s.getStart()) {
+				printf("Start Signal Processed\n");
+			}
+
+			//End Signal
+			if(s.getEnd()) {
+				printf("End Signal Processed\n");
+			}
+
+			//Tail Signal
+			if(s.getTail()) {
+				//printf("Tail Signal Processed\n");
+				//using Channel = typename BaseType::Channel<int>;
+				this->setInTail(true);
+				recomputeFireable |= true;
+				//if(IS_BOSS()) {
+					//Create a new tail signal to send downstream
+					Signal s;
+					s.setTail(true);
+
+					//Reserve space downstream fro tail signal
+      					//__shared__ unsigned int dsSignalBase[numChannels];
+      					//__global__ unsigned int dsSignalBase[numChannels];
+					unsigned int dsSignalBase;
+	        			for (unsigned int c = 0; c < numChannels; c++) {
+						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+						dsSignalBase = channel->directSignalReserve(tid, 1);
+						channel->directSignalWrite(tid, s, dsSignalBase, 0);
+					}
+
+					//Write tail signal to downstream node
+					/*s
+					for (unsigned int c = 0; c < numChannels; c++) {
+						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+						channel->directSignalWrite(0, s, dsSignalBase[c], 0);
+					}
+					*/
+					//printf("PUSHED SIGNAL FROM HANDLER\n");
+				//}
+			}
+
+			//Signal has Credit
+			if(s.getCredit() > 0) {
+				printf("Credit Signal Processed\n");
+			}
+
+			//Increase index into Signal queue
+			++i;
+			//s = signalQueue.getElt(instIdx, i);
+		}
+	}
+	__syncthreads();	//Bring all threads together at end
+	
+	//Release all signals that were processed
+	if(tid < numInstances && i > 0) {
+		signalQueue.release(tid, i);
+	}
+
+	__syncthreads();
+
+	unsigned int newFireable = 0;
+	//Recompute the fireable count if needed (Tail signal was found)
+	if(recomputeFireable) {
+		//printf("THREAD %d GOT HERE\n", threadIdx.x);
+		//newFireable = this->computeNumFireableTotal(false);
+		//printf("NewFireable %d\n", newFireable);
+	}
+
+	__syncthreads();
     }
     
     
@@ -561,6 +842,25 @@ namespace Mercator  {
       channel->push(item, isThreadGroupLeader());
     }
 
+    // stimcheck: Push Signal to downstream channel
+    // Uses void* for channel type (Since the type does not matter)
+    //
+    // @brief Write an output signal to the indicated channel.
+    //
+    // @param item Item to be written
+    // @param instTag tag of node that is writing item
+    // @param channelIdx channel to which to write the item
+    //
+    __device__
+    void pushSignal(const Signal &item, 
+	      InstTagT instTag, 
+	      unsigned int channelIdx = 0) const
+    {
+      Channel<void*>* channel = 
+	static_cast<Channel<void*> *>(channels[channelIdx]);
+      
+      channel->pushSignal(item, isThreadGroupLeader());
+    }
   };  // end ModuleType class
 }  // end Mercator namespace
 

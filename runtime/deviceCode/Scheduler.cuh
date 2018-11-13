@@ -91,6 +91,7 @@ namespace Mercator  {
 	  // passed from the source down through the app, so that modules
 	  // do not switch to the tail of execution prematurely.
 	  //
+	  /*
 	  if (sourceModule->isInTail())
 	    {
 	      for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
@@ -103,41 +104,67 @@ namespace Mercator  {
 	      
 	      __syncthreads(); // make sure everyone can see tail status
 	    }
-	  
+	  */
+
 	  __shared__ unsigned int fireableCounts [numModules];
+	  __shared__ unsigned int fireableSignalCounts [numModules];
+
+	  __shared__ unsigned int firedCounts [numModules];
 	  
 	  // Calc number of inputs that can be fired (pending, and there
 	  // is space in the downstream queue to hold the results) for
 	  // each module.
 	  bool anyModuleFireable = false;
+	  bool anyModuleSignalFireable = false;
 	  for (unsigned int i = 0; i < numModules; ++i)
 	    {
 	      ModuleTypeBase *mod = modules[i];
-	      
+
 	      // ignore full ensemble rule if we are in the tail of
 	      // execution, or if we are the source
+/*
 	      bool enforceFullEnsembles =
 		(PREFER_FULL_ENSEMBLES   && 
 		 !sourceModule->isInTail() && 
 		 mod != sourceModule);
-	      
+*/		
+
+	      bool enforceFullEnsembles =
+		(PREFER_FULL_ENSEMBLES   && 
+		 !mod->isInTail() && 
+		 mod != sourceModule);
+		
+		__syncthreads();
+
 	      unsigned int numFireable =  
 		mod->computeNumFireableTotal(enforceFullEnsembles);
-	      
+
 	      if (numFireable > 0)
 		anyModuleFireable = true;
+
+	      __syncthreads();
 	      
+              //stimcheck:  Find the number of signals that remain to be fired for each module
+	      unsigned int numSignalFireable =  
+		mod->computeNumSignalFireableTotal(enforceFullEnsembles);
+
+	      if (numSignalFireable > 0)
+		anyModuleSignalFireable = true;
+
 	      if (IS_BOSS())
 		{
 		  fireableCounts[i] = numFireable;
+		  fireableSignalCounts[i] = numSignalFireable;
 		}
+
 	    }
 	  
 	  // If no module can be fired, either all have zero items pending
 	  // (we are done), or no module with pending inputs can fire
 	  // (we are deadlocked -- should not happen!).
-	  if (!anyModuleFireable)
+	  if (!anyModuleFireable && !anyModuleSignalFireable) {
 	    break;
+	  }
 	  
 	  // make sure all threads can see fireableCounts[], and
 	  // that all modules can see results of firable calculation
@@ -146,29 +173,79 @@ namespace Mercator  {
 	  //
 	  // Call the scheduling algorithm to pick next module to fire
 	  //
-	  unsigned int nextModuleIdx = chooseModuleToFire(fireableCounts);
-	  
+	  unsigned int nextModuleIdx;
+	 /*
+	  if(!anyModuleFireable && anyModuleSignalFireable) {
+		//printf("SIGNALS LEFTOVER counter = %d\n", schedulerCounter);
+	  	nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, true);
+	  }
+	  else {
+	  	nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, false);
+	  }
+	*/
+	  nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, !anyModuleFireable && anyModuleSignalFireable);
+
+	  __syncthreads();
+/*
+	      bool enforceFullEnsembles =
+		(PREFER_FULL_ENSEMBLES   && 
+		 !modules[nextModuleIdx]->isInTail() && 
+		 modules[nextModuleIdx] != sourceModule);
+
+	  __syncthreads();
+
+	  printf("BlockIdx.x = %d\n\tnumTotalSignalFireable = %d\n\tnumFireableTotal = %d\n\tnumPendingTotalSignal = %d\n\tnumPendingTotal = %d\n\n",
+		 blockIdx.x,
+		 modules[nextModuleIdx]->computeNumSignalFireableTotal(enforceFullEnsembles),
+		 modules[nextModuleIdx]->computeNumFireableTotal(enforceFullEnsembles),
+		 modules[nextModuleIdx]->computeNumPendingTotalSignal(),
+		 modules[nextModuleIdx]->computeNumPendingTotal());
+*/	  
 	  TIMER_STOP(scheduler);
 	  
 	  modules[nextModuleIdx]->fire();
+
+	  ///////
+	  __syncthreads();
+	  if(IS_BOSS())
+	  	firedCounts[nextModuleIdx] += 1;
+	  __syncthreads();
+	  ///////
 	  
 	  TIMER_START(scheduler);
 	}
       
       __syncthreads(); // make sure final state is visible to all threads
       
+	//if(IS_BOSS())
+	//	printf("SCHEDULER COUNTER: %d\n", schedulerCounter);
       TIMER_STOP(scheduler);
       
 #ifndef NDEBUG
       // deadlock check -- make sure no module still has pending inputs
+      // stimcheck:  Add the check for signal queue
       bool hasPending = false;
+      bool hasPendingS = false;
       for (unsigned int j = 0; j < numModules; j++)
 	{
 	  unsigned int n = modules[j]->computeNumPendingTotal();
+	  unsigned int ns = modules[j]->computeNumPendingTotalSignal();
 	  hasPending |= (n > 0);
+	  hasPendingS |= (ns > 0);
+	/*
+	  if(ns > 0) {
+		printf("SIGNALS REMAINING MODULE %d, %d: %d\n", j, modules[j] == sourceModule, ns);
+		//modules[j]->fire();
+	  }
+	*/
 	}
       
+      assert(!hasPendingS);
+	//printf("PASSED SINGAL CHECK\n");
+	//__syncthreads();
       assert(!hasPending);
+	//printf("PASSED DATA CHECK\n");
+	//__syncthreads();
 #endif
     }
 
@@ -219,13 +296,14 @@ namespace Mercator  {
     // @param count of fireable items for each module (0 if invalid)
     //
     __device__
-    unsigned int chooseModule_maxOcc(const unsigned int *fireableCounts)
+    unsigned int chooseModule_maxOcc(const unsigned int *fireableCounts, const unsigned int *fireableSignalCounts, bool preferSignals)
     {
+      __shared__ unsigned int globalMaxIdx;
+      if(!preferSignals) {
       using ArgMax = BlockArgMax<unsigned int, 
 				 unsigned int, 
 				 THREADS_PER_BLOCK>;
       
-      __shared__ unsigned int globalMaxIdx;
       unsigned int globalMaxFC             = 0;
       
       for (unsigned int base = 0; base < numModules; base += THREADS_PER_BLOCK)
@@ -254,6 +332,41 @@ namespace Mercator  {
 	  
 	  __syncthreads();
 	}
+      } //endif
+      else {
+      using ArgMax = BlockArgMax<unsigned int, 
+				 unsigned int, 
+				 THREADS_PER_BLOCK>;
+      
+      unsigned int globalMaxFC             = 0;
+      
+      for (unsigned int base = 0; base < numModules; base += THREADS_PER_BLOCK)
+	{
+	  unsigned int modIdx = base + threadIdx.x;
+	  unsigned int chunkSize = min(numModules - base, THREADS_PER_BLOCK);
+	  
+	  // Find the module with maximum fireable count within the
+	  // current block-sized chunk.
+	  unsigned int fireableCount = 
+	    (modIdx < numModules ? fireableSignalCounts[modIdx] : 0);
+	  
+	  unsigned int maxFC;
+	  unsigned int maxIdx = ArgMax::argmax(modIdx, fireableCount, maxFC,
+					       chunkSize);
+	
+	  // Compare the max result for this chunk to the global max.
+	  if (IS_BOSS())
+	    {
+	      if (maxFC > globalMaxFC)
+		{
+		  globalMaxFC = maxFC;
+		  globalMaxIdx = maxIdx;
+		}
+	    }
+	  
+	  __syncthreads();
+	}
+      } //endelse
             
       return globalMaxIdx;
     }
@@ -265,14 +378,21 @@ namespace Mercator  {
     // @param count of fireable items for each module (0 if invalid)
     //
     __device__
-    unsigned int chooseModule_lottery(const unsigned int *fireableCounts)
+    unsigned int chooseModule_lottery(const unsigned int *fireableCounts, const unsigned int *fireableSignalCounts, bool preferSignals)
     {
       assert(numModules <= THREADS_PER_BLOCK);
       
       unsigned int modIdx = threadIdx.x;
-      unsigned int fireableCount = 
-	(modIdx < numModules ? fireableCounts[modIdx] : 0);
-      
+      unsigned int fireableCount;
+      if(preferSignals) {
+      	fireableCount = 
+		(modIdx < numModules ? fireableSignalCounts[modIdx] : 0);
+      }
+      else {
+      	fireableCount = 
+		(modIdx < numModules ? fireableCounts[modIdx] : 0);
+      }
+
       // get scheduling weights for each module, zeroing out those that
       // cannot be fired right now.  (Assumes invalid module IDs have zero
       // fireableCounts).
@@ -320,16 +440,16 @@ namespace Mercator  {
     // @param count of fireable items for each module (0 if invalid)
     //
     __device__
-    unsigned int chooseModuleToFire(const unsigned int *fireableCounts)
+    unsigned int chooseModuleToFire(const unsigned int *fireableCounts, const unsigned int *fireableSignalCounts, bool preferSignals)
     {
 #if defined(SCHEDULER_MAXOCC)
       
-      unsigned int modIdx = chooseModule_maxOcc(fireableCounts);
+      unsigned int modIdx = chooseModule_maxOcc(fireableCounts, fireableSignalCounts, preferSignals);
       
 #elif defined(SCHEDULER_LOTTERY)
       
       // probabilistically choose module proportionally by weight
-      unsigned int modIdx = chooseModule_lottery(fireableCounts);    
+      unsigned int modIdx = chooseModule_lottery(fireableCounts, fireableSignalCounts, preferSignals);
 #else
       
 #error "INVALID SCHEDULER SELECTION"

@@ -52,6 +52,7 @@ namespace Mercator  {
       // allocate enough total buffer capacity to hold outputs 
       // for one run() call
       data = new T [numThreadGroups * numSlotsPerGroup];
+      signalData = new Signal [numThreadGroups * numSlotsPerGroup];
       
       // verify that alloc succeeded
       if (data == nullptr)
@@ -62,15 +63,29 @@ namespace Mercator  {
 	  crash();
 	}
       
+      // verify that alloc succeeded
+      if (signalData == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel buffer (Signal) [block %d]\n",
+		 blockIdx.x);
+	  
+	  crash();
+	}
+
       for (unsigned int j = 0; j < numInstances; j++)
 	{
 	  dsQueues[j]      = nullptr;
+	  dsSignalQueues[j]      = nullptr;
 	  dsInstances[j]   = 0;
+	  dsSignalInstances[j]   = 0;
 	  reservedQueueEntries[j] = ireservedQueueEntries[j];
+	  reservedSignalQueueEntries[j] = ireservedQueueEntries[j];
 	}
       
-      for (unsigned int j = 0; j < numThreadGroups; j++)
+      for (unsigned int j = 0; j < numThreadGroups; j++) {
 	nextSlot[j] = 0;
+	nextSignalSlot[j] = 0;
+      }
     }
     
     //
@@ -81,6 +96,7 @@ namespace Mercator  {
     ~Channel()
     {
       delete [] data;
+      delete [] signalData;
     }
     
     
@@ -100,6 +116,22 @@ namespace Mercator  {
       dsInstances[usInstIdx] = dsInstIdx; 
     }
     
+    // stimcheck: Signal equivalent of setDSEdge
+    //
+    // @brief Set the downstream (Signal) target of the edge for
+    // instance usInstIdx of this channel to (dsModule, dsInstIdx)
+    //
+    // @param usInstIdx instance index of upstream edge endpoint
+    // @param dsSignalQueue queue of downstream edge endpoint
+    // @param dsInstIdx instance of downstream edge endpoint
+    //
+    __device__
+    void setDSSignalEdge(unsigned int usInstIdx, 
+		   Queue<Signal> *dsSignalQueue, unsigned int dsInstIdx)
+    {
+      dsSignalQueues[usInstIdx]    = dsSignalQueue;
+      dsSignalInstances[usInstIdx] = dsInstIdx; 
+    }
     
     //
     // @brief get the number of inputs that can be safely be
@@ -133,7 +165,46 @@ namespace Mercator  {
       return dsBudget / outputsPerInput;
     }
     
-    
+    //  stimcheck: Signal version of downstream capacity
+    //
+    //  @brief get the number of signals that can be safely
+    //  consumed by the specified instance of this channel's
+    //  module without overrunning the available downstream
+    //  queue space.  Virtual because it requires access to
+    //  the channel's queue, which does not have an untyped base.
+    //
+    // @param index of instance to check
+    //
+    __device__
+    unsigned int dsSignalCapacity(unsigned int instIdx) const
+    { 
+      const Queue<Signal> *dsSignalQueue = dsSignalQueues[instIdx];
+      int dsInstance          = dsInstances[instIdx];
+      
+      if (dsSignalQueue == nullptr) // no outgoing edge
+	return UINT_MAX;
+      
+      // find ds queue's budget for this node
+      unsigned int dsBudget = 
+	dsSignalQueue->getCapacity(dsInstance) -
+	dsSignalQueue->getOccupancy(dsInstance);
+      
+      // adjust budget based on reserved slots in ds queue (will be
+      // nonzero for predecessors of head nodes of back edges, which
+      // must reserve space for tail of back edge to fire).  Make
+      // sure result is non-negative.
+      dsBudget = max(0, dsBudget - reservedSignalQueueEntries[instIdx]);
+      
+      // capacity = floor(budget / outputs-per-input on channel)
+
+      //stimcheck: Currently using the data outputPerInput var as a soft
+      //upper bound on the number of outputs possible per signal handling.
+      //Signals will be taken care of sequentially and scattered to their
+      //respective queue after being "spent" (no credits remaining, and
+      //downstream space is available).
+      return dsBudget / outputsPerInput;
+    }
+
     //
     // @brief move items in each (live) thread to the output buffer
     // 
@@ -158,6 +229,34 @@ namespace Mercator  {
 	}
     }
     
+    // stimcheck: Push for Signals
+    //
+    // @brief move items in each (live) thread to the output buffer
+    // 
+    // @param item item to be pushed
+    // @param isWriter true iff thread is the writer for its group
+    //
+    __device__
+      void pushSignal(const Signal &item, bool isWriter)
+    {
+      if (isWriter)
+	{
+	  int groupId = threadIdx.x / threadGroupSize;
+	  
+	  assert(nextSignalSlot[groupId] < numSlotsPerGroup);
+	  
+	  unsigned int slotIdx =
+	    groupId * numSlotsPerGroup + nextSignalSlot[groupId];
+	  
+	  printf("PRE groupId: %d, slotIdx: %d, numSlotsPerGroup: %d, nextSignalSlot[groupId]: %d\n", groupId, slotIdx, numSlotsPerGroup, nextSignalSlot[groupId]);
+	  signalData[slotIdx] = item;
+	  
+	  nextSignalSlot[groupId]++;
+
+	  printf("groupId: %d, slotIdx: %d, numSlotsPerGroup: %d, nextSignalSlot[groupId]: %d\n", groupId, slotIdx, numSlotsPerGroup, nextSignalSlot[groupId]);
+	}
+    }
+
     //
     // @brief After a call to run(), scatter its outputs
     //  to the appropriate queues.
@@ -242,13 +341,96 @@ namespace Mercator  {
 	nextSlot[tid] = 0;
     }
     
-    
+    //
+    // @brief After a call to run(), scatter its outputs
+    //  to the appropriate queues.
+    //  NB: must be called with all threads
+    //
+    // @param instIdx instance corresponding to current thread
+    // @param isHead is this the first thread for its instance?
+    // @param isWriter true iff thread is the writer for its group
+    //
+    __device__
+      void scatterToSignalQueues(InstTagT instIdx, bool isHead, bool isWriter)
+    {
+      int tid = threadIdx.x;
+      int groupId = tid / threadGroupSize;
+  
+      //
+      // Compute a segmented exclusive sum of the number of outputs to
+      // be written back to queues by each thread group.  Only the
+      // writer threads contribute to the sums.
+      //
+      
+      BlockSegScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
+      
+      unsigned int count = (isWriter ? nextSignalSlot[groupId] : 0);
+      unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
+      
+      //
+      // Find the first and last thread for each instance.  Inputs
+      // to one node are assigned to a contiguous set of threads.
+      //
+      
+      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
+      
+      bool isTail = disc.flagTails(instIdx, NULLTAG);
+        
+      //
+      // The last thread with a given instance can compute the total
+      // number of outputs written for that instance.  That total
+      // is used to reserve space in the instance's downstream queue. 
+      //
+      __shared__ unsigned int dsBase[numInstances];
+      if (isTail && instIdx < numInstances)
+	{
+	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
+	  	  
+	  COUNT_ITEMS(instTotal);  // instrumentation
+	      
+	  dsBase[instIdx] = directSignalReserve(instIdx, instTotal);
+	}
+      
+      __syncthreads(); // all threads must see updates to dsBase[]
+      
+      //
+      // Finally, writer threads move the data (Signal) to its queue.  We
+      // take some loss of occupancy by looping over the outputs, 
+      // but it saves us from having to tag each output with its
+      // instance number (which would be needed if we tried to do
+      // the writes using contiguous threads.)
+      //
+      
+      if (isWriter)
+	{
+	  for (unsigned int j = 0; j < count; j++)
+	    {
+	      // where is the item in the ouput buffer?
+	      unsigned int srcOffset = tid * outputsPerInput + j;
+	      
+	      // where is the item going in the ds queue?
+	      unsigned int dstOffset = sum + j;
+	      
+	      if (instIdx < numInstances) // is this thread active?
+		{
+		  const Signal &myData = signalData[srcOffset];
+		  
+		  directSignalWrite(instIdx, myData, dsBase[instIdx], dstOffset);
+		}
+	    }
+	}
+      
+      // finally, reset the output counters per thread group
+      if (tid < numThreadGroups)
+	nextSignalSlot[tid] = 0;
+    }
+
     //
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
     //
     // @param instance of queue that we reserve in
-    // @param number of slots to reserve for next write9
+    // @param number of slots to reserve for next write
     // @return starting index of reserved segment.
     //
     __device__
@@ -259,6 +441,25 @@ namespace Mercator  {
       InstTagT dsInst     = dsInstances[instIdx];
       
       return (dsQueue ? dsQueue->reserve(dsInst, nToWrite) : 0);
+    }
+
+    // stimcheck: Direct reserve of space for Signal queues
+    //
+    // @brief prepare for a direct write to the downstream signal queue(s)
+    // by reserving space for the items to write.
+    //
+    // @param instance of queue that we reserve in
+    // @param number of slots to reserve for next write
+    // @return starting index of reserved segment.
+    //
+    __device__
+    unsigned int directSignalReserve(unsigned int instIdx, 
+			       unsigned int nToWrite) const
+    {
+      Queue<Signal> *dsSignalQueue   = dsSignalQueues[instIdx];
+      InstTagT dsSignalInst     = dsSignalInstances[instIdx];
+      
+      return (dsSignalQueue ? dsSignalQueue->reserve(dsSignalInst, nToWrite) : 0);
     }
     
     
@@ -282,6 +483,29 @@ namespace Mercator  {
 	dsQueue->putElt(dsInst, base, offset, item);
     }
     
+    // stimcheck: Write Signals directly to the downstream queue
+    //
+    // @brief Write items directly to the downstream queue.
+    //
+    // @param instIdx of queue that we reserve in
+    // @param item item to be written
+    // @param base base pointer to writable block in queue
+    // @param offset offset at which to write item
+    //
+    __device__
+    void directSignalWrite(unsigned int instIdx, const Signal &item, 
+		     unsigned int base,
+		     unsigned int offset) const
+    {
+      Queue<Signal> *dsSignalQueue   = dsSignalQueues[instIdx];
+      InstTagT dsInst     = dsSignalInstances[instIdx];
+      
+      if (dsSignalQueue)
+	dsSignalQueue->putElt(dsInst, base, offset, item);
+      //if(dsSignalQueue->getOccupancy(dsInst) > 1)
+	//printf("DS SIGNAL QUEUE OVERSIZED: %d, dsInst: %d\n", dsSignalQueue->getOccupancy(dsInst), dsInst);
+    }
+
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to module
@@ -292,6 +516,7 @@ namespace Mercator  {
     //
     
     T* data;                              // buffered output
+    Signal* signalData;                   // buffered signal output
     
     //
     // tracking data for usage of output buffer slots
@@ -299,6 +524,7 @@ namespace Mercator  {
     
     // next buffer slot avail for thread to push output
     unsigned int nextSlot[numThreadGroups];
+    unsigned int nextSignalSlot[numThreadGroups];
     
     //
     // targets (edges) for scattering items from output buffer
@@ -307,9 +533,13 @@ namespace Mercator  {
     Queue<T> *dsQueues[numInstances];
     InstTagT dsInstances[numInstances];
     
+    Queue<Signal> *dsSignalQueues[numInstances];
+    InstTagT dsSignalInstances[numInstances];
+
     // reserved ds queue entries on outgoing edge corresponding to
     // each instance of this channel.
     unsigned int reservedQueueEntries[numInstances];
+    unsigned int reservedSignalQueueEntries[numInstances];
 
   }; // end Channel class
 }  // end Mercator namespace

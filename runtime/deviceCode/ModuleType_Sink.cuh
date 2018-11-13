@@ -130,6 +130,9 @@ namespace Mercator  {
     virtual
     void fire()
     {
+	//if(IS_BOSS())
+	//	printf("SINK CALLED\n");
+	this->signalHandler();
       unsigned int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
@@ -144,7 +147,10 @@ namespace Mercator  {
       
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
-      
+
+	if(totalFireable <= 0)
+		return;      
+
       assert(totalFireable > 0);
       
       MOD_OCC_COUNT(totalFireable);

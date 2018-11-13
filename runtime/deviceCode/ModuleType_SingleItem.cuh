@@ -109,6 +109,9 @@ namespace Mercator  {
     virtual
     void fire()
     {
+	//printf("SINGLE ITEM MODULE CALLED\n");
+	  this->signalHandler();
+
       unsigned int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
@@ -116,20 +119,29 @@ namespace Mercator  {
       // obtain number of inputs that can be consumed by each instance
       unsigned int fireableCount = 
 	(tid < numInstances ? getFireableCount(tid) : 0);
+
+	//if(IS_BOSS())
+	//	printf("Cached fireable count = %d\n", fireableCount);
       
       // compute progressive sums of items to be consumed in each instance,
       // and replicate these sums in each WARP as Ai.
       using Gather = QueueGather<numInstances>;
-      
+
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
-      
+
+	if(totalFireable <= 0)
+		return;
+
       assert(totalFireable > 0);
       
       MOD_OCC_COUNT(totalFireable);
       
       Queue<T> &queue = this->queue; 
-      
+      Queue<Signal> &signalQueue = this->signalQueue; 
+
+	  //this->signalHandler();
+
       // Iterate over inputs to be run in block-sized chunks.
       // Do both gathering and execution of inputs in each iteration.
       // Every thread in a group receives the same input. 
@@ -137,6 +149,9 @@ namespace Mercator  {
 	   base < totalFireable; 
 	   base += maxRunSize)
 	{
+		
+	  //this->signalHandler();
+
 	  unsigned int groupId = tid / threadGroupSize;
 	  unsigned int idx     = base + groupId;
 	  InstTagT     instIdx = NULLTAG;
@@ -179,6 +194,12 @@ namespace Mercator  {
 	      getChannel(c)->scatterToQueues(instIdx,
 					     isHead,	
 					     isThreadGroupLeader());
+
+	      //stimcheck: Scatter to Signal Queues as well as data queues
+	      //We know by this point which Signals will continue downstream
+	      //getChannel(c)->scatterToQueues(instIdx,
+		//			     isHead,	
+		//			     isThreadGroupLeader());
 	    }
 	  
 	  __syncthreads(); // all threads must see reset channel state
@@ -202,6 +223,13 @@ namespace Mercator  {
       __syncthreads();
       
       MOD_TIMER_STOP(gather);
+
+      __syncthreads();
+	//stimcheck: Pass Signals here
+	//Do test on if the module is a of a certain type (Enumerate, Aggregate, Normal)
+	if(true) {
+		
+	}
     }
   };  // end ModuleType class
 }  // end Mercator namespace

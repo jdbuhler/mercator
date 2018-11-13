@@ -123,8 +123,53 @@ namespace Mercator  {
       
       numPending = source->reserve(REQ_SIZE, &pendingOffset);
       
-      if (numPending == 0)
+	//stimcheck:  NEED TO SEND SIGNAL HERE, BLOCK DOES NOT NEED TO RUN ANY INPUT
+      if (numPending == 0) {
 	this->setInTail(true);
+	this->setInTailInit(true);
+	//printf("GOT HERE, blockIdx = %d\n", blockIdx.x);
+      }
+
+	      if (numPending == 0) { // no more input left to request!
+      		using Channel = typename BaseType::Channel<T>;
+		this->setInTail(true);
+		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
+		Signal s;
+		s.setTail(true);
+
+
+		//stimcheck: Send the isTail Signal to all channels
+     		 // Reserve space on all channels' downstream queues
+  		 // for the data we are about to write, and get the
+      		// base pointer at which to write it for each queue.
+      		__shared__ unsigned int dsSignalBase[numChannels];
+	        for (unsigned int c = 0; c < numChannels; c++)
+		{
+		  const Channel *channel = 
+	   	  static_cast<Channel *>(getChannel(c));
+	  
+	  	  dsSignalBase[c] = channel->directSignalReserve(0, 1);
+		}
+
+	      // data needs no compaction, so transfer it directly to
+	      // the output queue for each channel, bypassing the
+	      // channel buffer
+	      //if(blockIdx.x == 0) {
+	      for (unsigned int c = 0; c < numChannels; c++)
+	      //if(tid < numChannels)
+		{
+		  const Channel *channel = 
+		    static_cast<Channel *>(BaseType::getChannel(c));
+		  
+		  channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		}
+		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
+
+		//printf("PUSHED SIGNAL, %d, %d, blkIdx.x %d, thrdIdx.x %d, dsSignalBase: %d\n", (this->isThreadGroupLeader() ? 1 : 0), numChannels, blockIdx.x, threadIdx.x, dsSignalBase[tid]);
+              }
+		//}
+		//printf("PUSHED SIGNAL, %d, %d, %d, dsSignalBase: %d\n", (this->isThreadGroupLeader() ? 1 : 0), numChannels, blockIdx.x, dsSignalBase[tid]);
+
     }
     
   private:
@@ -172,6 +217,7 @@ namespace Mercator  {
     { return REQ_SIZE; }
     
     
+    // stimcheck: Need to fire for signal queues here as well (isTail Signal)
     //
     // @brief fire the module, consuming pending inputs if possible
     // and scattering the results to downstream queues.
@@ -189,12 +235,19 @@ namespace Mercator  {
       // since the source module just copies its inputs downstream
       using Channel = typename BaseType::Channel<T>;
       
+      //printf("SOURCE MODULE CALLED\n");
+
       int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
       
       // determine how many items we are going to consume
       unsigned int totalFireable = getFireableCount(0);
+
+      __syncthreads();
+      //if(IS_BOSS())
+      //	printf("getFireableCount(0) = %d\n", totalFireable);
+      //__syncthreads();
       
       assert(totalFireable > 0);
       assert(totalFireable <= numPending);
@@ -219,6 +272,7 @@ namespace Mercator  {
 	  dsBase[tid] = channel->directReserve(0, totalFireable);
 	}
       __syncthreads(); // all threads must see dsBase[] values
+
       
       MOD_TIMER_STOP(scatter);
       MOD_TIMER_START(gather);
@@ -268,16 +322,91 @@ namespace Mercator  {
       // If we've exhausted it, try to get more.
       //
       
+/*
+      __shared__ unsigned int dsSignalBase[numChannels];
+      if (tid < numChannels)
+	{
+         const Channel *channel = 
+	   static_cast<Channel *>(getChannel(tid));
+	  
+	    dsSignalBase[tid] = channel->directSignalReserve(0, 1);
+	}
+      __syncthreads(); // all threads must see dsBase[] values
+*/
       if (IS_BOSS())
 	{
 	  numPending    -= totalFireable;
 	  pendingOffset += totalFireable;
-	
-	  if (!this->isInTail() && numPending == 0)
+
+		//printf("TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, (numPending == 0 ? 1 : 0));
+	/*
+	  if(this->isInTailInit()) {
+			printf("IS IN TAIL INIT\n");
+		}	
+	else {
+			printf("NOT IS IN TAIL INIT FOR BLOCK %d, numPending %d\n", blockIdx.x, numPending);
+	}
+	*/
+	  if ((!this->isInTail() && numPending == 0) || this->isInTailInit())
 	    {
 	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
-	      if (numPending == 0) // no more input left to request!
+		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
+			//printf("SECOND BLOCK %d, numPending %d\n", blockIdx.x, numPending);
+	      if (numPending == 0) { // no more input left to request!
 		this->setInTail(true);
+		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
+		Signal s;
+		s.setTail(true);
+
+
+		//stimcheck: Send the isTail Signal to all channels
+		//unsigned int instOffset = 0;
+		//unsigned int instIdx = 0;
+
+		/*
+		for(unsigned int c = 0; c < numChannels; ++c) {
+			//this->pushSignal(s, instIdx, c);
+			bool isHead = (tid == 0 || instOffset == 0);
+			//getChannel(c)->scatterToSignalQueues(instIdx,
+			//				     isHead,
+			//				     this->isThreadGroupLeader());
+		}
+		*/
+
+     		 // Reserve space on all channels' downstream queues
+  		 // for the data we are about to write, and get the
+      		// base pointer at which to write it for each queue.
+      		__shared__ unsigned int dsSignalBase[numChannels];
+      		//unsigned int dsSignalBase[numChannels];
+	        //if(blockIdx.x == 0) {
+      		//if (tid < numChannels)
+	        for (unsigned int c = 0; c < numChannels; c++)
+		{
+		  const Channel *channel = 
+	   	  static_cast<Channel *>(getChannel(c));
+	  
+	  	  dsSignalBase[c] = channel->directSignalReserve(0, 1);
+		}
+      		//__syncthreads(); // all threads must see dsBase[] values
+
+	      // data needs no compaction, so transfer it directly to
+	      // the output queue for each channel, bypassing the
+	      // channel buffer
+	      //if(blockIdx.x == 0) {
+	      for (unsigned int c = 0; c < numChannels; c++)
+	      //if(tid < numChannels)
+		{
+		  const Channel *channel = 
+		    static_cast<Channel *>(getChannel(c));
+		  
+		  channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		}
+		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
+
+		//printf("PUSHED SIGNAL, %d, %d, blkIdx.x %d, thrdIdx.x %d, dsSignalBase: %d\n", (this->isThreadGroupLeader() ? 1 : 0), numChannels, blockIdx.x, threadIdx.x, dsSignalBase[tid]);
+              }
+		//}
+		//printf("PUSHED SIGNAL, %d, %d, %d, dsSignalBase: %d\n", (this->isThreadGroupLeader() ? 1 : 0), numChannels, blockIdx.x, dsSignalBase[tid]);
 	    }
 	}
     
