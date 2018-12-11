@@ -385,7 +385,7 @@ namespace Mercator  {
 		  const Channel *channel = 
 	   	  static_cast<Channel *>(getChannel(c));
 
-		  //s.setCredit(channel->dsPendingOccupancy(tid));	  
+		  s.setCredit(channel->dsPendingOccupancy(tid));	  
 
 	  	  dsSignalBase[c] = channel->directSignalReserve(0, 1);
 		}
