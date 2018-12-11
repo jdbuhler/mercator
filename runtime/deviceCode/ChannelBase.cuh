@@ -57,6 +57,23 @@ namespace Mercator  {
     virtual
     unsigned int dsSignalCapacity(unsigned int) const = 0;
 
+
+    __device__
+    virtual
+    bool dsSignalQueueHasPending(unsigned int instIdx) const = 0;
+
+    __device__
+    virtual
+    unsigned int dsPendingOccupancy(unsigned int instIdx) const = 0;
+
+    __device__
+    virtual
+    void resetNumProduced(unsigned int instIdx) = 0;
+
+    __device__
+    virtual
+    unsigned int getNumItemsProduced(unsigned int instIdx) const = 0;
+
     //
     // @brief After a call to run(), scatter its outputs
     //  to the appropriate queues.
@@ -64,7 +81,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    void scatterToQueues(InstTagT, bool, bool) = 0;
+    unsigned int scatterToQueues(InstTagT, bool, bool) = 0;
     
     // stimcheck: Signal version of scattering to queues
     // Used when sending all buffered signals downstream

@@ -258,7 +258,15 @@ namespace Mercator  {
 	      unsigned int dsCapacity = 
 		channels[c]->dsCapacity(instIdx);
 	      
-	      numFireable = min(numFireable, dsCapacity);
+	      //Check the setting of the credit for the total number of fireable items
+	      if(numInputsPendingSignal(instIdx) > 0) {
+	      //if(hasSignal[instIdx]) {
+	      	numFireable = min(min(numFireable, dsCapacity), this->currentCredit[instIdx]);
+		//printf("MADE IT\t");
+	      }
+	      else {
+	     	 numFireable = min(numFireable, dsCapacity);
+	      }
 	    }
 	}
       
@@ -285,8 +293,11 @@ namespace Mercator  {
     computeNumFireableTotal(bool enforceFullEnsembles)
     {
       int tid = threadIdx.x;
-      
+
       __shared__ unsigned int tf;
+
+      //bool nhc = !(hasCredit());
+      //__syncthreads();
       
       // The number of instances is <= the architectural warp size, so
       // just do the computation in a single warp, and then propagate
@@ -302,7 +313,8 @@ namespace Mercator  {
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
 	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
 	  
-	  if (enforceFullEnsembles)
+	  if (enforceFullEnsembles && !hasCredit())
+	  //if (enforceFullEnsembles)
 	    {
 	      // round total fireable count down to a full multiple of # of
 	      // elements that can be consumed by one call to run()
@@ -314,7 +326,7 @@ namespace Mercator  {
 		numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
 	    }
 	/*
-	  else {
+	  else 
 		if(IS_BOSS()) {
 			printf("Computed %d items to fire\n", totalFireable);
 		}
@@ -333,6 +345,21 @@ namespace Mercator  {
       __syncthreads();
       
       return tf;
+    }
+
+    //stimcheck: Function for checking if we have credit currently in the module anywhere
+    __device__
+    bool
+    hasCredit() {
+	__shared__ bool c;
+	for(unsigned int i = 0; i < numInstances; ++i) {
+		if(currentCredit[i] > 0) {
+			c = true;
+		}
+	}
+	//printf("HERE %d\t", (c ? 1 : 0));
+	//__syncthreads();
+	return c;
     }
     
     //stimcheck:  Compute the number of fireable signals, used for clearing queues that still have signals
@@ -600,6 +627,14 @@ namespace Mercator  {
     
     // stimcheck: Current credit available to each node
     int currentCredit[numInstances];
+    bool hasSignal[numInstances];
+
+    // stimcheck: Current number of items the module has worked on (up till now)
+    // This is used to determine the amount of credit we need to give signals that
+    // are produced by the module (if any).  Can basically be ignored if we don't
+    // have any signals that require this knowledge.  This also allows us to not
+    // have to modify the Signals in the signal queue when decrementing credit.
+    unsigned int numDataProduced[numInstances];
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer gatherTimer;
@@ -689,11 +724,18 @@ namespace Mercator  {
 	unsigned int instIdx = tid;
 	unsigned int i = 0;
 	Signal s;
-	__shared__ bool recomputeFireable;	//Used if we find that we have a tail signal, need to recompute fireable
 	__syncthreads();
-	recomputeFireable = false;	//Used if we find that we have a tail signal, need to recompute fireable
-	__syncthreads();
+
+	//testing
 	if(tid < numInstances) {
+		if(signalQueue.getOccupancy(tid) > 0) {
+			//signalQueue.getModifiableHead(tid).setStart(true);
+			//signalQueue.getModifiableTail(tid).setEnd(true);
+		}
+	}
+	__syncthreads();
+
+	if(instIdx < numInstances) {
 		//printf("Signal Queue Occupancy: %d\n", signalQueue.getOccupancy(instIdx));
 		//if(signalQueue.getOccupancy(instIdx) > 0) {
 		//	printf("Signal Queue Occupancy: %d\n", signalQueue.getOccupancy(instIdx));
@@ -702,13 +744,41 @@ namespace Mercator  {
 		//while(s != nullptr) {
 		//while(&(s) != nullptr && i < 3) {
 		//while(signalQueue.getOccupancy(instIdx) && i < 3) {
+
+		//unsigned int numBefore[numInstances];
+
 		while(signalQueue.getOccupancy(instIdx) > i) {
 			s = signalQueue.getElt(instIdx, i);
-			//printf("signal %d found, tid = %d\n", i, tid);
 			//Base case: we have credit to wait on
+
+			assert(currentCredit[instIdx] >= 0);
+
+			//Currently must be true, since we are only working with signals that use the current downstream space
 			if(currentCredit[instIdx] > 0) {
+				assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
+			}
+
+			//Signal has Credit
+			// AND
+			//Signal credit has not already been taken
+			if(s.getCredit() > 0 && !(hasSignal[instIdx])) {
+				//printf("Credit Signal Processed\n");
+				currentCredit[instIdx] = s.getCredit();
+				hasSignal[instIdx] = true;
+				printf("\nCredit Signal Processed\ncurrentCredit[%d]: %d\n\n", instIdx, currentCredit[instIdx]);
+			}
+
+			//Base case: we have credit to wait on
+			//If the current credit has reached 0, then we can consume signal
+			if(currentCredit[instIdx] > 0) {
+				printf("currentCredit[%d]: %d\t\tqueueContents = %d\n", instIdx, currentCredit[instIdx], queue.getOccupancy(instIdx));
 				break;
 			}
+			else {
+				hasSignal[instIdx] = false;
+			}
+
+			assert(!(hasSignal[instIdx]));
 
 			///////////////////
 			//Signal type cases
@@ -724,45 +794,78 @@ namespace Mercator  {
 				printf("End Signal Processed\n");
 			}
 
-			//Tail Signal
-			if(s.getTail()) {
-				//printf("Tail Signal Processed\n");
-				//using Channel = typename BaseType::Channel<int>;
-				this->setInTail(true);
-				recomputeFireable |= true;
-				//if(IS_BOSS()) {
+			//Enumerate Signal
+			if(s.getEnum()) {
+				//Actual enumeration functionality happens in the module,
+				//nothing needs to be set by the signal handler, other than
+				//to begin a new aggregate if needed, otherwise continue
+				//to pass the signal downstream.
+				if(!(this->isAgg())) {		
 					//Create a new tail signal to send downstream
 					Signal s;
-					s.setTail(true);
+					s.setEnum(true);
+					//s.setCredit(
 
-					//Reserve space downstream fro tail signal
-      					//__shared__ unsigned int dsSignalBase[numChannels];
-      					//__global__ unsigned int dsSignalBase[numChannels];
+					//Reserve space downstream for tail signal
 					unsigned int dsSignalBase;
 	        			for (unsigned int c = 0; c < numChannels; c++) {
 						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
 						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						dsSignalBase = channel->directSignalReserve(tid, 1);
-						channel->directSignalWrite(tid, s, dsSignalBase, 0);
+						dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+						//Write tail signal to downstream node
+						channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 					}
+				}
+				printf("Enumerate Signal Processed\n");
+			}
+
+			//Aggregate Signal
+			if(s.getAgg()) {
+				printf("Aggregate Signal Processed\n");
+			}
+
+			//Tail Signal
+			if(s.getTail()) {
+				printf("Tail Signal Processed\n");
+				//using Channel = typename BaseType::Channel<int>;
+				this->setInTail(true);
+
+				//Create a new tail signal to send downstream
+				Signal s;
+				s.setTail(true);	
+
+				//Reserve space downstream for tail signal
+				unsigned int dsSignalBase;
+	        		for (unsigned int c = 0; c < numChannels; c++) {
+					const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+					//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+					//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+					//printf("pending occupancy: %d\n", channel->dsPendingOccupancy(tid));
+					if(channel->dsSignalQueueHasPending(instIdx)) {
+						s.setCredit(channel->getNumItemsProduced(instIdx));
+					}
+					else {
+						s.setCredit(channel->dsPendingOccupancy(instIdx));
+						//s.setCredit(0);
+						printf("pending occupancy: %d, Capacity: %d\n", channel->dsPendingOccupancy(instIdx), channel->dsCapacity(instIdx));
+					}
+					dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 					//Write tail signal to downstream node
-					/*s
-					for (unsigned int c = 0; c < numChannels; c++) {
-						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						channel->directSignalWrite(0, s, dsSignalBase[c], 0);
-					}
-					*/
-					//printf("PUSHED SIGNAL FROM HANDLER\n");
-				//}
+					channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+				}
 			}
 
-			//Signal has Credit
-			if(s.getCredit() > 0) {
-				printf("Credit Signal Processed\n");
+			//Reset number of items produced if we have processed a signal
+			if(i == 0) {
+				for(unsigned int c = 0; c < numChannels; c++) {
+					Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+					channel->resetNumProduced(instIdx);
+				}
 			}
 
-			//Increase index into Signal queue
+			//Increment counter to next index in signal queue
 			++i;
 			//s = signalQueue.getElt(instIdx, i);
 		}
@@ -770,21 +873,17 @@ namespace Mercator  {
 	__syncthreads();	//Bring all threads together at end
 	
 	//Release all signals that were processed
-	if(tid < numInstances && i > 0) {
-		signalQueue.release(tid, i);
+	if(instIdx < numInstances && i > 0) {
+		signalQueue.release(instIdx, i);
 	}
 
 	__syncthreads();
+    }
 
-	unsigned int newFireable = 0;
-	//Recompute the fireable count if needed (Tail signal was found)
-	if(recomputeFireable) {
-		//printf("THREAD %d GOT HERE\n", threadIdx.x);
-		//newFireable = this->computeNumFireableTotal(false);
-		//printf("NewFireable %d\n", newFireable);
-	}
-
-	__syncthreads();
+    __device__
+    void decrementCredit(unsigned int c, unsigned int instIdx) {
+	if(instIdx < numInstances)
+		currentCredit[instIdx] -= c;
     }
     
     

@@ -136,6 +136,10 @@ namespace Mercator  {
 		
 		__syncthreads();
 
+	      //enforceFullEnsembles &= !(mod->hasCredit());
+
+		//__syncthreads();
+
 	      unsigned int numFireable =  
 		mod->computeNumFireableTotal(enforceFullEnsembles);
 

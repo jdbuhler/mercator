@@ -205,6 +205,30 @@ namespace Mercator  {
       return dsBudget / outputsPerInput;
     }
 
+    __device__
+    bool dsSignalQueueHasPending(unsigned int instIdx) const {
+	const Queue<Signal> *dsSignalQueue = dsSignalQueues[instIdx];
+	int dsInstance = dsInstances[instIdx];
+	if(dsSignalQueue == nullptr)
+		return false;
+	if(dsSignalQueue->getOccupancy(dsInstance) > 0)
+		return true;
+	return false;
+    }
+
+
+    __device__
+    unsigned int dsPendingOccupancy(unsigned int instIdx) const {
+	const Queue<T> *dsQueue = dsQueues[instIdx];
+	int dsInstance = dsInstances[instIdx];
+	unsigned int occ = 0;
+	if(dsQueue == nullptr)
+		return 0;
+	else
+		occ = dsQueue->getOccupancy(dsInstance);
+	return occ;
+    }
+
     //
     // @brief move items in each (live) thread to the output buffer
     // 
@@ -257,6 +281,17 @@ namespace Mercator  {
 	}
     }
 
+    __device__
+    void resetNumProduced(unsigned int instIdx) {
+	numItemsProduced[instIdx] = 0;
+    }
+
+    __device__
+    unsigned int getNumItemsProduced(unsigned int instIdx) const {
+	unsigned int total = numItemsProduced[instIdx];
+	return total;
+    }
+
     //
     // @brief After a call to run(), scatter its outputs
     //  to the appropriate queues.
@@ -267,8 +302,9 @@ namespace Mercator  {
     // @param isWriter true iff thread is the writer for its group
     //
     __device__
-      void scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
+      unsigned int scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
+      unsigned int instTotal = 0;
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
   
@@ -282,6 +318,9 @@ namespace Mercator  {
       
       unsigned int count = (isWriter ? nextSlot[groupId] : 0);
       unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
+      instTotal = sum;
+
+      numItemsProduced[instIdx] += sum;
       
       //
       // Find the first and last thread for each instance.  Inputs
@@ -300,7 +339,7 @@ namespace Mercator  {
       __shared__ unsigned int dsBase[numInstances];
       if (isTail && instIdx < numInstances)
 	{
-	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
+	  instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
 	  COUNT_ITEMS(instTotal);  // instrumentation
 	      
@@ -309,6 +348,13 @@ namespace Mercator  {
       
       __syncthreads(); // all threads must see updates to dsBase[]
       
+      //stimcheck: Add to the current counter of number of items produced
+      numItemsProduced[instIdx] += instTotal;
+
+      __syncthreads(); // all threads must see the updates to the numItemsProduced
+
+      //printf("NUMPRODUCED = %d\n", numItemsProduced[instIdx]);
+
       //
       // Finally, writer threads move the data to its queue.  We
       // take some loss of occupancy by looping over the outputs, 
@@ -339,6 +385,10 @@ namespace Mercator  {
       // finally, reset the output counters per thread group
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
+
+	//printf("DATA QUEUE OCCUPANCY: %d", dsQueue->getOccupancy(dsInstance));
+
+      return instTotal;
     }
     
     //
@@ -540,6 +590,11 @@ namespace Mercator  {
     // each instance of this channel.
     unsigned int reservedQueueEntries[numInstances];
     unsigned int reservedSignalQueueEntries[numInstances];
+
+
+    //stimcheck: Counter for number of items produced between signals.
+    // Used for setting right amount of credit for each signal.
+    unsigned int numItemsProduced[numInstances];
 
   }; // end Channel class
 }  // end Mercator namespace

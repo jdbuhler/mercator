@@ -226,7 +226,52 @@ namespace Mercator  {
       return data[instIdx][myIdx]; 
     }
     
+    //
+    // @brief read an element from a queue's head that can be modified
+    //	      directly.  Used only for signal processing.
+    //        
+    // May be called multithreaded; does NOT release space
+    //
+    // @param instIdx instance to queue
+    // @param offset offset of element to read relative to head
+    // @return value read
+    //
+    __device__
+    T &getModifiableHead(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      assert(getOccupancy(instIdx) > 0);
+      
+      unsigned int head = heads[instIdx];
+      unsigned int myIdx = addModulo(head, 0, dataSizes[instIdx]);
+      
+      return data[instIdx][myIdx]; 
+    }
     
+    //
+    // @brief read an element from a queue's head that can be modified
+    //	      directly.  Used only for signal processing.
+    //        
+    // May be called multithreaded; does NOT release space
+    //
+    // @param instIdx instance to queue
+    // @param offset offset of element to read relative to head
+    // @return value read
+    //
+    __device__
+    T &getModifiableTail(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      assert(getOccupancy(instIdx) > 0);
+      
+      unsigned int head = heads[instIdx];
+      unsigned int myIdx = addModulo(head, getOccupancy(instIdx) - 1, dataSizes[instIdx]);
+      
+      return data[instIdx][myIdx]; 
+    }
+
     //
     // @brief return a reference to an actual item of type T that
     // will never be dereferenced.  This is useful to avoid creating

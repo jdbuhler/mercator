@@ -357,7 +357,7 @@ namespace Mercator  {
 		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
 		Signal s;
 		s.setTail(true);
-
+		//s.setCredit(totalFireable); 
 
 		//stimcheck: Send the isTail Signal to all channels
 		//unsigned int instOffset = 0;
@@ -384,7 +384,9 @@ namespace Mercator  {
 		{
 		  const Channel *channel = 
 	   	  static_cast<Channel *>(getChannel(c));
-	  
+
+		  //s.setCredit(channel->dsPendingOccupancy(tid));	  
+
 	  	  dsSignalBase[c] = channel->directSignalReserve(0, 1);
 		}
       		//__syncthreads(); // all threads must see dsBase[] values

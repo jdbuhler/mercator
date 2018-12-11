@@ -66,6 +66,38 @@ namespace Mercator  {
     virtual
     void signalHandler() = 0;
 
+    __device__
+    virtual
+    void decrementCredit(unsigned int c, unsigned int instIdx) = 0;
+
+    __device__
+    virtual
+    bool hasCredit() = 0;
+
+    ///////////////////////////////////////////////////////////////////
+    // AGGREGATE AND ENUMERATE FUNCTIONS (see ModuleType.cuh for details)
+    ///////////////////////////////////////////////////////////////////
+
+    __device__
+    bool isEnum() const 
+    { return enumerate; }
+
+    __device__
+    bool isAgg() const 
+    { return aggregate; }
+
+    __device__
+    void setEnum(bool v)
+    { enumerate = v; }
+
+    __device__
+    void setAgg(bool v)
+    { aggregate = v; }
+
+    __device__
+    virtual
+    unsigned int findCount() { return -1; }
+
     ///////////////////////////////////////////////////////////////////
     // SCHEDULING INTERFACE (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////
@@ -134,6 +166,9 @@ namespace Mercator  {
     
     bool inTail; // are we in the tail of execution?
     bool inTailInit; // are we in the tail of execution, at start of app run?
+
+    bool enumerate;
+    bool aggregate;
     
   };    // end class ModuleTypeBase
 }   // end Mercator namespace

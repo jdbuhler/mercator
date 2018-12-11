@@ -217,6 +217,19 @@ namespace Mercator  {
 	}
       
       MOD_TIMER_STOP(gather);
+
+	///////
+	//stimcheck: Decrement credit (if needed)
+	if(tid < numInstances) {
+		//if(this->currentCredit[tid] > 0) {
+			if(this->hasSignal[tid]) {
+			//this->currentCredit[tid] -= getFireableCount(tid);
+			this->currentCredit[tid] -= fireableCount;
+		}
+	}
+	__syncthreads();
+	///////
+
     }
     
   };

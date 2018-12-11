@@ -130,15 +130,21 @@ namespace Mercator  {
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
 
-	if(totalFireable <= 0)
+	//stimcheck: No items to fire this time, only signals were processed
+	if(totalFireable <= 0) {
+		if(tid < numInstances) {
+			//printf("EXCPTION currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
+		}
+		__syncthreads();
 		return;
+	}
 
       assert(totalFireable > 0);
       
       MOD_OCC_COUNT(totalFireable);
       
       Queue<T> &queue = this->queue; 
-      Queue<Signal> &signalQueue = this->signalQueue; 
+      //Queue<Signal> &signalQueue = this->signalQueue; 
 
 	  //this->signalHandler();
 
@@ -186,11 +192,13 @@ namespace Mercator  {
 	  MOD_TIMER_STOP(run);
 	  MOD_TIMER_START(scatter);
 	  
+	  //unsigned int numProduced[numChannels];
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // mark first thread writing to each instance
 	      bool isHead = (tid == 0 || instOffset == 0);
 	      
+	      //numProduced[c] =
 	      getChannel(c)->scatterToQueues(instIdx,
 					     isHead,	
 					     isThreadGroupLeader());
@@ -224,12 +232,33 @@ namespace Mercator  {
       
       MOD_TIMER_STOP(gather);
 
+	unsigned int cc = 0;
+	if(tid < numInstances)
+		cc = this->currentCredit[tid]; 
       __syncthreads();
+
+	//stimcheck: Decrement credit for the module here (if needed)
+	if(tid < numInstances) {
+		//if(this->currentCredit[tid] > 0) {
+			//this->currentCredit[tid] -= getFireableCount(tid);
+			for(unsigned int c = 0; c < numChannels; ++c) {
+				printf("instidx = %d\tcc = %d\tfireableCount = %d\ttotalFireable =  %d\tnumProduced = %d\tblockIdx.x = %d\n", tid, cc, fireableCount, totalFireable, getChannel(c)->getNumItemsProduced(tid), blockIdx.x);
+			}
+			if(cc != 0)
+			assert((cc >= fireableCount));
+			if(this->hasSignal[tid])
+			this->currentCredit[tid] -= fireableCount;
+		//}
+		//printf("currentCredit[%d]: %d\n", tid, this->currentCredit[tid]);
+	}
+      __syncthreads();
+	if(tid < numInstances)
+		printf("currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
 	//stimcheck: Pass Signals here
 	//Do test on if the module is a of a certain type (Enumerate, Aggregate, Normal)
-	if(true) {
+	//if(true) {
 		
-	}
+	//}
     }
   };  // end ModuleType class
 }  // end Mercator namespace
