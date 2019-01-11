@@ -243,12 +243,14 @@ namespace Mercator  {
     //
     __device__
     unsigned int 
-    computeNumFireable(unsigned int instIdx) const
+    computeNumFireable(unsigned int instIdx, unsigned int numPendingSignals) const
     {
       assert(instIdx < numInstances);
       
       // start at max fireable, then discover bottleneck
       unsigned int numFireable = numInputsPending(instIdx);
+
+      //printf("NUM PEND SIG = %d\n", numPendingSignals);
       
       if (numFireable > 0)
 	{
@@ -259,10 +261,15 @@ namespace Mercator  {
 		channels[c]->dsCapacity(instIdx);
 	      
 	      //Check the setting of the credit for the total number of fireable items
-	      if(numInputsPendingSignal(instIdx) > 0) {
+		//printf((numPendingSignals > 0 ? "EARLY %d\t" : "LATE %d\t"), numPendingSignals);
+		//printf("numPendingSignals = %d, fn = %d\n", numPendingSignals, numInputsPendingSignal(instIdx));
+	      //if(numInputsPendingSignal(instIdx) > 0) {
+	      if(numPendingSignals > 0) {
 	      //if(hasSignal[instIdx]) {
-	      	numFireable = min(min(numFireable, dsCapacity), this->currentCredit[instIdx]);
-		//printf("MADE IT\t");
+	      	numFireable = min(numFireable, dsCapacity);
+	      	numFireable = min(numFireable, this->currentCredit[instIdx]);
+		//numFireable = this->currentCredit[instIdx];
+		printf("MADE IT cc = %d\t", numFireable);
 	      }
 	      else {
 	     	 numFireable = min(numFireable, dsCapacity);
@@ -297,17 +304,43 @@ namespace Mercator  {
       __shared__ unsigned int tf;
 
       //bool nhc = !(hasCredit());
-      //__syncthreads();
+      unsigned int numFireable = 0;
+      unsigned int numInputsPending = 0;
+      __syncthreads(); //
+
+      if(tid < numInstances && tid < WARP_SIZE) {
+      	numInputsPending = numInputsPendingSignal(tid);
+      }
+
+      __syncthreads(); //
+
+      //if(tid < WARP_SIZE) {
+      //	printf("PENDING SIGNALS[tid < WARP_SIZE %d] = %d\t", (tid < WARP_SIZE ? 1 : 0),  numInputsPending);
+      //}
+
+      __syncthreads(); //
       
       // The number of instances is <= the architectural warp size, so
       // just do the computation in a single warp, and then propagate
       // the final result out to all threads in the block.
       if (tid < WARP_SIZE)
 	{
-	  unsigned int numFireable = 0;
+	  //unsigned int numFireable = 0;
 	  if (tid < numInstances)
-	    numFireable = computeNumFireable(tid);
-	  
+	    numFireable = computeNumFireable(tid, numInputsPending);
+	}
+
+      __syncthreads(); //
+
+      if(tid < WARP_SIZE) {
+	  if(numFireable > 0) {
+	  	printf("NUM FIREABLE[%d] = %d\n", tid, numFireable);
+	  }
+        }
+
+      __syncthreads(); //
+
+      if (tid < WARP_SIZE) {
 	  unsigned int totalFireable;
 	  
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
@@ -688,7 +721,7 @@ namespace Mercator  {
     unsigned int numInputsPendingSignal(unsigned int instIdx) const
     {
       assert(instIdx < numInstances);
-      
+      //printf("IN HERE\t%d\t", signalQueue.getOccupancy(instIdx));
       return signalQueue.getOccupancy(instIdx);
     }
     
@@ -735,6 +768,13 @@ namespace Mercator  {
 	}
 	__syncthreads();
 
+	unsigned int sigQueueOcc = 0;
+	if(instIdx < numInstances) {
+		sigQueueOcc = signalQueue.getOccupancy(instIdx);
+	}
+
+	__syncthreads();
+
 	if(instIdx < numInstances) {
 		//printf("Signal Queue Occupancy: %d\n", signalQueue.getOccupancy(instIdx));
 		//if(signalQueue.getOccupancy(instIdx) > 0) {
@@ -747,7 +787,8 @@ namespace Mercator  {
 
 		//unsigned int numBefore[numInstances];
 
-		while(signalQueue.getOccupancy(instIdx) > i) {
+		//while(signalQueue.getOccupancy(instIdx) > i) {
+		while(sigQueueOcc > i) {
 			s = signalQueue.getElt(instIdx, i);
 			//Base case: we have credit to wait on
 

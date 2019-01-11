@@ -109,7 +109,7 @@ namespace Mercator  {
 	  __shared__ unsigned int fireableCounts [numModules];
 	  __shared__ unsigned int fireableSignalCounts [numModules];
 
-	  __shared__ unsigned int firedCounts [numModules];
+	  //__shared__ unsigned int firedCounts [numModules];
 	  
 	  // Calc number of inputs that can be fired (pending, and there
 	  // is space in the downstream queue to hold the results) for
@@ -154,6 +154,8 @@ namespace Mercator  {
 
 	      if (numSignalFireable > 0)
 		anyModuleSignalFireable = true;
+
+	      __syncthreads();
 
 	      if (IS_BOSS())
 		{
@@ -210,10 +212,10 @@ namespace Mercator  {
 	  modules[nextModuleIdx]->fire();
 
 	  ///////
-	  __syncthreads();
-	  if(IS_BOSS())
-	  	firedCounts[nextModuleIdx] += 1;
-	  __syncthreads();
+	  //__syncthreads();
+	  //if(IS_BOSS())
+	  //	firedCounts[nextModuleIdx] += 1;
+	  //__syncthreads();
 	  ///////
 	  
 	  TIMER_START(scheduler);

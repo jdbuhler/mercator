@@ -96,7 +96,7 @@ namespace Mercator  {
 
     __device__
     virtual
-    unsigned int findCount() { return -1; }
+    unsigned int findCount() { return 0; }
 
     ///////////////////////////////////////////////////////////////////
     // SCHEDULING INTERFACE (see ModuleType.cuh for details)
