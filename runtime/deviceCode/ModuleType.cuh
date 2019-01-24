@@ -266,12 +266,15 @@ namespace Mercator  {
 	      //if(numInputsPendingSignal(instIdx) > 0) {
 	      if(numPendingSignals > 0) {
 	      //if(hasSignal[instIdx]) {
+		printf("NUM FIREABLE = %d, CURRENT CREDIT = %d", numFireable, this->currentCredit[instIdx]);
+		assert(numFireable >= this->currentCredit[instIdx]);
 	      	numFireable = min(numFireable, dsCapacity);
 	      	numFireable = min(numFireable, this->currentCredit[instIdx]);
 		//numFireable = this->currentCredit[instIdx];
-		printf("MADE IT cc = %d\t", numFireable);
+		printf("MADE IT [%d, %d] cc = %d\t", instIdx, blockIdx.x, numFireable);
 	      }
 	      else {
+		 assert(this->currentCredit[instIdx] == 0);
 	     	 numFireable = min(numFireable, dsCapacity);
 	      }
 	    }
@@ -334,7 +337,7 @@ namespace Mercator  {
 
       if(tid < WARP_SIZE) {
 	  if(numFireable > 0) {
-	  	printf("NUM FIREABLE[%d] = %d\n", tid, numFireable);
+	  	printf("NUM FIREABLE[%d, %d] = %d\n", tid, blockIdx.x, numFireable);
 	  }
         }
 
@@ -796,7 +799,7 @@ namespace Mercator  {
 
 			//Currently must be true, since we are only working with signals that use the current downstream space
 			if(currentCredit[instIdx] > 0) {
-				assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
+				//assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
 			}
 
 			//Signal has Credit
@@ -806,7 +809,7 @@ namespace Mercator  {
 				//printf("Credit Signal Processed\n");
 				currentCredit[instIdx] = s.getCredit();
 				hasSignal[instIdx] = true;
-				printf("\nCredit Signal Processed\ncurrentCredit[%d]: %d\n\n", instIdx, currentCredit[instIdx]);
+				printf("\nCredit Signal Processed\ncurrentCredit[%d, %d]: %d\n\n", instIdx, blockIdx.x, currentCredit[instIdx]);
 			}
 
 			//Base case: we have credit to wait on
@@ -868,7 +871,7 @@ namespace Mercator  {
 
 			//Tail Signal
 			if(s.getTail()) {
-				printf("Tail Signal Processed\n");
+				//printf("Tail Signal Processed\n");
 				//using Channel = typename BaseType::Channel<int>;
 				this->setInTail(true);
 

@@ -192,6 +192,12 @@ namespace Mercator  {
 	  nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, !anyModuleFireable && anyModuleSignalFireable);
 
 	  __syncthreads();
+
+	  if(IS_BOSS()) {
+	  	printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), blockIdx.x);
+	  }
+
+	  __syncthreads(); ///
 /*
 	      bool enforceFullEnsembles =
 		(PREFER_FULL_ENSEMBLES   && 
@@ -340,6 +346,7 @@ namespace Mercator  {
 	}
       } //endif
       else {
+
       using ArgMax = BlockArgMax<unsigned int, 
 				 unsigned int, 
 				 THREADS_PER_BLOCK>;

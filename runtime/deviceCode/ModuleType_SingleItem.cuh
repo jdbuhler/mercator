@@ -244,10 +244,15 @@ namespace Mercator  {
 			for(unsigned int c = 0; c < numChannels; ++c) {
 				printf("instidx = %d\tcc = %d\tfireableCount = %d\ttotalFireable =  %d\tnumProduced = %d\tblockIdx.x = %d\n", tid, cc, fireableCount, totalFireable, getChannel(c)->getNumItemsProduced(tid), blockIdx.x);
 			}
-			if(cc != 0)
-			assert((cc >= fireableCount));
-			if(this->hasSignal[tid])
-			this->currentCredit[tid] -= fireableCount;
+			if(cc != 0) {
+				assert((cc >= fireableCount));
+				assert(this->hasSignal[tid]);
+			}
+			if(this->hasSignal[tid]) {
+				printf("SINGLE ITEM[%d] = %d\t", tid, fireableCount);
+				//assert(fireableCount >= this->currentCredit[tid]); //Can sometimes be false, if there is not enough space downstream
+				this->currentCredit[tid] -= fireableCount;
+			}
 		//}
 		//printf("currentCredit[%d]: %d\n", tid, this->currentCredit[tid]);
 	}
