@@ -110,10 +110,10 @@ namespace Mercator  {
     void fire()
     {
 	//printf("SINGLE ITEM MODULE CALLED\n");
-	  this->signalHandler();
+	this->signalHandler();
 
       unsigned int tid = threadIdx.x;
-      
+
       MOD_TIMER_START(gather);
       
       // obtain number of inputs that can be consumed by each instance
@@ -264,6 +264,8 @@ namespace Mercator  {
 	//if(true) {
 		
 	//}
+	this->signalHandler();
+	__syncthreads();
     }
   };  // end ModuleType class
 }  // end Mercator namespace
