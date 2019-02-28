@@ -132,7 +132,7 @@ namespace Mercator  {
     {
 	//if(IS_BOSS())
 	//	printf("SINK CALLED\n");
-	this->signalHandler();
+	////this->signalHandler();
       unsigned int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
@@ -148,8 +148,10 @@ namespace Mercator  {
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
 
-	if(totalFireable <= 0)
-		return;      
+	////if(totalFireable <= 0)
+	////	return;
+
+	if(totalFireable > 0) {      
 
       assert(totalFireable > 0);
       
@@ -215,6 +217,10 @@ namespace Mercator  {
 	  COUNT_ITEMS(fireableCount);
 	  queue.release(tid, fireableCount);
 	}
+
+	} //end main if
+
+      __syncthreads();
       
       MOD_TIMER_STOP(gather);
 
@@ -224,11 +230,15 @@ namespace Mercator  {
 		//if(this->currentCredit[tid] > 0) {
 			if(this->hasSignal[tid]) {
 			//this->currentCredit[tid] -= getFireableCount(tid);
-			this->currentCredit[tid] -= fireableCount;
+			//this->currentCredit[tid] -= fireableCount;
+			this->currentCredit[tid] = 0;
 		}
 	}
 	__syncthreads();
 	///////
+
+	this->signalHandler();
+	__syncthreads();
 
     }
     

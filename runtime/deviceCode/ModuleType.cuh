@@ -259,6 +259,8 @@ namespace Mercator  {
 	    {
 	      unsigned int dsCapacity = 
 		channels[c]->dsCapacity(instIdx);
+	      unsigned int dsSignalCapacity =
+		channels[c]->dsSignalCapacity(instIdx);
 	      
 	      //Check the setting of the credit for the total number of fireable items
 		//printf((numPendingSignals > 0 ? "EARLY %d\t" : "LATE %d\t"), numPendingSignals);
@@ -276,6 +278,11 @@ namespace Mercator  {
 	      else {
 		 assert(this->currentCredit[instIdx] == 0);
 	     	 numFireable = min(numFireable, dsCapacity);
+	      }
+
+	      //No downstream signal space available and signal available in queue, cannot proceed
+	      if(dsSignalCapacity == 0 && numPendingSignals > 0) {
+		numFireable = 0;
 	      }
 	    }
 	}
@@ -305,6 +312,7 @@ namespace Mercator  {
       int tid = threadIdx.x;
 
       __shared__ unsigned int tf;
+      __shared__ bool hasPendingSignal;
 
       //bool nhc = !(hasCredit());
       unsigned int numFireable = 0;
@@ -316,6 +324,12 @@ namespace Mercator  {
       }
 
       __syncthreads(); //
+
+      if(tid < numInstances && tid < WARP_SIZE) {
+	if(numInputsPending > 0) {
+	  hasPendingSignal = true;
+	}
+      }
 
       //if(tid < WARP_SIZE) {
       //	printf("PENDING SIGNALS[tid < WARP_SIZE %d] = %d\t", (tid < WARP_SIZE ? 1 : 0),  numInputsPending);
@@ -349,9 +363,14 @@ namespace Mercator  {
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
 	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
 	  
-	  if (enforceFullEnsembles && !hasCredit())
+	  //if (enforceFullEnsembles && !hasCredit())
 	  //if (enforceFullEnsembles)
+	  //if (enforceFullEnsembles && numInputsPending == 0)
+	    if (enforceFullEnsembles && !hasPendingSignal)
 	    {
+		//if(IS_BOSS()) {
+		//	printf("ENFORCING FULL ENSEMBLES hasPendingSignal = %d\n", (hasPendingSignal ? 1 : 0));
+		//}
 	      // round total fireable count down to a full multiple of # of
 	      // elements that can be consumed by one call to run()
 	      totalFireable = 
@@ -454,7 +473,7 @@ namespace Mercator  {
     unsigned int 
     computeNumSignalFireableTotal(bool enforceFullEnsembles)
     {
-      enforceFullEnsembles = false;
+      //enforceFullEnsembles = false;
       int tid = threadIdx.x;
       
       __shared__ unsigned int tf;
@@ -473,6 +492,8 @@ namespace Mercator  {
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
 	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
 	  
+	//stimcheck: No reason to ever enforce full ensembles for signals currently
+	/*
 	  if (enforceFullEnsembles)
 	    {
 	      // round total fireable count down to a full multiple of # of
@@ -484,7 +505,7 @@ namespace Mercator  {
 	      if (numFireable + sf > totalFireable)
 		numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
 	    }
-	  
+	  */
 	  // cache results of per-instance fireable calculation for later
 	  // use by module's firing function
 	  //stimcheck: DO NOT OVERWRITE CACHED FIREABLE COUNT HERE.  This refers to DATA not SIGNALS.
@@ -759,6 +780,7 @@ namespace Mercator  {
 	unsigned int tid = threadIdx.x;
 	unsigned int instIdx = tid;
 	unsigned int i = 0;
+	unsigned int sigQueueOcc = 0;
 	Signal s;
 	__syncthreads();
 
@@ -771,7 +793,6 @@ namespace Mercator  {
 	}
 	__syncthreads();
 
-	unsigned int sigQueueOcc = 0;
 	if(instIdx < numInstances) {
 		sigQueueOcc = signalQueue.getOccupancy(instIdx);
 	}
@@ -815,7 +836,7 @@ namespace Mercator  {
 			//Base case: we have credit to wait on
 			//If the current credit has reached 0, then we can consume signal
 			if(currentCredit[instIdx] > 0) {
-				printf("currentCredit[%d]: %d\t\tqueueContents = %d\n", instIdx, currentCredit[instIdx], queue.getOccupancy(instIdx));
+				printf("currentCredit[%d, %d]: %d\t\tqueueContents = %d\n", instIdx, blockIdx.x, currentCredit[instIdx], queue.getOccupancy(instIdx));
 				break;
 			}
 			else {
@@ -873,7 +894,8 @@ namespace Mercator  {
 			if(s.getTail()) {
 				//printf("Tail Signal Processed\n");
 				//using Channel = typename BaseType::Channel<int>;
-				this->setInTail(true);
+
+				//////////////////////////////////////////////////////////////this->setInTail(true);
 
 				//Create a new tail signal to send downstream
 				Signal s;
@@ -891,13 +913,16 @@ namespace Mercator  {
 					}
 					else {
 						s.setCredit(channel->dsPendingOccupancy(instIdx));
+						
 						//s.setCredit(0);
-						printf("pending occupancy: %d, Capacity: %d\n", channel->dsPendingOccupancy(instIdx), channel->dsCapacity(instIdx));
+						printf("New Tail Signal Propagated[%d, %d]\tpending occupancy: %d, Capacity: %d\n", instIdx, blockIdx.x, channel->dsPendingOccupancy(instIdx), channel->dsCapacity(instIdx));
 					}
 					dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 					//Write tail signal to downstream node
 					channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+
+					//printf("New Tail Signal Propagated[%d, %d]: Credit = %d\n", instIdx, blockIdx.x, channel->dsPendingOccupancy(instIdx));
 				}
 			}
 

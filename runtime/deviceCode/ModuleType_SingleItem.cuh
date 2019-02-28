@@ -110,7 +110,7 @@ namespace Mercator  {
     void fire()
     {
 	//printf("SINGLE ITEM MODULE CALLED\n");
-	this->signalHandler();
+	////this->signalHandler();
 
       unsigned int tid = threadIdx.x;
 
@@ -131,13 +131,16 @@ namespace Mercator  {
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
 
 	//stimcheck: No items to fire this time, only signals were processed
-	if(totalFireable <= 0) {
-		if(tid < numInstances) {
-			//printf("EXCPTION currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
-		}
-		__syncthreads();
-		return;
-	}
+	////if(totalFireable <= 0) {
+	////	if(tid < numInstances) {
+	////		//printf("EXCPTION currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
+	////	}
+	////	__syncthreads();
+	////	return;
+	////}
+
+      //stimcheck:  If the scheduler determined that there were fireable data elements, fire them, otherwise fire no data, syncthreads, and process signals.
+      if(totalFireable > 0) {
 
       assert(totalFireable > 0);
       
@@ -226,7 +229,11 @@ namespace Mercator  {
 	  COUNT_ITEMS(fireableCount);
 	  queue.release(tid, fireableCount);
 	}
-      
+
+
+      } //end main if
+
+
       // make sure caller sees updated queue state
       __syncthreads();
       
@@ -243,6 +250,7 @@ namespace Mercator  {
 			//this->currentCredit[tid] -= getFireableCount(tid);
 			for(unsigned int c = 0; c < numChannels; ++c) {
 				printf("instidx = %d\tcc = %d\tfireableCount = %d\ttotalFireable =  %d\tnumProduced = %d\tblockIdx.x = %d\n", tid, cc, fireableCount, totalFireable, getChannel(c)->getNumItemsProduced(tid), blockIdx.x);
+				//getChannel(c)->resetNumProduced(tid);
 			}
 			if(cc != 0) {
 				assert((cc >= fireableCount));
@@ -258,7 +266,7 @@ namespace Mercator  {
 	}
       __syncthreads();
 	if(tid < numInstances)
-		printf("currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
+		printf("currentCredit[%d, %d]: %d\tfireableCount =  %d\n", tid, blockIdx.x, this->currentCredit[tid], fireableCount);
 	//stimcheck: Pass Signals here
 	//Do test on if the module is a of a certain type (Enumerate, Aggregate, Normal)
 	//if(true) {

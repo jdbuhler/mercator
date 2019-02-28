@@ -400,9 +400,15 @@ namespace Mercator  {
 		{
 		  const Channel *channel = 
 		    static_cast<Channel *>(getChannel(c));
+
+		  //s.setCredit(channel->dsPendingOccupancy(tid));	  
 		  
 		  channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		  //printf("Wrote Tail Signal to channel %d [SOURCE, %d]\tpending occupancy: %d", c, blockIdx.x, s.getCredit());
+		  //printf("Wrote Tail Signal to channel\n");
 		}
+		  //printf("Wrote Tail Signal to channel\n");
+		//printf("Wrote Tail Signals to %d channels [SOURCE, %d]\tpending occupancy: %d", numChannels, blockIdx.x);
 		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
 
 		//printf("PUSHED SIGNAL, %d, %d, blkIdx.x %d, thrdIdx.x %d, dsSignalBase: %d\n", (this->isThreadGroupLeader() ? 1 : 0), numChannels, blockIdx.x, threadIdx.x, dsSignalBase[tid]);
