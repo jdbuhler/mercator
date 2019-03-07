@@ -243,17 +243,19 @@ namespace Mercator  {
     //
     __device__
     unsigned int 
-    computeNumFireable(unsigned int instIdx, unsigned int numPendingSignals) const
+    //computeNumFireable(unsigned int instIdx, unsigned int numPendingSignals) const
+    computeNumFireable(unsigned int instIdx, bool numPendingSignals) const
     {
       assert(instIdx < numInstances);
       
       // start at max fireable, then discover bottleneck
       unsigned int numFireable = numInputsPending(instIdx);
+      bool madeIt = false;
 
       //printf("NUM PEND SIG = %d\n", numPendingSignals);
       
-      if (numFireable > 0)
-	{
+      //if (numFireable > 0)
+	//{
 	  // for each channel
 	  for (unsigned int c = 0; c < numChannels; ++c)
 	    {
@@ -266,9 +268,11 @@ namespace Mercator  {
 		//printf((numPendingSignals > 0 ? "EARLY %d\t" : "LATE %d\t"), numPendingSignals);
 		//printf("numPendingSignals = %d, fn = %d\n", numPendingSignals, numInputsPendingSignal(instIdx));
 	      //if(numInputsPendingSignal(instIdx) > 0) {
-	      if(numPendingSignals > 0) {
+	      //if(numPendingSignals > 0) {
+	      if(numPendingSignals) {
 	      //if(hasSignal[instIdx]) {
-		printf("NUM FIREABLE = %d, CURRENT CREDIT = %d", numFireable, this->currentCredit[instIdx]);
+		madeIt = true;
+		printf("[%d, %d] NUM FIREABLE = %d, CURRENT CREDIT = %d\n", blockIdx.x, instIdx, numFireable, this->currentCredit[instIdx]);
 		assert(numFireable >= this->currentCredit[instIdx]);
 	      	numFireable = min(numFireable, dsCapacity);
 	      	numFireable = min(numFireable, this->currentCredit[instIdx]);
@@ -277,16 +281,31 @@ namespace Mercator  {
 	      }
 	      else {
 		 assert(this->currentCredit[instIdx] == 0);
+		 assert(numPendingSignals == 0);
 	     	 numFireable = min(numFireable, dsCapacity);
+		printf("IT MADE\n");
 	      }
 
 	      //No downstream signal space available and signal available in queue, cannot proceed
-	      if(dsSignalCapacity == 0 && numPendingSignals > 0) {
+	      if(dsSignalCapacity == 0 && numPendingSignals) {
 		numFireable = 0;
 	      }
 	    }
+	//}
+
+	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
+	//for correct signal handling.
+	if(numChannels == 0 && numPendingSignals) {
+		numFireable = min(numFireable, this->currentCredit[instIdx]);
 	}
       
+      if(numPendingSignals) {
+	//printf("NUM PENDING SIGNALS = %d\n", numPendingSignals);
+	assert(this->currentCredit[instIdx] <= numFireable);
+	//if(this->currentCredit[instIdx] <= numFireable && !madeIt) {
+	//	printf("BIG PROBLEM %d\n", numChannels);
+	//}
+      }
       return numFireable;
     }
     
@@ -312,7 +331,7 @@ namespace Mercator  {
       int tid = threadIdx.x;
 
       __shared__ unsigned int tf;
-      __shared__ bool hasPendingSignal;
+      __shared__ bool hasPendingSignal;  //This doesn't need to be shared, right?
 
       //bool nhc = !(hasCredit());
       unsigned int numFireable = 0;
@@ -344,7 +363,8 @@ namespace Mercator  {
 	{
 	  //unsigned int numFireable = 0;
 	  if (tid < numInstances)
-	    numFireable = computeNumFireable(tid, numInputsPending);
+	    //numFireable = computeNumFireable(tid, numInputsPending);
+	    numFireable = computeNumFireable(tid, hasPendingSignal);
 	}
 
       __syncthreads(); //
@@ -417,6 +437,22 @@ namespace Mercator  {
 	return c;
     }
     
+    /*
+    __device__
+    unsigned int
+    getTotalCredit() {
+	__shared__ unsigned int c;
+	if(IS_BOSS()) {
+		c = 0;
+		for(unsigned int i = 0; i < numInstances; ++i) {
+			c += currentCredit[i];
+		}
+	}
+	//printf("HERE %d\t", (c ? 1 : 0));
+	__syncthreads();
+	return c;
+    }
+    */
     //stimcheck:  Compute the number of fireable signals, used for clearing queues that still have signals
     //
     // @brief Compute the number of inputs that can safely be consumed
@@ -820,7 +856,7 @@ namespace Mercator  {
 
 			//Currently must be true, since we are only working with signals that use the current downstream space
 			if(currentCredit[instIdx] > 0) {
-				//assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
+				assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
 			}
 
 			//Signal has Credit

@@ -151,6 +151,14 @@ namespace Mercator  {
 	////if(totalFireable <= 0)
 	////	return;
 
+	if(tid < numInstances) {
+		if(this->currentCredit[tid] > 0) {
+			if(fireableCount < this->currentCredit[tid]) {
+				printf("HERE, currentCredit[%d, %d] = %d, fireableCount = %d\n", tid, blockIdx.x, this->currentCredit[tid], fireableCount);
+			}
+		}
+	}
+
 	if(totalFireable > 0) {      
 
       assert(totalFireable > 0);
@@ -165,6 +173,13 @@ namespace Mercator  {
       __syncthreads(); // make sure all threads see base values
       
       Queue<T> &queue = this->queue; 
+
+      //if(tid < numInstances) {
+	//printf("SINK TEST\t");
+	//if(queue.getOccupancy(tid) < this->currentCredit[tid]) {
+	//	printf("SINK PROBLEM\n");
+	//}
+      //}
       
       // Iterate over inputs to be run in block-sized chunks.
       // Transfer data directly from input queues for each instance
@@ -203,6 +218,7 @@ namespace Mercator  {
 				  myData);
 	    }
 	  
+	  __syncthreads(); ///ADDED IN
 	  MOD_TIMER_STOP(scatter);
 	  MOD_TIMER_START(gather);
 	}
@@ -230,8 +246,9 @@ namespace Mercator  {
 		//if(this->currentCredit[tid] > 0) {
 			if(this->hasSignal[tid]) {
 			//this->currentCredit[tid] -= getFireableCount(tid);
-			//this->currentCredit[tid] -= fireableCount;
-			this->currentCredit[tid] = 0;
+			this->currentCredit[tid] -= fireableCount;
+			//this->currentCredit[tid] = 0;
+			//assert(this->queue.getOccupancy(tid) >= this->currentCredit[tid]);
 		}
 	}
 	__syncthreads();

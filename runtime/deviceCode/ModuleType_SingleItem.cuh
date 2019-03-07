@@ -150,6 +150,10 @@ namespace Mercator  {
       //Queue<Signal> &signalQueue = this->signalQueue; 
 
 	  //this->signalHandler();
+	//if(tid < numInstances) {
+	//	if(queue.getOccupancy(tid) < this->currentCredit[tid])
+	//		printf("SINGLE PROBLEM\n");
+	//}
 
       // Iterate over inputs to be run in block-sized chunks.
       // Do both gathering and execution of inputs in each iteration.

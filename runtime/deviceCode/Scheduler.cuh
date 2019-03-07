@@ -194,7 +194,7 @@ namespace Mercator  {
 	  __syncthreads();
 
 	  if(IS_BOSS()) {
-	  	printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), blockIdx.x);
+	  	printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, {fireableCount = %d   fireableSignalCount = %d   hasCredit = %d} blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx], (modules[nextModuleIdx]->hasCredit() ? 1 : 0), blockIdx.x);
 	  }
 
 	  __syncthreads(); ///
@@ -238,12 +238,15 @@ namespace Mercator  {
       // stimcheck:  Add the check for signal queue
       bool hasPending = false;
       bool hasPendingS = false;
+      bool hasPendingC = false;
       for (unsigned int j = 0; j < numModules; j++)
 	{
 	  unsigned int n = modules[j]->computeNumPendingTotal();
 	  unsigned int ns = modules[j]->computeNumPendingTotalSignal();
+	  bool nc = modules[j]->hasCredit();
 	  hasPending |= (n > 0);
 	  hasPendingS |= (ns > 0);
+	  hasPendingC |= (nc);
 	/*
 	  if(ns > 0) {
 		printf("SIGNALS REMAINING MODULE %d, %d: %d\n", j, modules[j] == sourceModule, ns);
@@ -258,6 +261,7 @@ namespace Mercator  {
       assert(!hasPending);
 	//printf("PASSED DATA CHECK\n");
 	//__syncthreads();
+      //assert(!hasPendingC);
 #endif
     }
 
