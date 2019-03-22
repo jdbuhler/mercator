@@ -250,7 +250,7 @@ namespace Mercator  {
       
       // start at max fireable, then discover bottleneck
       unsigned int numFireable = numInputsPending(instIdx);
-      bool madeIt = false;
+      //bool madeIt = false;
 
       //printf("NUM PEND SIG = %d\n", numPendingSignals);
       
@@ -271,25 +271,25 @@ namespace Mercator  {
 	      //if(numPendingSignals > 0) {
 	      if(numPendingSignals) {
 	      //if(hasSignal[instIdx]) {
-		madeIt = true;
+		//madeIt = true;
 		printf("[%d, %d] NUM FIREABLE = %d, CURRENT CREDIT = %d\n", blockIdx.x, instIdx, numFireable, this->currentCredit[instIdx]);
 		assert(numFireable >= this->currentCredit[instIdx]);
 	      	numFireable = min(numFireable, dsCapacity);
 	      	numFireable = min(numFireable, this->currentCredit[instIdx]);
 		//numFireable = this->currentCredit[instIdx];
-		printf("MADE IT [%d, %d] cc = %d\t", instIdx, blockIdx.x, numFireable);
+		printf("MADE IT [%d, %d] cc = %d, dsCap = %d\t", instIdx, blockIdx.x, numFireable, dsCapacity);
 	      }
 	      else {
 		 assert(this->currentCredit[instIdx] == 0);
 		 assert(numPendingSignals == 0);
 	     	 numFireable = min(numFireable, dsCapacity);
-		printf("IT MADE\n");
+		 printf("IT MADE[%d, %d] cc = %d\t", instIdx, blockIdx.x, numFireable);
 	      }
 
 	      //No downstream signal space available and signal available in queue, cannot proceed
-	      if(dsSignalCapacity == 0 && numPendingSignals) {
-		numFireable = 0;
-	      }
+	      //if(dsSignalCapacity == 0 && numPendingSignals) {
+		//numFireable = 0;
+	     // }
 	    }
 	//}
 
@@ -426,18 +426,21 @@ namespace Mercator  {
     __device__
     bool
     hasCredit() {
-	__shared__ bool c;
-	for(unsigned int i = 0; i < numInstances; ++i) {
-		if(currentCredit[i] > 0) {
-			c = true;
+	//bool c = false;
+	//if(IS_BOSS()) {
+		for(unsigned int i = 0; i < numInstances; ++i) {
+			if(currentCredit[i] > 0) {
+				return true;
+			}
 		}
-	}
+	//}
 	//printf("HERE %d\t", (c ? 1 : 0));
 	//__syncthreads();
-	return c;
+	//return c;
+	return false;
     }
     
-    /*
+    
     __device__
     unsigned int
     getTotalCredit() {
@@ -452,7 +455,7 @@ namespace Mercator  {
 	__syncthreads();
 	return c;
     }
-    */
+    
     //stimcheck:  Compute the number of fireable signals, used for clearing queues that still have signals
     //
     // @brief Compute the number of inputs that can safely be consumed

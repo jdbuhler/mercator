@@ -48,6 +48,11 @@ namespace Mercator  {
     bool isInTailInit() const 
     { return inTailInit; }
 
+    __device__
+    virtual
+    unsigned int
+    getTotalCredit() = 0;
+
     //
     // @brief Indicate whether the module is in the tail of execution.
     //
