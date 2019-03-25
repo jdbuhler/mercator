@@ -130,9 +130,6 @@ namespace Mercator  {
     virtual
     void fire()
     {
-	//if(IS_BOSS())
-	//	printf("SINK CALLED\n");
-	////this->signalHandler();
       unsigned int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
@@ -147,17 +144,6 @@ namespace Mercator  {
       
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
-
-	////if(totalFireable <= 0)
-	////	return;
-
-	if(tid < numInstances) {
-		if(this->currentCredit[tid] > 0) {
-			if(fireableCount < this->currentCredit[tid]) {
-				printf("HERE, currentCredit[%d, %d] = %d, fireableCount = %d\n", tid, blockIdx.x, this->currentCredit[tid], fireableCount);
-			}
-		}
-	}
 
 	if(totalFireable > 0) {      
 
@@ -174,13 +160,6 @@ namespace Mercator  {
       
       Queue<T> &queue = this->queue; 
 
-      //if(tid < numInstances) {
-	//printf("SINK TEST\t");
-	//if(queue.getOccupancy(tid) < this->currentCredit[tid]) {
-	//	printf("SINK PROBLEM\n");
-	//}
-      //}
-      
       // Iterate over inputs to be run in block-sized chunks.
       // Transfer data directly from input queues for each instance
       // to output sinks.
@@ -243,12 +222,8 @@ namespace Mercator  {
 	///////
 	//stimcheck: Decrement credit (if needed)
 	if(tid < numInstances) {
-		//if(this->currentCredit[tid] > 0) {
-			if(this->hasSignal[tid]) {
-			//this->currentCredit[tid] -= getFireableCount(tid);
+		if(this->hasSignal[tid]) {
 			this->currentCredit[tid] -= fireableCount;
-			//this->currentCredit[tid] = 0;
-			//assert(this->queue.getOccupancy(tid) >= this->currentCredit[tid]);
 		}
 	}
 	__syncthreads();

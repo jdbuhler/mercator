@@ -109,9 +109,6 @@ namespace Mercator  {
     virtual
     void fire()
     {
-	//printf("SINGLE ITEM MODULE CALLED\n");
-	////this->signalHandler();
-
       unsigned int tid = threadIdx.x;
 
       MOD_TIMER_START(gather);
@@ -119,9 +116,6 @@ namespace Mercator  {
       // obtain number of inputs that can be consumed by each instance
       unsigned int fireableCount = 
 	(tid < numInstances ? getFireableCount(tid) : 0);
-
-	//if(IS_BOSS())
-	//	printf("Cached fireable count = %d\n", fireableCount);
       
       // compute progressive sums of items to be consumed in each instance,
       // and replicate these sums in each WARP as Ai.
@@ -129,15 +123,6 @@ namespace Mercator  {
 
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
-
-	//stimcheck: No items to fire this time, only signals were processed
-	////if(totalFireable <= 0) {
-	////	if(tid < numInstances) {
-	////		//printf("EXCPTION currentCredit[%d]: %d\tfireableCount =  %d\n", tid, this->currentCredit[tid], fireableCount);
-	////	}
-	////	__syncthreads();
-	////	return;
-	////}
 
       //stimcheck:  If the scheduler determined that there were fireable data elements, fire them, otherwise fire no data, syncthreads, and process signals.
       if(totalFireable > 0) {
@@ -147,13 +132,6 @@ namespace Mercator  {
       MOD_OCC_COUNT(totalFireable);
       
       Queue<T> &queue = this->queue; 
-      //Queue<Signal> &signalQueue = this->signalQueue; 
-
-	  //this->signalHandler();
-	//if(tid < numInstances) {
-	//	if(queue.getOccupancy(tid) < this->currentCredit[tid])
-	//		printf("SINGLE PROBLEM\n");
-	//}
 
       // Iterate over inputs to be run in block-sized chunks.
       // Do both gathering and execution of inputs in each iteration.
@@ -243,39 +221,16 @@ namespace Mercator  {
       
       MOD_TIMER_STOP(gather);
 
-	unsigned int cc = 0;
-	if(tid < numInstances)
-		cc = this->currentCredit[tid]; 
       __syncthreads();
 
 	//stimcheck: Decrement credit for the module here (if needed)
 	if(tid < numInstances) {
-		//if(this->currentCredit[tid] > 0) {
-			//this->currentCredit[tid] -= getFireableCount(tid);
-			//for(unsigned int c = 0; c < numChannels; ++c) {
-			//	printf("instidx = %d\tcc = %d\tfireableCount = %d\ttotalFireable =  %d\tnumProduced = %d\tblockIdx.x = %d\n", tid, cc, fireableCount, totalFireable, getChannel(c)->getNumItemsProduced(tid), blockIdx.x);
-				//getChannel(c)->resetNumProduced(tid);
-			//}
-			if(cc != 0) {
-				assert((cc >= fireableCount));
-				assert(this->hasSignal[tid]);
-			}
-			if(this->hasSignal[tid]) {
-				//printf("SINGLE ITEM[%d] = %d\t", tid, fireableCount);
-				//assert(fireableCount >= this->currentCredit[tid]); //Can sometimes be false, if there is not enough space downstream
-				this->currentCredit[tid] -= fireableCount;
-			}
-		//}
-		//printf("currentCredit[%d]: %d\n", tid, this->currentCredit[tid]);
+		if(this->hasSignal[tid]) {
+			this->currentCredit[tid] -= fireableCount;
+		}
 	}
-      __syncthreads();
-	//if(tid < numInstances)
-	//	printf("currentCredit[%d, %d]: %d\tfireableCount =  %d\n", tid, blockIdx.x, this->currentCredit[tid], fireableCount);
-	//stimcheck: Pass Signals here
-	//Do test on if the module is a of a certain type (Enumerate, Aggregate, Normal)
-	//if(true) {
-		
-	//}
+	__syncthreads();
+
 	this->signalHandler();
 	__syncthreads();
     }

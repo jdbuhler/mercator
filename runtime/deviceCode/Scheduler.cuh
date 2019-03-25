@@ -83,34 +83,9 @@ namespace Mercator  {
       // main scheduling loop
       while (true)
 	{
-	  // First, check if the global input buffer is exhausted by seeing
-	  // if the source module has run out of work to do.  If so, every
-	  // module should be in the tail of execution.
-	  //
-	  // FIXME: the tail indicator should become a signal that is
-	  // passed from the source down through the app, so that modules
-	  // do not switch to the tail of execution prematurely.
-	  //
-	  /*
-	  if (sourceModule->isInTail())
-	    {
-	      for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
-		{
-		  int idx = base + tid;
-		  
-		  if (idx < numModules)
-		    modules[idx]->setInTail(true);
-		}
-	      
-	      __syncthreads(); // make sure everyone can see tail status
-	    }
-	  */
-
 	  __shared__ unsigned int fireableCounts [numModules];
 	  __shared__ unsigned int fireableSignalCounts [numModules];
 
-	  //__shared__ unsigned int firedCounts [numModules];
-	  
 	  // Calc number of inputs that can be fired (pending, and there
 	  // is space in the downstream queue to hold the results) for
 	  // each module.
@@ -122,12 +97,6 @@ namespace Mercator  {
 
 	      // ignore full ensemble rule if we are in the tail of
 	      // execution, or if we are the source
-/*
-	      bool enforceFullEnsembles =
-		(PREFER_FULL_ENSEMBLES   && 
-		 !sourceModule->isInTail() && 
-		 mod != sourceModule);
-*/		
 
 	      bool enforceFullEnsembles =
 		(PREFER_FULL_ENSEMBLES   && 
@@ -180,65 +149,25 @@ namespace Mercator  {
 	  // Call the scheduling algorithm to pick next module to fire
 	  //
 	  unsigned int nextModuleIdx;
-	 /*
-	  if(!anyModuleFireable && anyModuleSignalFireable) {
-		//printf("SIGNALS LEFTOVER counter = %d\n", schedulerCounter);
-	  	nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, true);
-	  }
-	  else {
-	  	nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, false);
-	  }
-	*/
 	  nextModuleIdx = chooseModuleToFire(fireableCounts, fireableSignalCounts, !anyModuleFireable && anyModuleSignalFireable);
 
 	  __syncthreads();
 
-	  ////int tc = -9999;
-	  ////if(modules[nextModuleIdx]->hasCredit()) {
-	  ////	tc = modules[nextModuleIdx]->getTotalCredit();
-	  ////}
-
-	  ////__syncthreads();
-
 	  if(IS_BOSS()) {
-	  	//printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, {fireableCount = %d   fireableSignalCount = %d   hasCredit = %d  totalCredit = %d} blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx], (modules[nextModuleIdx]->hasCredit() ? 1 : 0), tc, blockIdx.x);
 		assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
 	  }
 
 	  __syncthreads(); ///
-/*
-	      bool enforceFullEnsembles =
-		(PREFER_FULL_ENSEMBLES   && 
-		 !modules[nextModuleIdx]->isInTail() && 
-		 modules[nextModuleIdx] != sourceModule);
 
-	  __syncthreads();
-
-	  printf("BlockIdx.x = %d\n\tnumTotalSignalFireable = %d\n\tnumFireableTotal = %d\n\tnumPendingTotalSignal = %d\n\tnumPendingTotal = %d\n\n",
-		 blockIdx.x,
-		 modules[nextModuleIdx]->computeNumSignalFireableTotal(enforceFullEnsembles),
-		 modules[nextModuleIdx]->computeNumFireableTotal(enforceFullEnsembles),
-		 modules[nextModuleIdx]->computeNumPendingTotalSignal(),
-		 modules[nextModuleIdx]->computeNumPendingTotal());
-*/	  
 	  TIMER_STOP(scheduler);
 	  
 	  modules[nextModuleIdx]->fire();
 
-	  ///////
-	  //__syncthreads();
-	  //if(IS_BOSS())
-	  //	firedCounts[nextModuleIdx] += 1;
-	  //__syncthreads();
-	  ///////
-	  
 	  TIMER_START(scheduler);
 	}
       
       __syncthreads(); // make sure final state is visible to all threads
       
-	//if(IS_BOSS())
-	//	printf("SCHEDULER COUNTER: %d\n", schedulerCounter);
       TIMER_STOP(scheduler);
       
 #ifndef NDEBUG
@@ -255,20 +184,10 @@ namespace Mercator  {
 	  hasPending |= (n > 0);
 	  hasPendingS |= (ns > 0);
 	  hasPendingC |= (nc);
-	/*
-	  if(ns > 0) {
-		printf("SIGNALS REMAINING MODULE %d, %d: %d\n", j, modules[j] == sourceModule, ns);
-		//modules[j]->fire();
-	  }
-	*/
 	}
       
       assert(!hasPendingS);
-	//printf("PASSED SINGAL CHECK\n");
-	//__syncthreads();
       assert(!hasPending);
-	//printf("PASSED DATA CHECK\n");
-	//__syncthreads();
       assert(!hasPendingC);
 #endif
     }
