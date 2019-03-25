@@ -193,15 +193,15 @@ namespace Mercator  {
 
 	  __syncthreads();
 
-	  int tc = -9999;
-	  if(modules[nextModuleIdx]->hasCredit()) {
-	  	tc = modules[nextModuleIdx]->getTotalCredit();
-	  }
+	  ////int tc = -9999;
+	  ////if(modules[nextModuleIdx]->hasCredit()) {
+	  ////	tc = modules[nextModuleIdx]->getTotalCredit();
+	  ////}
 
-	  __syncthreads();
+	  ////__syncthreads();
 
 	  if(IS_BOSS()) {
-	  	printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, {fireableCount = %d   fireableSignalCount = %d   hasCredit = %d  totalCredit = %d} blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx], (modules[nextModuleIdx]->hasCredit() ? 1 : 0), tc, blockIdx.x);
+	  	//printf("\n-------------------------------\n\nNEW SCHEDULE STARTED [nmodidx = %d], {smod = %d}, {fireableCount = %d   fireableSignalCount = %d   hasCredit = %d  totalCredit = %d} blkidx = %d\n\n-------------------------------\n", nextModuleIdx, (modules[nextModuleIdx] == sourceModule ? 1 : 0), fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx], (modules[nextModuleIdx]->hasCredit() ? 1 : 0), tc, blockIdx.x);
 		assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
 	  }
 

@@ -269,22 +269,22 @@ namespace Mercator  {
 		//printf("numPendingSignals = %d, fn = %d\n", numPendingSignals, numInputsPendingSignal(instIdx));
 	      //if(numInputsPendingSignal(instIdx) > 0) {
 	      //if(numPendingSignals > 0) {
-	      if(numPendingSignals) {
+	      ////if(numPendingSignals) {
 	      //if(hasSignal[instIdx]) {
 		//madeIt = true;
-		printf("[%d, %d] NUM FIREABLE = %d, CURRENT CREDIT = %d\n", blockIdx.x, instIdx, numFireable, this->currentCredit[instIdx]);
+		//////printf("[%d, %d] NUM FIREABLE = %d, CURRENT CREDIT = %d\n", blockIdx.x, instIdx, numFireable, this->currentCredit[instIdx]);
 		assert(numFireable >= this->currentCredit[instIdx]);
 	      	numFireable = min(numFireable, dsCapacity);
-	      	numFireable = min(numFireable, this->currentCredit[instIdx]);
+	      	////numFireable = min(numFireable, this->currentCredit[instIdx]);
 		//numFireable = this->currentCredit[instIdx];
-		printf("MADE IT [%d, %d] cc = %d, dsCap = %d\t", instIdx, blockIdx.x, numFireable, dsCapacity);
-	      }
-	      else {
-		 assert(this->currentCredit[instIdx] == 0);
-		 assert(numPendingSignals == 0);
+		////printf("MADE IT [%d, %d] cc = %d, dsCap = %d\t", instIdx, blockIdx.x, numFireable, dsCapacity);
+	      ////}
+	      ////else {
+		 ////assert(this->currentCredit[instIdx] == 0);
+		 ////assert(numPendingSignals == 0);
 	     	 numFireable = min(numFireable, dsCapacity);
-		 printf("IT MADE[%d, %d] cc = %d\t", instIdx, blockIdx.x, numFireable);
-	      }
+		 ////printf("IT MADE[%d, %d] cc = %d\t", instIdx, blockIdx.x, numFireable);
+	      ////}
 
 	      //No downstream signal space available and signal available in queue, cannot proceed
 	      //if(dsSignalCapacity == 0 && numPendingSignals) {
@@ -295,13 +295,14 @@ namespace Mercator  {
 
 	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
 	//for correct signal handling.
-	if(numChannels == 0 && numPendingSignals) {
+	//if(numChannels == 0 && numPendingSignals) {
+	if(numPendingSignals) {
 		numFireable = min(numFireable, this->currentCredit[instIdx]);
 	}
       
       if(numPendingSignals) {
 	//printf("NUM PENDING SIGNALS = %d\n", numPendingSignals);
-	assert(this->currentCredit[instIdx] <= numFireable);
+	////assert(this->currentCredit[instIdx] <= numFireable);
 	//if(this->currentCredit[instIdx] <= numFireable && !madeIt) {
 	//	printf("BIG PROBLEM %d\n", numChannels);
 	//}
@@ -369,11 +370,11 @@ namespace Mercator  {
 
       __syncthreads(); //
 
-      if(tid < WARP_SIZE) {
-	  if(numFireable > 0) {
-	  	printf("NUM FIREABLE[%d, %d] = %d\n", tid, blockIdx.x, numFireable);
-	  }
-        }
+      //if(tid < WARP_SIZE) {
+	//  if(numFireable > 0) {
+	 // 	printf("NUM FIREABLE[%d, %d] = %d\n", tid, blockIdx.x, numFireable);
+	 // }
+        //}
 
       __syncthreads(); //
 
@@ -869,13 +870,13 @@ namespace Mercator  {
 				//printf("Credit Signal Processed\n");
 				currentCredit[instIdx] = s.getCredit();
 				hasSignal[instIdx] = true;
-				printf("\nCredit Signal Processed\ncurrentCredit[%d, %d]: %d\n\n", instIdx, blockIdx.x, currentCredit[instIdx]);
+				//printf("\nCredit Signal Processed\ncurrentCredit[%d, %d]: %d\n\n", instIdx, blockIdx.x, currentCredit[instIdx]);
 			}
 
 			//Base case: we have credit to wait on
 			//If the current credit has reached 0, then we can consume signal
 			if(currentCredit[instIdx] > 0) {
-				printf("currentCredit[%d, %d]: %d\t\tqueueContents = %d\n", instIdx, blockIdx.x, currentCredit[instIdx], queue.getOccupancy(instIdx));
+				//printf("currentCredit[%d, %d]: %d\t\tqueueContents = %d\n", instIdx, blockIdx.x, currentCredit[instIdx], queue.getOccupancy(instIdx));
 				break;
 			}
 			else {
@@ -954,7 +955,7 @@ namespace Mercator  {
 						s.setCredit(channel->dsPendingOccupancy(instIdx));
 						
 						//s.setCredit(0);
-						printf("New Tail Signal Propagated[%d, %d]\tpending occupancy: %d, Capacity: %d\n", instIdx, blockIdx.x, channel->dsPendingOccupancy(instIdx), channel->dsCapacity(instIdx));
+						//printf("New Tail Signal Propagated[%d, %d]\tpending occupancy: %d, Capacity: %d\n", instIdx, blockIdx.x, channel->dsPendingOccupancy(instIdx), channel->dsCapacity(instIdx));
 					}
 					dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
