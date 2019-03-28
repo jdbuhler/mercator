@@ -13,8 +13,8 @@
 #include "Mandelbrot.cuh"
 
 // image resolution
-const uint32_t NX = 3840;
-const uint32_t NY = 2160;
+const uint32_t NX = 3840*4;
+const uint32_t NY = 2160*4;
 
 // image palette (from the UltraFractal program)
 const unsigned int NCOLORS = 16;

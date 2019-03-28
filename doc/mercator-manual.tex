@@ -453,9 +453,12 @@ The following grammar describes the syntax for module statements:
 <input-type> ::= <typename>
 
 <output-type> ::= void
+\alt <channel-spec>
 \alt <channel> [ `,' <channel> ... ]
 
-<channel> ::= <channel-name> `<' <typename> [ `:' <output-count> ] `>'
+<channel> ::= <channel-name> `<' <channel-spec> `>'
+
+<channel-spec> ::= <typename> [ `:' <output-count> ]
 
 <channel-name> ::= <identifier>
 
@@ -465,15 +468,16 @@ The following grammar describes the syntax for module statements:
 
 A module has an input data type and zero or more output
 \emph{channels} on which the module can emit data.  A channel has a
-name, an output data type, and an optional \emph{output count}
-specifying the maximum number of output items that can be generated on
-this channel for each input item consumed by the module.  The output
-count is a maximum value; the module may produce fewer outputs (but
-may not produce more) than the specified count for each input.  If no
-output count is specified, it is assumed to be 1, i.e.\ the module
-produces at most one output per input.  Adding the symbol
-``\texttt{!}''  after an output count indicates that the module
-produces \emph{exactly} this many outputs for each input.
+name (optional if it is a module's only channel), an output data type,
+and an optional \emph{output count} specifying the maximum number of
+output items that can be generated on this channel for each input item
+consumed by the module.  The output count is a maximum value; the
+module may produce fewer outputs (but may not produce more) than the
+specified count for each input.  If no output count is specified, it
+is assumed to be 1, i.e.\ the module produces at most one output per
+input.  Adding the symbol ``\texttt{!}''  after an output count
+indicates that the module produces \emph{exactly} this many outputs
+for each input.
 
 Output channel names must be unique within one module type but may be
 duplicated across module types.
@@ -909,6 +913,24 @@ of an app may be changed at any time by calling the method
 \end{quote}
 This call will block until all pending operations on the app's
 previous stream are complete, then switch to thee new stream.
+
+\subsection{Querying App Properties}
+
+Presently, the only property of an app that can be queried from the
+host is the number of GPU blocks that it will use to execute.  This
+property can be accessed by the following function: two optional
+arguments:
+\begin{quote}
+\texttt{int getNBlocks() const}
+\end{quote}
+This property is set when an app is instantiated and remains
+constant for a given instance.
+
+% FOR LATER -- query bound device and maybe stream?
+%              also perhaps heap and stack size?
+%              we may want to rethink the interface if we are
+%              going to add a lot of accessors, since each
+%              one currently needs its own function in the codegen'd class
 
 \subsection{Setting the App's Parameters}
 

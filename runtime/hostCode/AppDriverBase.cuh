@@ -27,6 +27,8 @@ namespace Mercator  {
       runAsync(params);
       join();
     }
+    
+    virtual int getNBlocks() const = 0;
   };
   
 }

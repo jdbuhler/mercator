@@ -75,7 +75,7 @@ A::run(const PipeEltT &inputItem, InstTagT nodeIdx)
   
   bool passThrough = (myItem.get_ID() < thresh);
   if (passThrough)
-    push(myItem, nodeIdx, Out::accept);
+    push(myItem, nodeIdx);
 }
 
 __device__

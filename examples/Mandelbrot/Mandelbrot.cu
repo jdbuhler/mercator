@@ -69,19 +69,8 @@ IteratePixel::run(const Pixel& pixel, InstTagT nodeIdx)
   else
     {
       // pixel has diverged, or we are out of iterations
-      push(pixel, nodeIdx, Out::accept);
+      auto params = getAppParams();
+  
+      params->image[pixel.idx] = pixel.iter;
     }
 }
-
-
-__device__
-void Mandelbrot_dev::
-WritePixel::run(const Pixel& pixel, InstTagT nodeIdx)
-{
-  auto params = getAppParams();
-  
-  params->image[pixel.idx] = pixel.iter;
-  
-  // nothing pushed
-}
-
