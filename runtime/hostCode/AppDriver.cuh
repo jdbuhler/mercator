@@ -98,7 +98,7 @@ namespace Mercator  {
 	   << devHeapSize
 	   << endl;
 #endif
-      
+
       //
       // OCCUPANCY CALCULATION
       //

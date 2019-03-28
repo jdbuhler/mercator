@@ -15,7 +15,8 @@ using namespace std;
 
 int main()
 {
-  const unsigned int NVALUES = 500000000; // half a BEEEELLION values
+  //const unsigned int NVALUES = 500000000; // half a BEEEELLION values
+  const unsigned int NVALUES = 500000; // half a BEEEELLION values
   
   srand(0);
   

@@ -7,8 +7,8 @@ project(MERCATOR_EXAMPLES
 
 cmake_minimum_required(VERSION 3.8)
 
-#set(CMAKE_BUILD_TYPE debug)
-set(CMAKE_BUILD_TYPE release)
+set(CMAKE_BUILD_TYPE debug)
+#set(CMAKE_BUILD_TYPE release)
 
 #set(CMAKE_VERBOSE_MAKEFILE on)
 
@@ -16,7 +16,9 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
+#set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
+#set(MERCATOR_ROOT_DIR /export/project/hondius/stimcheck/ymercator/mercator-0.9.1)
+set(MERCATOR_ROOT_DIR /export/project/hondius/stimcheck/ymercator/mercator)
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
@@ -35,10 +37,10 @@ set (CMAKE_CUDA_FLAGS_DEBUG
      "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
-     "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
+     "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
 
 set (CMAKE_CUDA_FLAGS_RELEASE
-     "${CMAKE_CUDA_FLAGS_RELEASE} -DNDEBUG")
+     "${CMAKE_CUDA_FLAGS_RELEASE} -UNDEBUG")
 
 set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
@@ -57,6 +59,10 @@ if(${BUILDING_IN_TREE})
   set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/build/compiler/mercator)
   include_directories(AFTER ${MERCATOR_ROOT_DIR}/build/runtime)
 endif()
+
+#add_subdirectory(FixToFloat)
+
+add_subdirectory(AffinityTest)
 
 add_subdirectory(SameTypePipe)
 
