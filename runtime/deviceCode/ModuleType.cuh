@@ -775,73 +775,73 @@ namespace Mercator  {
 			//Signal type cases
 			///////////////////
 
-			//Start Signal
-			if(s.getStart()) {
-				printf("Start Signal Processed\n");
-			}
+			Signal::SignalTag t = s.getTag();
+			switch(t) {
 
-			//End Signal
-			if(s.getEnd()) {
-				printf("End Signal Processed\n");
-			}
+				//Enumerate Signal
+				case Signal::SignalTag::Enum:
+				{
+					//Actual enumeration functionality happens in the module,
+					//nothing needs to be set by the signal handler, other than
+					//to begin a new aggregate if needed, otherwise continue
+					//to pass the signal downstream.
+					if(!(this->isAgg())) {		
+						//Create a new tail signal to send downstream
+						Signal s;
+						//s.setEnum(true);
+						//s.setCredit(
 
-			//Enumerate Signal
-			if(s.getEnum()) {
-				//Actual enumeration functionality happens in the module,
-				//nothing needs to be set by the signal handler, other than
-				//to begin a new aggregate if needed, otherwise continue
-				//to pass the signal downstream.
-				if(!(this->isAgg())) {		
+						//Reserve space downstream for tail signal
+						unsigned int dsSignalBase;
+		        			for (unsigned int c = 0; c < numChannels; c++) {
+							const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+							//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+							dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+							//Write tail signal to downstream node
+							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+						}
+					}
+					printf("Enumerate Signal Processed\n");
+					break;
+				}
+
+				//Aggregate Signal
+				case Signal::SignalTag::Agg:
+					printf("Aggregate Signal Processed\n");
+					break;
+
+				//Tail Signal
+				//stimcheck: Name of this signal may be misleading.  By nature of being a signal, the tail flag that was being set is no longer needed, as enforcing full ensembles does not occur while a signal is present.
+				case Signal::SignalTag::Tail:
+				{
 					//Create a new tail signal to send downstream
 					Signal s;
-					s.setEnum(true);
-					//s.setCredit(
+					s.setTag(Signal::SignalTag::Tail);
 
 					//Reserve space downstream for tail signal
 					unsigned int dsSignalBase;
-	        			for (unsigned int c = 0; c < numChannels; c++) {
+		        		for (unsigned int c = 0; c < numChannels; c++) {
 						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
 						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+
+						//Set the credit for our new signal depending on if there are already signals downstream.
+						if(channel->dsSignalQueueHasPending(instIdx)) {
+							s.setCredit(channel->getNumItemsProduced(instIdx));
+						}
+						else {
+							s.setCredit(channel->dsPendingOccupancy(instIdx));
+						}
 						dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 						//Write tail signal to downstream node
 						channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 					}
+					break;
 				}
-				printf("Enumerate Signal Processed\n");
-			}
-
-			//Aggregate Signal
-			if(s.getAgg()) {
-				printf("Aggregate Signal Processed\n");
-			}
-
-			//Tail Signal
-			//stimcheck: Name of this signal may be misleading.  By nature of being a signal, the tail flag that was being set is no longer needed, as enforcing full ensembles does not occur while a signal is present.
-			if(s.getTail()) {
-				//Create a new tail signal to send downstream
-				Signal s;
-				s.setTail(true);	
-
-				//Reserve space downstream for tail signal
-				unsigned int dsSignalBase;
-	        		for (unsigned int c = 0; c < numChannels; c++) {
-					const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-					//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-					//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
-
-					//Set the credit for our new signal depending on if there are already signals downstream.
-					if(channel->dsSignalQueueHasPending(instIdx)) {
-						s.setCredit(channel->getNumItemsProduced(instIdx));
-					}
-					else {
-						s.setCredit(channel->dsPendingOccupancy(instIdx));
-					}
-					dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-					//Write tail signal to downstream node
-					channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
-				}
+				default:
+					assert(false && "Signal without tag found, aborting . . .");
 			}
 
 			//Reset number of items produced if we have processed a signal

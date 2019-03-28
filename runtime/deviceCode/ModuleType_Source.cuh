@@ -135,7 +135,7 @@ namespace Mercator  {
 		this->setInTail(true);
 		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
 		Signal s;
-		s.setTail(true);
+		s.setTag(Signal::SignalTag::Tail);
 
 
 		//stimcheck: Send the isTail Signal to all channels
@@ -356,7 +356,7 @@ namespace Mercator  {
 		this->setInTail(true);
 		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
 		Signal s;
-		s.setTail(true);
+		s.setTag(Signal::SignalTag::Tail);
 		//s.setCredit(totalFireable); 
 
 		//stimcheck: Send the isTail Signal to all channels
