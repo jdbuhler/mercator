@@ -51,10 +51,28 @@ public:
       }
   }
   
+  __device__
+  void fine_start() 
+  { 
+    __syncthreads();
+    if (IS_BOSS())
+      fineStart = clock64(); 
+  }
+  
+  __device__
+  void fine_stop()  
+  { 
+    __syncthreads();
+    if (IS_BOSS())
+      {
+	DevClockT now = clock64();
+	// some array location = timeDiff(fineStart, now);
+      }
+  }
 private:
 
   DevClockT totalTime;  
-  
+  DevClockT fineStart;
   DevClockT lastStart;
 
   __device__
@@ -80,6 +98,7 @@ private:
 // that a timer object tm##Timer is in scope.
 //
 
+// coarse grained timer, times total amount of time spent in a node for life of kernel
 #ifdef INSTRUMENT_TIME
 #define TIMER_START(tm) { (tm ## Timer).start(); } 
 #else
@@ -91,5 +110,19 @@ private:
 #else
 #define TIMER_STOP(tm) {}
 #endif
+
+// fine grained timers, gets time spent in a single firing of single vector width of single node of single block
+#ifdef INSTRUMENT_TIME
+#define FINE_TIMER_START(tm) { (tm ## Timer).fine_start(); } 
+#else
+#define FINE_TIMER_START(tm) {}
+#endif
+
+#ifdef INSTRUMENT_TIME
+#define FINE_TIMER_STOP(tm) { (tm ## Timer).fine_stop(); } 
+#else
+#define FINE_TIMER_STOP(tm) {}
+#endif
+
 
 #endif
