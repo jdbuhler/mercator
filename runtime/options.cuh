@@ -15,6 +15,9 @@
 // instrument code timing for performance model parameters?
 //#define INSTRUMENT_TIME
 
+// instrument code timing for performance model parameters?
+//#define INSTRUMENT_FG_TIME
+
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS
 
@@ -27,6 +30,7 @@
 // 1 = collect data from all firings
 // 0 = collect data from all firings until tail is reached
 #define INSTRUMENT_TAIL
+
 
 //
 // Enable host instrumenation
