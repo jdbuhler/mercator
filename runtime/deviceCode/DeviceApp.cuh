@@ -104,6 +104,23 @@ namespace Mercator {
     }
 #endif
     
+#ifdef INSTRUMENT_FG_TIME
+    __device__
+    void printFGTimers() const
+    {
+      scheduler.printFGTimersCSV();
+      
+      for (unsigned int j = 0; j < numModules; j++)
+	modules[j]->printFGTimersCSV(j);
+    }
+
+    __device__
+    static
+    void printFGTimersCSVHeader()
+    {
+      printf("THIS IS A FAKE HEADER, COME BACK AND CHANGE THIS TOM, LOOK IN DeviceApp.cuh\n");
+    }
+#endif
 #ifdef INSTRUMENT_OCC
     __device__
     void printOccupancy() const
