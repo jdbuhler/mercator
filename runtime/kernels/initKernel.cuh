@@ -57,6 +57,11 @@ namespace Mercator {
       DeviceAppClass::printTimersCSVHeader();
 #endif
 
+#ifdef INSTRUMENT_TIME
+    if (IS_BOSS_BLOCK())
+      DeviceAppClass::printFGTimersCSVHeader();
+#endif
+
 #ifdef INSTRUMENT_OCC
     if (IS_BOSS_BLOCK())
       DeviceAppClass::printOccupancyCSVHeader();
