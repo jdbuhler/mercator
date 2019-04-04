@@ -92,6 +92,12 @@ namespace Mercator  {
     virtual
     void printTimersCSV(unsigned int moduleId) const = 0;
 #endif
+
+#ifdef INSTRUMENT_FG_TIME
+    __device__
+    virtual
+    void printFGTimersCSV(unsigned int moduleId) const = 0;
+#endif
     
 #ifdef INSTRUMENT_OCC
     __device__
