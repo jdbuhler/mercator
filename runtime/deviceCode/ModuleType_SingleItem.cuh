@@ -94,6 +94,10 @@ namespace Mercator  {
     using BaseType::scatterTimer;
 #endif
 
+#ifdef INSTRUMENT_TIME
+    using BaseType::fineGrainedTimer;
+#endif
+
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
@@ -166,14 +170,15 @@ namespace Mercator  {
 	  
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
+	  MOD_TIMER_FG_START(fineGrained); 
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-	  
 	  if (runWithAllThreads || idx < totalFireable)
 	    mod->run(myData, instIdx);
 	  
 	  __syncthreads(); // all threads must see active channel state
 	  
+	  MOD_TIMER_FG_START(fineGrained); 
 	  MOD_TIMER_STOP(run);
 	  MOD_TIMER_START(scatter);
 	  
