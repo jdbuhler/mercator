@@ -112,13 +112,13 @@ private:
 #endif
 
 // fine grained timers, gets time spent in a single firing of single vector width of single node of single block
-#ifdef INSTRUMENT_TIME
+#ifdef INSTRUMENT_FG_TIME
 #define FINE_TIMER_START(tm) { (tm ## Timer).fine_start(); } 
 #else
 #define FINE_TIMER_START(tm) {}
 #endif
 
-#ifdef INSTRUMENT_TIME
+#ifdef INSTRUMENT_FG_TIME
 #define FINE_TIMER_STOP(tm) { (tm ## Timer).fine_stop(); } 
 #else
 #define FINE_TIMER_STOP(tm) {}
