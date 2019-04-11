@@ -183,6 +183,10 @@ namespace Mercator  {
     using BaseType::scatterTimer;
 #endif
 
+#ifdef INSTRUMENT_FG_TIME
+   using BaseType::fineGrainedTimer;
+#endif
+
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif

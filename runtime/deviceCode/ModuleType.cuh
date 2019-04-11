@@ -543,6 +543,24 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////////////
     
 #ifdef INSTRUMENT_TIME
+    DeviceTimer gatherTimer;
+    DeviceTimer runTimer;
+    DeviceTimer scatterTimer;
+#endif
+
+#ifdef INSTRUMENT_FG_TIME
+    DeviceTimer fineGrainedTimer;
+#endif
+
+#ifdef INSTRUMENT_OCC
+    OccCounter occCounter;
+#endif
+
+#ifdef INSTRUMENT_COUNTS
+    ItemCounter<numInstances> itemCounter; // counts inputs to module
+#endif
+
+#ifdef INSTRUMENT_TIME
     //
     // @brief print the contents of the module's timers
     // @param moduleId a numerical identifier to print along with the
@@ -561,7 +579,22 @@ namespace Mercator  {
       printf("%d,%u,%llu,%llu,%llu\n",
 	     blockIdx.x, moduleId, gatherTime, runTime, scatterTime);
     }
+#endif
 
+#ifdef INSTRUMENT_FG_TIME
+    //
+    // @brief print the contents of the module's timers
+    // @param moduleId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    virtual
+    void printFGTimersCSV(unsigned int moduleId) const
+    {
+      assert(IS_BOSS());
+      DeviceTimer::DevClockT fineGrainedTime  = fineGrainedTimer.getTotalTime();
+      printf("%d,%u,%llu\n",blockIdx.x, moduleId, fineGrainedTime);
+    }
 #endif
 
 #ifdef INSTRUMENT_OCC
@@ -643,19 +676,6 @@ namespace Mercator  {
     // have to modify the Signals in the signal queue when decrementing credit.
     unsigned int numDataProduced[numInstances];
 
-#ifdef INSTRUMENT_TIME
-    DeviceTimer gatherTimer;
-    DeviceTimer runTimer;
-    DeviceTimer scatterTimer;
-#endif
-    
-#ifdef INSTRUMENT_OCC
-    OccCounter occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    ItemCounter<numInstances> itemCounter; // counts inputs to module
-#endif
     
     //
     // @brief inspector for the channels array (for subclasses)
