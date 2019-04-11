@@ -181,7 +181,7 @@ namespace Mercator  {
     }
 #endif
     
-#ifdef INSTRUMENT_TIME
+#ifdef INSTRUMENT_FG_TIME
     __device__
     void printFGTimersCSV() const
     {

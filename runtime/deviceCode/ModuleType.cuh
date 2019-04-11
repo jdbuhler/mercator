@@ -356,6 +356,24 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////////////
     
 #ifdef INSTRUMENT_TIME
+    DeviceTimer gatherTimer;
+    DeviceTimer runTimer;
+    DeviceTimer scatterTimer;
+#endif
+
+#ifdef INSTRUMENT_FG_TIME
+    DeviceTimer fineGrainedTimer;
+#endif
+
+#ifdef INSTRUMENT_OCC
+    OccCounter occCounter;
+#endif
+
+#ifdef INSTRUMENT_COUNTS
+    ItemCounter<numInstances> itemCounter; // counts inputs to module
+#endif
+
+#ifdef INSTRUMENT_TIME
     //
     // @brief print the contents of the module's timers
     // @param moduleId a numerical identifier to print along with the
@@ -374,7 +392,22 @@ namespace Mercator  {
       printf("%d,%u,%llu,%llu,%llu\n",
 	     blockIdx.x, moduleId, gatherTime, runTime, scatterTime);
     }
+#endif
 
+#ifdef INSTRUMENT_FG_TIME
+    //
+    // @brief print the contents of the module's timers
+    // @param moduleId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    virtual
+    void printFGTimersCSV(unsigned int moduleId) const
+    {
+      assert(IS_BOSS());
+      DeviceTimer::DevClockT fineGrainedTime  = fineGrainedTimer.getTotalTime();
+      printf("%d,%u,%llu\n",blockIdx.x, moduleId, fineGrainedTime);
+    }
 #endif
 
 #ifdef INSTRUMENT_OCC
@@ -444,6 +477,7 @@ namespace Mercator  {
     // most recently computed count of # fireable in each instance
     unsigned int lastFireableCount[numInstances];
     
+<<<<<<< HEAD
 #ifdef INSTRUMENT_TIME
     DeviceTimer gatherTimer;
     DeviceTimer runTimer;
@@ -457,6 +491,19 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     ItemCounter<numInstances> itemCounter; // counts inputs to module
 #endif
+=======
+    // stimcheck: Current credit available to each node
+    int currentCredit[numInstances];
+    bool hasSignal[numInstances];
+
+    // stimcheck: Current number of items the module has worked on (up till now)
+    // This is used to determine the amount of credit we need to give signals that
+    // are produced by the module (if any).  Can basically be ignored if we don't
+    // have any signals that require this knowledge.  This also allows us to not
+    // have to modify the Signals in the signal queue when decrementing credit.
+    unsigned int numDataProduced[numInstances];
+
+>>>>>>> 398e719... finegrained data collection almost implemented. runtime build without error. must create data collection buffer for each node and set up printing correctly
     
     //
     // @brief inspector for the channels array (for subclasses)

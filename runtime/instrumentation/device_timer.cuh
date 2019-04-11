@@ -11,8 +11,8 @@
 
 #include "options.cuh"
 
-#ifdef INSTRUMENT_TIME
-
+//#ifdef INSTRUMENT_TIME //or INSTRUMENT_FG_TIME
+#if defined(INSTRUMENT_TIME) || defined(INSTRUMENT_FG_TIME)
 #include "device_config.cuh" // for IS_BOSS
 
 class DeviceTimer {

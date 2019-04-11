@@ -35,9 +35,9 @@ namespace Mercator   {
       deviceAppObjs[blockIdx.x]->printTimers();
 #endif
 
-#ifdef INSTRUMENT_TIME
+#ifdef INSTRUMENT_FG_TIME
     if (IS_BOSS())
-      deviceAppObjs[blockIdx.x]->printFDTimers();
+      deviceAppObjs[blockIdx.x]->printFGTimers();
 #endif
 
 #ifdef INSTRUMENT_OCC

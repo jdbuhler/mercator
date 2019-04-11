@@ -30,6 +30,22 @@
 #endif
 
 #ifndef INSTRUMENT_TAIL
+#define MOD_FINE_TIMER_START(tm)			\
+  { if (!this->isInTail()) { FINE_TIMER_START(tm); } }
+#else
+#define MOD_FINE_TIMER_START(tm) \
+  { FINE_TIMER_START(tm); }
+#endif
+
+#ifndef INSTRUMENT_TAIL
+#define MOD_FINE_TIMER_STOP(tm)			\
+  { if (!this->isInTail()) { FINE_TIMER_STOP(tm); } }
+#else
+#define MOD_FINE_TIMER_STOP(tm) \
+  { FINE_TIMER_STOP(tm); }
+#endif
+
+#ifndef INSTRUMENT_TAIL
 #define MOD_OCC_COUNT(n)                        \
   { if (!this->isInTail()) { OCC_COUNT(n); } }
 #else
