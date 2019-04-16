@@ -15,8 +15,10 @@
 // instrument code timing for performance model parameters?
 //#define INSTRUMENT_TIME
 
-// instrument code timing for performance model parameters?
-#define INSTRUMENT_FG_TIME
+// instrument code for fine grained timing of nodes
+// this is actually overloaded to also represent the size of the 
+// storage array to make per node 
+//#define INSTRUMENT_FG_TIME 10
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS

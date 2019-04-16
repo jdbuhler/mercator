@@ -396,17 +396,19 @@ namespace Mercator  {
 
 #ifdef INSTRUMENT_FG_TIME
     //
-    // @brief print the contents of the module's timers
+    // @brief print the contents of a modules fg timer array
     // @param moduleId a numerical identifier to print along with the
     //    output
+    // @result blockid, moduleid, fdtime(i) 
     //
     __device__
     virtual
     void printFGTimersCSV(unsigned int moduleId) const
     {
       assert(IS_BOSS());
-      DeviceTimer::DevClockT fineGrainedTime  = fineGrainedTimer.getTotalTime();
-      printf("%d,%u,%llu\n",blockIdx.x, moduleId, fineGrainedTime);
+      for(unsigned int i=0; i < INSTRUMENT_FG_TIME; i++){
+        printf("%d,%u,%i,%llu\n",blockIdx.x, moduleId,i,fineGrainedTimer.getTimeArrayElm(i));
+      } 
     }
 #endif
 

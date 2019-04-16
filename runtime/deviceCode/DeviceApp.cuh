@@ -108,8 +108,6 @@ namespace Mercator {
     __device__
     void printFGTimers() const
     {
-      scheduler.printFGTimersCSV();
-      
       for (unsigned int j = 0; j < numModules; j++)
 	modules[j]->printFGTimersCSV(j);
     }
@@ -118,9 +116,10 @@ namespace Mercator {
     static
     void printFGTimersCSVHeader()
     {
-      printf("THIS IS A FAKE HEADER, COME BACK AND CHANGE THIS TOM, LOOK IN DeviceApp.cuh\n");
+      printf("blockIdx,moduleID,loopidx,RawRun\n");
     }
 #endif
+
 #ifdef INSTRUMENT_OCC
     __device__
     void printOccupancy() const
