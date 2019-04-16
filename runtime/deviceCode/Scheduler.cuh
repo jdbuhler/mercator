@@ -201,15 +201,6 @@ namespace Mercator  {
     }
 #endif
     
-#ifdef INSTRUMENT_FG_TIME
-    __device__
-    void printFGTimersCSV() const
-    {
-      printf("%d,%d,%llu,%llu,%llu\n",
-	     blockIdx.x, -1, 0, 0, 0);
-    }
-#endif
-    
   private:
     
     // random number generator used by lottery scheduler

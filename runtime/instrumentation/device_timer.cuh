@@ -11,7 +11,6 @@
 
 #include "options.cuh"
 
-//#ifdef INSTRUMENT_TIME //or INSTRUMENT_FG_TIME
 #if defined(INSTRUMENT_TIME) || defined(INSTRUMENT_FG_TIME)
 #include "device_config.cuh" // for IS_BOSS
 
@@ -26,6 +25,10 @@ public:
   {
     if (IS_BOSS())
       totalTime = 0; 
+      nextStamp = 0;
+      for (int i=0; i<INSTRUMENT_FG_TIME;i++){
+        fineArr[i]=DevClockT(1);
+      }
   }
 
   __device__
@@ -50,11 +53,16 @@ public:
 	totalTime += timeDiff(lastStart, now);
       }
   }
-  
+
+
+  __device__
+  DevClockT getTimeArrayElm(unsigned int i) const
+  { return fineArr[i]; }
+
   __device__
   void fine_start() 
   { 
-    __syncthreads();
+    //__syncthreads();
     if (IS_BOSS())
       fineStart = clock64(); 
   }
@@ -62,18 +70,44 @@ public:
   __device__
   void fine_stop()  
   { 
-    __syncthreads();
+  
+    #ifdef INSTRUMENT_FG_TIME
+      int max=INSTRUMENT_FG_TIME;
+    #else
+      int max=0;
+    #endif
+    //__syncthreads();
     if (IS_BOSS())
       {
 	DevClockT now = clock64();
-	// some array location = timeDiff(fineStart, now);
+        if (nextStamp>=max){
+          nextStamp=0;
+        }
+	fineArr[nextEmpty()] = timeDiff(fineStart, now);
       }
   }
 private:
 
   DevClockT totalTime;  
-  DevClockT fineStart;
   DevClockT lastStart;
+  DevClockT fineStart;
+  int nextStamp;
+  #ifdef INSTRUMENT_FG_TIME //no need to waste space if we arnt gonna use it
+  DevClockT fineArr[INSTRUMENT_FG_TIME]; 
+  #else
+  DevClockT fineArr[1]; 
+  #endif
+
+  __device__
+  int nextEmpty(){
+    for (int i=0; i<INSTRUMENT_FG_TIME;i++){
+      if (fineArr[i]==DevClockT(1)){
+        return i;
+      }
+    }
+    return 0;
+  }
+
 
   __device__
   DevClockT timeDiff(DevClockT start, DevClockT end)
