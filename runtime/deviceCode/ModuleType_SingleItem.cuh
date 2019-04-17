@@ -170,16 +170,16 @@ namespace Mercator  {
 	  
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
+	  MOD_FINE_TIMER_START(fineGrained); 
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  if (runWithAllThreads || idx < totalFireable){
-	  MOD_FINE_TIMER_START(fineGrained); 
 	    mod->run(myData, instIdx);
-	  MOD_FINE_TIMER_STOP(fineGrained); 
           }
 	  
 	  __syncthreads(); // all threads must see active channel state
 
+	  MOD_FINE_TIMER_STOP(fineGrained); 
 	  MOD_TIMER_STOP(run);
 	  MOD_TIMER_START(scatter);
 	  

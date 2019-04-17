@@ -26,8 +26,9 @@ public:
     if (IS_BOSS())
       totalTime = 0; 
       nextStamp = 0;
+      totalStampsTaken=0;
       for (int i=0; i<INSTRUMENT_FG_TIME;i++){
-        fineArr[i]=DevClockT(1);
+        fineArr[i]=DevClockT(0);
       }
   }
 
@@ -60,9 +61,14 @@ public:
   { return fineArr[i]; }
 
   __device__
+  int getTotalStampsTaken() const{
+    return totalStampsTaken;
+  }
+
+  __device__
   void fine_start() 
   { 
-    //__syncthreads();
+    __syncthreads();
     if (IS_BOSS())
       fineStart = clock64(); 
   }
@@ -76,14 +82,16 @@ public:
     #else
       int max=0;
     #endif
-    //__syncthreads();
+    __syncthreads();
     if (IS_BOSS())
       {
+      totalStampsTaken++;
 	DevClockT now = clock64();
         if (nextStamp>=max){
           nextStamp=0;
         }
-	fineArr[nextEmpty()] = timeDiff(fineStart, now);
+	fineArr[nextStamp] = timeDiff(fineStart, now);
+        nextStamp++;
       }
   }
 private:
@@ -91,23 +99,13 @@ private:
   DevClockT totalTime;  
   DevClockT lastStart;
   DevClockT fineStart;
+  int totalStampsTaken;
   int nextStamp;
   #ifdef INSTRUMENT_FG_TIME //no need to waste space if we arnt gonna use it
   DevClockT fineArr[INSTRUMENT_FG_TIME]; 
   #else
   DevClockT fineArr[1]; 
   #endif
-
-  __device__
-  int nextEmpty(){
-    for (int i=0; i<INSTRUMENT_FG_TIME;i++){
-      if (fineArr[i]==DevClockT(1)){
-        return i;
-      }
-    }
-    return 0;
-  }
-
 
   __device__
   DevClockT timeDiff(DevClockT start, DevClockT end)
