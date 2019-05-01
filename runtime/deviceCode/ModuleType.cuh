@@ -487,7 +487,6 @@ namespace Mercator  {
     // most recently computed count of # fireable in each instance
     unsigned int lastFireableCount[numInstances];
     
-<<<<<<< HEAD
 #ifdef INSTRUMENT_TIME
     DeviceTimer gatherTimer;
     DeviceTimer runTimer;
@@ -501,7 +500,6 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     ItemCounter<numInstances> itemCounter; // counts inputs to module
 #endif
-=======
     // stimcheck: Current credit available to each node
     int currentCredit[numInstances];
     bool hasSignal[numInstances];
@@ -513,7 +511,6 @@ namespace Mercator  {
     // have to modify the Signals in the signal queue when decrementing credit.
     unsigned int numDataProduced[numInstances];
 
->>>>>>> 398e719... finegrained data collection almost implemented. runtime build without error. must create data collection buffer for each node and set up printing correctly
     
     //
     // @brief inspector for the channels array (for subclasses)

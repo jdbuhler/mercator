@@ -31,23 +31,17 @@
 //#define NUM_INPUTS 1024
 //#define NUM_INPUTS 4096
 //#define NUM_INPUTS 8192
-<<<<<<< HEAD
-=======
 //#define NUM_INPUTS 8704
 //#define NUM_INPUTS 4100
->>>>>>> a99be07... madde same type pype run on bigger input so collect more meaningful data
 //#define NUM_INPUTS (1 << 15)    // 32K
 //#define NUM_INPUTS (1 << 18)      // 256K
 //#define NUM_INPUTS (1 << 19)      // 512K
 //#define NUM_INPUTS (1 << 19 | 1 << 18)      // 512K + 256K
 //#define NUM_INPUTS (1 << 20)    // 1M
-<<<<<<< HEAD
-#define NUM_INPUTS 10 * (1 << 20)    // 10M
+//#define NUM_INPUTS 10 * (1 << 20)    // 10M
 //#define NUM_INPUTS 100 * (1 << 20)    // 100M
-=======
 //#define NUM_INPUTS 10 * (1 << 20)    // 10M
 #define NUM_INPUTS 100 * (1 << 20)    // 100M
->>>>>>> a99be07... madde same type pype run on bigger input so collect more meaningful data
 
 // use random input stream?
 // if 1, select each input uniformly at random

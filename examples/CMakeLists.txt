@@ -16,13 +16,10 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-<<<<<<< HEAD
 set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
-=======
 #set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
 set(MERCATOR_ROOT_DIR /home/research/planot/mercator)
 #set(MERCATOR_ROOT_DIR /export/project/hondius/stimcheck/ymercator/mercator)
->>>>>>> 3ed7bb8... build for the first time and added function stubds for finegrained timing in runtime/instrumentation/device_timer.cuh
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
@@ -64,13 +61,10 @@ if(${BUILDING_IN_TREE})
   include_directories(AFTER ${MERCATOR_ROOT_DIR}/build/runtime)
 endif()
 
-<<<<<<< HEAD
-=======
 #add_subdirectory(FixToFloat)
 
 #add_subdirectory(AffinityTest)
 
->>>>>>> 3ed7bb8... build for the first time and added function stubds for finegrained timing in runtime/instrumentation/device_timer.cuh
 add_subdirectory(SameTypePipe)
 
 add_subdirectory(EvenFilter)
