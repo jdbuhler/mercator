@@ -33,13 +33,14 @@
 //#define NUM_INPUTS 8192
 //#define NUM_INPUTS 8704
 //#define NUM_INPUTS 4100
-//#define NUM_INPUTS (1 << 15)    // 32K
+#define NUM_INPUTS (1 << 15)    // 32K
 //#define NUM_INPUTS (1 << 18)      // 256K
 //#define NUM_INPUTS (1 << 19)      // 512K
 //#define NUM_INPUTS (1 << 19 | 1 << 18)      // 512K + 256K
 //#define NUM_INPUTS (1 << 20)    // 1M
 //#define NUM_INPUTS 10 * (1 << 20)    // 10M
-#define NUM_INPUTS 100 * (1 << 20)    // 100M
+//#define NUM_INPUTS 10 * (1 << 20)    // 10M
+//#define NUM_INPUTS 100 * (1 << 20)    // 100M
 
 // use random input stream?
 // if 1, select each input uniformly at random
