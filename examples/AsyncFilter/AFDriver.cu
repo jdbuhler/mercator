@@ -15,7 +15,7 @@ using namespace std;
 
 int main()
 {
-  const unsigned int NVALUES = 1000000;
+  const unsigned int NVALUES = 1000000000;
   
   srand(0);
   

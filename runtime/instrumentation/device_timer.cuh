@@ -78,6 +78,11 @@ public:
   }
 
   __device__
+  int getMaxFGLoopIdx() const{
+    return fineMax;
+  }
+
+  __device__
   void fine_start() 
   { 
     __syncthreads();
@@ -94,8 +99,9 @@ public:
       totalStampsTaken++;
 	DevClockT now = clock64();
         if (nextStamp>=fineMax){
-          fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
-          fineMax *=2;
+         // fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
+         // fineMax *=2;
+         nextStamp=0;
         }
 	fineArr[nextStamp] = timeDiff(fineStart, now);
         nextStamp++;
