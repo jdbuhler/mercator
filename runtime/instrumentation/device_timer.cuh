@@ -23,7 +23,7 @@ public:
   __device__
   DeviceTimer() 
   {
-    if (IS_BOSS())
+    if (IS_BOSS()){
       totalTime = 0; 
       nextStamp = 0;
       totalStampsTaken=0;
@@ -35,12 +35,15 @@ public:
         fineArr[i]=DevClockT(0);
       }
       #endif
+    }
   }
   
   __device__
   ~DeviceTimer(){
       #ifdef INSTRUMENT_FG_TIME
-      free(fineArr); 
+      if (IS_BOSS()){
+        free(fineArr); 
+      }
       #endif
   }
 
@@ -99,9 +102,9 @@ public:
       totalStampsTaken++;
 	DevClockT now = clock64();
         if (nextStamp>=fineMax){
-         // fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
-         // fineMax *=2;
-         nextStamp=0;
+         fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
+         fineMax *=2;
+         //nextStamp=0;
         }
 	fineArr[nextStamp] = timeDiff(fineStart, now);
         nextStamp++;
