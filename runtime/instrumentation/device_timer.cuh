@@ -27,9 +27,21 @@ public:
       totalTime = 0; 
       nextStamp = 0;
       totalStampsTaken=0;
-      for (int i=0; i<INSTRUMENT_FG_TIME;i++){
+      fineMax = 0;
+      #ifdef INSTRUMENT_FG_TIME
+      fineMax = INSTRUMENT_FG_TIME;
+      fineArr = (DevClockT*)malloc(fineMax*sizeof(DevClockT));
+      for (int i=0; i<fineMax;i++){
         fineArr[i]=DevClockT(0);
       }
+      #endif
+  }
+  
+  __device__
+  ~DeviceTimer(){
+      #ifdef INSTRUMENT_FG_TIME
+      free(fineArr); 
+      #endif
   }
 
   __device__
@@ -76,19 +88,14 @@ public:
   __device__
   void fine_stop()  
   { 
-  
-    #ifdef INSTRUMENT_FG_TIME
-      int max=INSTRUMENT_FG_TIME;
-    #else
-      int max=0;
-    #endif
     __syncthreads();
     if (IS_BOSS())
       {
       totalStampsTaken++;
 	DevClockT now = clock64();
-        if (nextStamp>=max){
-          nextStamp=0;
+        if (nextStamp>=fineMax){
+          fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
+          fineMax *=2;
         }
 	fineArr[nextStamp] = timeDiff(fineStart, now);
         nextStamp++;
@@ -101,11 +108,20 @@ private:
   DevClockT fineStart;
   int totalStampsTaken;
   int nextStamp;
-  #ifdef INSTRUMENT_FG_TIME //no need to waste space if we arnt gonna use it
-  DevClockT fineArr[INSTRUMENT_FG_TIME]; 
-  #else
-  DevClockT fineArr[1]; 
-  #endif
+  DevClockT* fineArr; 
+  int fineMax;
+
+  __device__
+  DevClockT* clockRealloc(DevClockT* old, int oldCount,int newCount){
+    DevClockT* temp = (DevClockT*)malloc(newCount*sizeof(DevClockT));
+    for(int i=0;i<oldCount;i++){
+      temp[i]=old[i];
+    }
+    free(old);
+    return temp;
+  }
+
+
 
   __device__
   DevClockT timeDiff(DevClockT start, DevClockT end)
