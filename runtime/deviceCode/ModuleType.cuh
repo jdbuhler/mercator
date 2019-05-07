@@ -593,16 +593,10 @@ namespace Mercator  {
     void printFGTimersCSV(unsigned int moduleId) const
     {
       assert(IS_BOSS());
-
       int total=fineGrainedTimer.getTotalStampsTaken();
-      if(total!=0){ 
-        if(total>INSTRUMENT_FG_TIME){
-          total=INSTRUMENT_FG_TIME;
-        }      
         for(unsigned int i=0; i < total; i++){
           printf("%d,%u,%i,%llu\n",blockIdx.x, moduleId,i,fineGrainedTimer.getTimeArrayElm(i));
         }
-      }
  
     }
 #endif
