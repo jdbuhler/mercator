@@ -408,7 +408,7 @@ namespace Mercator  {
       assert(IS_BOSS());
       int total=fineGrainedTimer.getMaxFGLoopIdx();
         for(unsigned int i=0; i < total; i++){
-          printf("%d,%u,%i,%llu\n",blockIdx.x, moduleId,i,fineGrainedTimer.getTimeArrayElm(i));
+         // printf("%d,%u,%i,%llu\n",blockIdx.x, moduleId,i,fineGrainedTimer.getTimeArrayElm(i));
         }
  
     }

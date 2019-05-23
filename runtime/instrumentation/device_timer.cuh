@@ -30,23 +30,12 @@ public:
       fineMax = 0;
       #ifdef INSTRUMENT_FG_TIME
       fineMax = INSTRUMENT_FG_TIME;
-      fineArr = (DevClockT*)malloc(fineMax*sizeof(DevClockT));
       for (int i=0; i<fineMax;i++){
         fineArr[i]=DevClockT(0);
       }
       #endif
     }
   }
-  
-  __device__
-  ~DeviceTimer(){
-      #ifdef INSTRUMENT_FG_TIME
-      if (IS_BOSS()){
-        free(fineArr); 
-      }
-      #endif
-  }
-
   __device__
   DevClockT getTotalTime() const 
   { return totalTime; }
@@ -102,9 +91,7 @@ public:
       totalStampsTaken++;
 	DevClockT now = clock64();
         if (nextStamp>=fineMax){
-         fineArr = clockRealloc(fineArr, fineMax, fineMax*2);
-         fineMax *=2;
-         //nextStamp=0;
+         nextStamp=0;
         }
 	fineArr[nextStamp] = timeDiff(fineStart, now);
         nextStamp++;
@@ -117,19 +104,12 @@ private:
   DevClockT fineStart;
   int totalStampsTaken;
   int nextStamp;
-  DevClockT* fineArr; 
+  #ifdef INSTRUMENT_FG_TIME
+  DevClockT fineArr[INSTRUMENT_FG_TIME]; 
+  #else 
+  DevClockT fineArr[1]; 
+  #endif
   int fineMax;
-
-  __device__
-  DevClockT* clockRealloc(DevClockT* old, int oldCount,int newCount){
-    DevClockT* temp = (DevClockT*)malloc(newCount*sizeof(DevClockT));
-    for(int i=0;i<oldCount;i++){
-      temp[i]=old[i];
-    }
-    free(old);
-    return temp;
-  }
-
 
 
   __device__
