@@ -106,15 +106,18 @@ struct Channel {
   DataType *type;     // output type of channel
   int  maxOutputs;    // max outputs/input on channel
   bool isVariable;    // is outputs/input fixed or variable?
+  bool isAggregate;   // is the channel used for aggregates?
   
   Channel(const std::string &iname,
 	  DataType *itype,
 	  int imaxOutputs,
-	  int iisVariable)
+	  int iisVariable,
+	  int iisAggregate)
     : name(iname),
       type(itype),
       maxOutputs(imaxOutputs),
-      isVariable(iisVariable)
+      isVariable(iisVariable),
+      isAggregate(iisAggregate)
   {}
   
   ~Channel()
@@ -146,12 +149,17 @@ public:
   int get_idxInModuleType() const
   { return mIdx; }
   
+  int get_enumerateId() const
+  { return eId; }
+
   int get_queueSize() const
   { return queueSize; }
   
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
   
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
+
+  void set_enumerateId(int e) { eId = e; }
   
   void print() const;
   
@@ -179,6 +187,8 @@ private:
   
   DfsStatus dfsStatus;
   long multiplier;
+
+  int eId;		       // index of the enumerate the node originated from
 };
 
 
@@ -192,7 +202,7 @@ public:
     F_isSource      = 0x01,
     F_isSink        = 0x02,
     F_isEnumerate   = 0x04,
-    F_isAggregate   = 0x08,
+    //F_isAggregate   = 0x08,	//UNUSED, Aggregate is associated with channel now
     F_useAllThreads = 0x10
   };
   
@@ -228,17 +238,22 @@ public:
   
   int get_nThreads() const
   { return nThreads; }
+
+  bool get_isEnumerate() const
+  { return (flags & F_isEnumerate); }
   
+  bool get_isSink() const
+  { return (flags & F_isSink); }
+
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
-  
+
   Channel *get_channel(int cId) const
   { 
     assert(cId < nChannels && channels[cId] != nullptr);
     return channels[cId]; 
   }
 
-  
   //
   // mutators
   //
@@ -321,6 +336,8 @@ struct App {
   std::vector<Node *> nodes;
   
   std::vector<DataItem *> params;
+
+  std::vector<int> refCounts;	// maps enumerateId to refference count (i.e. [1] = reference count for enumId 1)
   
   SymbolTable moduleNames;  // maps module name -> idx in modules
   

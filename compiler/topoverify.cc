@@ -71,9 +71,12 @@ using namespace std;
  * are heads of cycles also hold their cycle predecessor.
  */
 
+int TopologyVerifier::currentId = 1;  //Initialize the enumerate ID tagging
+
 void TopologyVerifier::verifyTopology(App *app)
 {
-  dfsVisit(app->sourceNode, nullptr, 1);
+  app->refCounts.push_back(0);	//Initialize refCounts vector for later, index 0 is an invalid enumId
+  dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
     {
@@ -117,6 +120,37 @@ void TopologyVerifier::verifyTopology(App *app)
 	node->queueSize                += dsReservedSlots;
       }
     }
+
+	//app->refCounts.push_back(std::make_pair(1,1));
+
+    //for(unsigned int i = 0; i < app->refCounts.size(); ++i) {
+	//cout << "APP REF COUNT " << i << ": " << app->refCounts.at(i) << endl;
+    //}
+
+    // Check to make sure that no enumerates are unclosed,
+    // that is, check to see if any Sinks have an enumerateId.
+    for(Node* node : app->nodes) {
+	if(node->get_moduleType()->get_isSink() && node->get_enumerateId() > 0) {
+		cerr << "ERROR: Sink node "
+		     << node->get_name()
+		     << " has an enumerate ID. "
+		     << "Missing an aggregate channel "
+		     << "before this node."
+		     << endl;
+		abort();
+	}
+    }
+
+    //Debug stuff
+    /*
+    for(ModuleType* mod : app->modules) {
+	cout << "ModuleType: " << mod->get_name() << endl;
+	for(Node* node : mod->nodes) {
+		cout << "Node: " << node->get_name() << "\tEnumID: " << node->get_enumerateId() << "\tRef Count: " << app->refCounts.at(node->get_enumerateId()) << endl; 
+	}
+	cout << endl;
+    }
+    */
 }
     
 
@@ -125,8 +159,12 @@ void TopologyVerifier::verifyTopology(App *app)
 
 Node *TopologyVerifier::dfsVisit(Node *node,
 				 Edge *parentEdge,
-				 long multiplier)
+				 long multiplier,
+				 int enumId,
+				 App *app)
 {
+  //cout << "NODE ENUMERATE?: " << (node->get_moduleType()->get_isEnumerate()) << "\tENUMID = " << node->get_enumerateId() << endl;
+  
   if (node->dfsStatus == Node::InProgress)
     {
       node->cycleEdge = parentEdge;
@@ -161,6 +199,25 @@ Node *TopologyVerifier::dfsVisit(Node *node,
       node->multiplier = multiplier;
       
       const ModuleType *mod = node->get_moduleType();
+
+      if(node->get_moduleType()->get_isEnumerate()) 
+        {
+	  if(enumId != 0)
+	    {
+	      cerr << "ERROR: node " << node->get_name()
+		   << " is nested within another enumerate, " << endl
+		   << "  nesting of enumerates currently unsupported!"
+		   << endl;
+	      abort();
+	    }
+	  node->set_enumerateId(currentId);
+	  app->refCounts.push_back(0);
+	  currentId += 1;
+        }
+      else
+	{
+	  node->set_enumerateId(enumId);
+	}
       
       Node *head = nullptr;
       for (int j = 0; j < mod->get_nChannels(); j++)
@@ -168,12 +225,24 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  Edge *e = node->dsEdges[j];
 	  if (e == nullptr) // output channel is not connected
 	    continue;
+	  //cout << "IS CHANNEL AGGREGATE?: " << (e->usChannel->isAggregate) << endl;
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
 	  
+	  if(e->usChannel->isAggregate) {
+	    //cout << "UPSTREAM CHANNEL IS AGGREGATE" << endl;
+	    //node->get_mutableModuleType()->add_refCount(enumId);
+	    //add_refCount(enumId);
+	    app->refCounts.at(enumId) += 1;
+	    node->set_enumerateId(0);
+	    //cout << "MOD REF COUNT: " << mod->get_refCount(enumId) << endl;
+	  }
+
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
-				    multiplier * nextAmpFactor);
+				    multiplier * nextAmpFactor,
+				    node->get_enumerateId(),
+				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)
 	    {

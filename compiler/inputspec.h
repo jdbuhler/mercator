@@ -43,15 +43,18 @@ namespace input {
     DataType *type;   // type of values emitted on channel
     int maxOutputs;   // max outputs per input
     bool isVariable;  // is outputs/input fixed or variable?
+    bool isAggregate; // is the channel used for aggregates?
     
     ChannelSpec(const std::string &name,
 		DataType *type,
 		int maxOutputs,
-		bool isVariable)
+		bool isVariable,
+		bool isAggregate)
       : name(name),
 	type(type),
 	maxOutputs(maxOutputs),
-	isVariable(isVariable)
+	isVariable(isVariable),
+	isAggregate(isAggregate)
     {}
     
     ~ChannelSpec()
@@ -102,8 +105,8 @@ namespace input {
     
     // flags set when parsing module type spec
     enum { 
-      isEnumerate = 0x01,
-      isAggregate = 0x02 
+      isEnumerate = 0x04,
+      isAggregate = 0x08 
     };
     
     std::string name;                     // name of module
