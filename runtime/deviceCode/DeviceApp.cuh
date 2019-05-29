@@ -116,7 +116,7 @@ namespace Mercator {
     static
     void printFGTimersCSVHeader()
     {
-      printf("blockIdx,moduleID,loopidx,RawRun\n");
+      printf("blockIdx,moduleID,Count,Cycles\n");
     }
 #endif
 

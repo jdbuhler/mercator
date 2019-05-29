@@ -13,6 +13,7 @@
 
 #if defined(INSTRUMENT_TIME) || defined(INSTRUMENT_FG_TIME)
 #include "device_config.cuh" // for IS_BOSS
+#include "fg_container.cuh"  // for linked list fg timer containers
 
 class DeviceTimer {
 
@@ -27,13 +28,6 @@ public:
       totalTime = 0; 
       nextStamp = 0;
       totalStampsTaken=0;
-      fineMax = 0;
-      #ifdef INSTRUMENT_FG_TIME
-      fineMax = INSTRUMENT_FG_TIME;
-      for (int i=0; i<fineMax;i++){
-        fineArr[i]=DevClockT(0);
-      }
-      #endif
     }
   }
   __device__
@@ -59,20 +53,19 @@ public:
       }
   }
 
-
-  __device__
-  DevClockT getTimeArrayElm(unsigned int i) const
-  { return fineArr[i]; }
-
   __device__
   int getTotalStampsTaken() const{
     return totalStampsTaken;
   }
-
+  
   __device__
-  int getMaxFGLoopIdx() const{
-    return fineMax;
-  }
+  void dumpFGContainer(int blkIdx, int modId)const{
+    __syncthreads();
+    if (IS_BOSS())
+    {
+      stampContainer.dumpContainer(blkIdx, modId);
+    }       
+}
 
   __device__
   void fine_start() 
@@ -89,12 +82,8 @@ public:
     if (IS_BOSS())
       {
       totalStampsTaken++;
-	DevClockT now = clock64();
-        if (nextStamp>=fineMax){
-         nextStamp=0;
-        }
-	fineArr[nextStamp] = timeDiff(fineStart, now);
-        nextStamp++;
+      DevClockT now = clock64();
+      stampContainer.recordStamp(timeDiff(fineStart, now));
       }
   }
 private:
@@ -104,12 +93,7 @@ private:
   DevClockT fineStart;
   int totalStampsTaken;
   int nextStamp;
-  #ifdef INSTRUMENT_FG_TIME
-  DevClockT fineArr[INSTRUMENT_FG_TIME]; 
-  #else 
-  DevClockT fineArr[1]; 
-  #endif
-  int fineMax;
+  FGContainer stampContainer;
 
 
   __device__

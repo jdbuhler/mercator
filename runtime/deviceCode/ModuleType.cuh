@@ -406,11 +406,7 @@ namespace Mercator  {
     void printFGTimersCSV(unsigned int moduleId) const
     {
       assert(IS_BOSS());
-      int total=fineGrainedTimer.getMaxFGLoopIdx();
-        for(unsigned int i=0; i < total; i++){
-         // printf("%d,%u,%i,%llu\n",blockIdx.x, moduleId,i,fineGrainedTimer.getTimeArrayElm(i));
-        }
- 
+       fineGrainedTimer.dumpFGContainer(blockIdx.x, moduleId);
     }
 #endif
 
