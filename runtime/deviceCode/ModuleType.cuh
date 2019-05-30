@@ -399,7 +399,7 @@ namespace Mercator  {
     // @brief print the contents of a modules fg timer array
     // @param moduleId a numerical identifier to print along with the
     //    output
-    // @result blockid, moduleid, fdtime(i) 
+    // @result blockid, moduleid, count, cyclecount 
     //
     __device__
     virtual
@@ -408,6 +408,34 @@ namespace Mercator  {
       assert(IS_BOSS());
        fineGrainedTimer.dumpFGContainer(blockIdx.x, moduleId);
     }
+
+    //
+    // @brief sets the cycles upperbound for the fg timer to record
+    // @param upperBound a numerical value to set as upperbound
+    //
+    // @result upperbound is set
+    //
+    __device__
+    virtual
+    void setFGContainerUpperBound(unsigned long long upperBound)
+    {
+      assert(IS_BOSS());
+        fineGrainedTimer.setFGContainerUpperBound(upperBound);
+    }
+
+    //
+    // @brief gets the cycles upperbound for the fg timer to record
+    //
+    // @result upperbound is returned
+    //
+    __device__
+    virtual
+    unsigned long long getFGContainerUpperBound()const
+    {
+      assert(IS_BOSS());
+        return fineGrainedTimer.getFGContainerUpperBound();
+    }
+    
 #endif
 
 #ifdef INSTRUMENT_OCC

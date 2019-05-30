@@ -50,6 +50,15 @@ class FGContainer {
       }
     }
 
+    __device__
+    void setUpperBound(unsigned long long upperBound) {
+      maxCycle = (DevClockT)upperBound;
+    }
+
+    __device__
+    unsigned long long getUpperBound()const{
+      return (unsigned long long) maxCycle;
+    }
   private:
     __device__ 
     DevClockT getIndexCycleCount(int i)const{      

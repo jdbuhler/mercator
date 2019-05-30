@@ -59,13 +59,29 @@ public:
   }
   
   __device__
-  void dumpFGContainer(int blkIdx, int modId)const{
+  void dumpFGContainer(int blkIdx, int modId)const
+  {
     __syncthreads();
     if (IS_BOSS())
     {
       stampContainer.dumpContainer(blkIdx, modId);
     }       
-}
+  }
+
+  __device__
+  void setFGContainerUpperBound(unsigned long long upperBound)
+  {
+    __syncthreads();
+    if (IS_BOSS())
+    {
+      stampContainer.setUpperBound(upperBound);
+    }       
+  }
+  __device__
+  unsigned long long  getFGContainerUpperBound()const
+  {
+      return stampContainer.getUpperBound();
+  }
 
   __device__
   void fine_start() 
