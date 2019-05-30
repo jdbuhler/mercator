@@ -45,7 +45,8 @@ class FGContainer {
     __device__ 
     void dumpContainer(int blkIdx, int modId)const{
       for(int i=0; i< BUCKETS; i++){
-        printf("%d,%u,%i,%llu\n",blkIdx, modId, storage[i], getIndexCycleCount(i));
+        if(storage[i]>0)
+          printf("%d,%u,%i,%llu\n",blkIdx, modId, storage[i], getIndexCycleCount(i));
       }
     }
 

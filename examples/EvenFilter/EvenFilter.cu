@@ -28,8 +28,11 @@ __device__
 void EvenFilter_dev::
 Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
 {
-  unsigned int v = munge(inputItem);
   
+  unsigned int v = munge(inputItem);
+  for (int i=0; i<1000; i++){
+    v = munge(v);
+  }
   // If no channel is specified, push sends a value to the module's
   // first output channel.
   if (v % 2 == 0)

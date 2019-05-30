@@ -35,7 +35,7 @@
 
 using namespace std;
 
-const int NTRIALS = 10;
+const int NTRIALS = 1;
 
 int main(int argc, char* argv[])
 {

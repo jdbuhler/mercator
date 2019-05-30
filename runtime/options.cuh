@@ -16,7 +16,9 @@
 //#define INSTRUMENT_TIME
 
 // max cycle count 
-#define INSTRUMENT_FG_TIME 20000
+//#define INSTRUMENT_FG_TIME 10000000 //good for stp
+
+#define INSTRUMENT_FG_TIME 2000000 //good for stp
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS

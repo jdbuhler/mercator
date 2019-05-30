@@ -35,6 +35,9 @@ void ModFilter_dev::
 Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
 {
   unsigned int v = munge(inputItem);
+  for(int i=0; i<1000;i++){
+    v = munge(v);
+  } 
   
   if (v % getParams()->modulus[nodeIdx] == 0)
     push(v, nodeIdx);

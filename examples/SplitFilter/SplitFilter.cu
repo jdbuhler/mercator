@@ -30,6 +30,8 @@ void SplitFilter_dev::
 Filter::run(const uint32_t& inputItem, InstTagT nodeIdx)
 {
   uint32_t v = munge(inputItem);
-  
+  for(int i=0; i<1000;i++){
+    v = munge(v);
+  } 
   push(v, nodeIdx, (v % 2 == 0 ? Out::accept : Out::reject));
 }
