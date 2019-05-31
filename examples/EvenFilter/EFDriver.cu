@@ -13,12 +13,36 @@
 
 using namespace std;
 
-int main()
+int main(int argc, char* argv[])
 {
-  const unsigned int NVALUES = 1000000000;
+
+  unsigned int NVALUES = 1000000000;
+  unsigned int UPPERBOUND = 1000000;
   //const unsigned int NVALUES = 4000; // one BEEEELLION values
   //const unsigned int NVALUES = 800000; // one BEEEELLION values
-  
+
+  if(argc>1){
+    //we are in non-default mode here
+    //we can configure inputs for testing
+    if(atoi(argv[1]) == 1){
+      printf("Test harness args format:\n");
+      printf("%s <controlFlg> <numVals> <upperBound>\n", argv[0]);
+      printf(" - <controlFlg> :: flags to change various things\n");
+      printf(" --- <flag> :: 1 for help or 2 for args \n");
+      printf(" - <numVals> :: the number of values to generate to be processed by the application\n");
+      printf(" - <upperBound> :: the cycle threshold, after which data is no longer collected\n");
+      return 0;
+    }
+    else if(atoi(argv[1]) == 2 && argc==4){
+     // NVALUES = (unsigned int)atoi(argv[2]);
+     // UPPERBOUND = (unsigned int)atoi(argv[3]);
+      printf("Values ignored till further notice, running default\n");
+    }
+    else{
+      printf("Invalid options or incorrect num of args. \"Run %s 1\" for usage info\n", argv[0]);
+      return 0;
+    }
+  }
   srand(0);
   
   unsigned int *inputValues = new unsigned int [NVALUES];
