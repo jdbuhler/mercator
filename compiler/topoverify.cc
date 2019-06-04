@@ -76,6 +76,9 @@ int TopologyVerifier::currentId = 1;  //Initialize the enumerate ID tagging
 void TopologyVerifier::verifyTopology(App *app)
 {
   app->refCounts.push_back(0);	//Initialize refCounts vector for later, index 0 is an invalid enumId
+  for(unsigned int i = 0; i < app->modules.size(); ++i) {
+	app->isPropagate.push_back(0);
+  }
   dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
@@ -218,7 +221,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	{
 	  node->set_enumerateId(enumId);
 	}
-      
+
       Node *head = nullptr;
       for (int j = 0; j < mod->get_nChannels(); j++)
 	{
@@ -259,6 +262,12 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 
 	}
       
+      // Set whther or not the module index needs begin/end stubs
+      if(node->get_enumerateId() > 0 && !(node->get_moduleType()->get_isEnumerate()))
+	{
+	  app->isPropagate.at(mod->get_idx()) = true;
+	}
+
       node->dfsStatus = Node::Finished;
       
       return head;

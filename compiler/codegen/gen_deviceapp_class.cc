@@ -49,6 +49,34 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
   return runFcnParams;
 }
 
+//
+// @brief return the argument list for a module's begin() and end() functions
+//
+// @return generated argument list string
+//
+static string
+genDeviceModuleBeginEndFcnParams()
+{
+  // run fcn parameters
+  //string inputType = mod->get_inputType()->name;
+  
+  string fcnParams = "InstTagT nodeIdx";
+  /*
+  if(mod->get_nElements() > 1)
+    {
+      runFcnParams = 
+	"const " + inputType + "* inputItems, " 
+	"InstTagT* nodeIdxs";
+    }
+  else
+    {
+      runFcnParams = 
+	"const " + inputType + "& inputItem, " 
+	"InstTagT nodeIdx";
+    }
+  */
+  return fcnParams;
+}
 
 //
 // @brief generate the base type for a module, based on its properties
@@ -612,6 +640,22 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  
 	  f.add("");
 	}
+
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	  //generate begin function
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::begin", 
+			     genDeviceModuleBeginEndFcnParams()));
+	  
+	  f.add("{");
+	  f.add("");
+	  f.add("}");
+	  
+	  f.add("");
+	}
       
       // generate run function
       f.add("__device__");
@@ -629,7 +673,39 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
       f.add("}");
       
       f.add("");
+
+      if (mod->get_isEnumerate())
+	{
+	  //generate findCount function
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::findCount", 
+			     genDeviceModuleBeginEndFcnParams()));
+	  
+	  f.add("{");
+	  f.add("");
+	  f.add("}");
+	  
+	  f.add("");
+	}
       
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	  //generate end function
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::end", 
+			     genDeviceModuleBeginEndFcnParams()));
+	  
+	  f.add("{");
+	  f.add("");
+	  f.add("}");
+	  
+	  f.add("");
+	}
+
       if (mod->hasState())
 	{
 	  // generate cleanup function

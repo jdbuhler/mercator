@@ -203,6 +203,7 @@ public:
     F_isSink        = 0x02,
     F_isEnumerate   = 0x04,
     //F_isAggregate   = 0x08,	//UNUSED, Aggregate is associated with channel now
+    //F_isPropagate   = 0x08,
     F_useAllThreads = 0x10
   };
   
@@ -339,6 +340,8 @@ struct App {
 
   std::vector<int> refCounts;	// maps enumerateId to refference count (i.e. [1] = reference count for enumId 1)
   
+  std::vector<bool> isPropagate;	// maps a module index to whether or not it requires begin/end stubs
+
   SymbolTable moduleNames;  // maps module name -> idx in modules
   
   SymbolTable nodeNames;    // maps node names -> idx in nodes

@@ -92,7 +92,7 @@ namespace input {
     
     ~OutputSpec()
     { 
-      if (channels) 
+      if (channels)
 	delete channels; 
     }
   };
@@ -106,7 +106,7 @@ namespace input {
     // flags set when parsing module type spec
     enum { 
       isEnumerate = 0x04,
-      isAggregate = 0x08 
+      isFinal     = 0x08 
     };
     
     std::string name;                     // name of module
@@ -131,7 +131,7 @@ namespace input {
     ~ModuleTypeStmt()
     {
       delete inputType;
-      
+
       for (ChannelSpec *channel : channels)
 	delete channel;
     }
@@ -325,6 +325,28 @@ namespace input {
 
       for (DataStmt *var : vars)
 	delete var;
+    }
+
+    void printAll()
+    {
+	printf("+++++++++++++++++++++++++++++++++++++\n");
+	printf("APP NAME: %s\n", name.c_str());
+	printf("MODULES:\n");
+      for (ModuleTypeStmt *module : modules) {
+	printf("\t%s\tchannels: %d\n", module->name.c_str(), (unsigned int)(module->channels.size()));
+	for(ChannelSpec* channel : module->channels)
+		printf("\t\t%s\n", channel->name.c_str());
+	}
+
+	printf("NODES:\n");
+      for (NodeStmt *node : nodes)
+	printf("\t%s\n", node->name.c_str());
+
+	printf("EDGES:\n");
+      for (EdgeStmt edge : edges)
+	printf("\t%s -> %s\tchannel: %s\n", edge.from.c_str(), edge.to.c_str(), edge.fromchannel.c_str());
+
+	printf("+++++++++++++++++++++++++++++++++++++\n");
     }
   };  
 }

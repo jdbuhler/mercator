@@ -32,6 +32,8 @@ void validateTopologyComplete(const App *app);
 App *buildApp(const input::AppSpec *appSpec)
 {
   App *app = new App(appSpec->name);
+
+	cout << "STARTING BUILDAPP. . . \n" << endl;
   
   for (const input::ModuleTypeStmt *mts : appSpec->modules)
     {
@@ -60,6 +62,26 @@ App *buildApp(const input::AppSpec *appSpec)
 	      << endl;
 	  abort();
 	} 
+
+      // If we have an Enumerate module, split it into two
+      /*
+      if(mts->isEnumerate)
+	{
+      		ModuleType *enumfor_module = new ModuleType("__enumerateFor" + mts->name,
+					     mId,
+					     new DataType(mts->inputType),
+					     1,
+					     mts->flags & 0xFB);
+		
+	  	Channel *channel = new Channel(cs->name,
+					 new DataType("unsigned int"),
+					 cs->maxOutputs,
+					 cs->isVariable,
+					 cs->isAggregate);
+	  
+	 	enumfor_module->set_channel(0, channel);
+	}
+      */
       
       ModuleType *module = new ModuleType(mts->name,
 					  mId,
@@ -68,12 +90,14 @@ App *buildApp(const input::AppSpec *appSpec)
 					  mts->flags);
       
       int cId = 0;
+	cout << "AT CHANNELS. . . " << endl;
       for (const input::ChannelSpec *cs : mts->channels)
 	{
 	  //
 	  // VALIDATE that channel name is unique for this module, and
 	  // record mapping from name to index in module's channel array
 	  //
+	  cout << "CHANNEL NAME: " << cs->name << endl;
 	  if (!module->channelNames.insertUnique(cs->name, cId))
 	    {
 	      cerr << "ERROR: channel name " 
@@ -104,10 +128,12 @@ App *buildApp(const input::AppSpec *appSpec)
 	  
 	  module->set_channel(cId++, channel);
 	}
+	cout << "FINISHED CHANNELS. . . " << endl;
       
       app->modules.push_back(module);
     }
   
+  cout << "AT ALL THREADS. . . " << endl;
   for (const input::AllThreadsStmt is : appSpec->allthreads)
     {
       //
@@ -127,6 +153,7 @@ App *buildApp(const input::AppSpec *appSpec)
       module->set_useAllThreads();
     }
 
+  cout << "AT ILIMITS. . . " << endl;
   for (const input::ILimitStmt is : appSpec->ilimits)
     {
       //
@@ -146,6 +173,7 @@ App *buildApp(const input::AppSpec *appSpec)
       module->set_inputLimit(std::min(is.limit, module->get_inputLimit()));
     }
   
+  cout << "AT MAPPING STATEMENTS. . . " << endl;
   for (const input::MappingStmt is : appSpec->mappings)
     {
       //
@@ -169,6 +197,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	module->set_nElements(is.nmap);  // nmap inputs/thread
     }
   
+  cout << "AT NODE STATEMENTS. . . " << endl;
   for (const input::NodeStmt *ns : appSpec->nodes)
     {
       int nGlobalId = app->nodes.size();
@@ -313,6 +342,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
     }
   
+  cout << "AT EDGE STATEMENTS. . . " << endl;
   for (const input::EdgeStmt es : appSpec->edges)
     {
       //
@@ -412,8 +442,10 @@ App *buildApp(const input::AppSpec *appSpec)
     }
   
   // make sure app's graph has a source, and that no edges are omitted.
+  cout << "VALIDATING TOPOLOGY COMPLETE. . . " << endl;
   validateTopologyComplete(app);
   
+  cout << "AT DATA STATEMENTS. . . " << endl;
   int vId = 0;
   for (const input::DataStmt *var : appSpec->vars)
     {      
