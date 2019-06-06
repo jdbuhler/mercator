@@ -13,7 +13,7 @@
 #include <cassert>
 #include "options.cuh"
 #include "device_config.cuh" // for IS_BOSS
-#define BUCKETS 10001 //2^14
+#define BUCKETS 10000 //2^14
 typedef unsigned long long DevClockT;
 
 class FGContainer {
@@ -24,20 +24,28 @@ class FGContainer {
     FGContainer(){
       if (IS_BOSS()){
         maxCycle=INSTRUMENT_FG_TIME;
+        minCycle=0;
         for(int i=0; i< BUCKETS; i++){
           storage[i]=0;
         }
-        bucketRange = maxCycle/(BUCKETS-1);
+        bucketRange = (maxCycle - minCycle) /(BUCKETS-1);
       }
     }
 
     __device__
     void recordStamp(DevClockT stamp){
+        assert(IS_BOSS());
         if(stamp>=maxCycle){
           storage[BUCKETS-1]++;
         }
+        else if (stamp<minCycle){
+          storage[0]++;
+        }
         else{
-          int idx =(int)(stamp / bucketRange); 
+          int idx =(int)((stamp-minCycle) / bucketRange); 
+          //printf("idx: %i\n", idx);
+          assert(idx<BUCKETS);
+          assert(idx>0);
           storage[idx]++;
         }
     }
@@ -51,21 +59,32 @@ class FGContainer {
     }
 
     __device__
-    void setUpperBound(unsigned long long upperBound) {
+    void setBounds(unsigned long long lowerBound, unsigned long long upperBound) {
+      assert(IS_BOSS());
+      assert(lowerBound<upperBound);
       maxCycle = (DevClockT)upperBound;
+      minCycle = (DevClockT)lowerBound;
+      bucketRange = (maxCycle - minCycle) /(BUCKETS-1);
+    }
+
+    __device__
+    unsigned long long getLowerBound()const{
+      return (unsigned long long) minCycle;
     }
 
     __device__
     unsigned long long getUpperBound()const{
       return (unsigned long long) maxCycle;
     }
+
   private:
     __device__ 
     DevClockT getIndexCycleCount(int i)const{      
-        return (bucketRange*i)+bucketRange;
+        return ((bucketRange*i)+bucketRange)+minCycle;
     }
 
     DevClockT maxCycle;
+    DevClockT minCycle;
     DevClockT bucketRange;
     int storage[BUCKETS];
 };

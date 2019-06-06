@@ -29,8 +29,8 @@ set(LLVM_PATH /project/cassini/llvm)
 # MAKE CONFIGURATION
 ######################################################################
 
-#set(CMAKE_BUILD_TYPE debug)
-set(CMAKE_BUILD_TYPE release)
+set(CMAKE_BUILD_TYPE debug)
+#set(CMAKE_BUILD_TYPE release)
 
 #set(CMAKE_VERBOSE_MAKEFILE on)
 

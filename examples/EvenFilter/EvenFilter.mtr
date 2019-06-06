@@ -29,3 +29,6 @@ Node snk : Sink<{unsigned int}> ;
 Edge src -> f;
 
 Edge f -> snk;
+
+// random generator state used for Black-Scholes work in filtering stage
+NodeState Filter::foo : int;

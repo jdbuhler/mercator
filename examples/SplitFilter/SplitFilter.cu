@@ -20,6 +20,22 @@ uint32_t munge(uint32_t key)
   return key;
 }
 
+#define UPPERBOUND 750000
+#define LOWERBOUND 700000 
+
+__device__
+void SplitFilter_dev::
+Filter::init()
+{
+ //set upperbound for data collection
+  if(IS_BOSS()){
+    setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
+    }
+  __syncthreads(); // all threads must see updates to the bounds
+  
+}
+
+
 //
 // Hash each input item and then distribute the result to
 // one of two output channels, depending on whether the
@@ -30,7 +46,7 @@ void SplitFilter_dev::
 Filter::run(const uint32_t& inputItem, InstTagT nodeIdx)
 {
   uint32_t v = munge(inputItem);
-  for(int i=0; i<1000;i++){
+  for(int i=0; i<10000;i++){
     v = munge(v);
   } 
   push(v, nodeIdx, (v % 2 == 0 ? Out::accept : Out::reject));

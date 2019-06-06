@@ -17,7 +17,8 @@ int main(int argc, char* argv[])
 {
 
   unsigned int NVALUES = 1000000000;
-  unsigned int UPPERBOUND = 1000000;
+  unsigned int lowerBound = 0;
+  unsigned int upperBound = 1000000;
   //const unsigned int NVALUES = 4000; // one BEEEELLION values
   //const unsigned int NVALUES = 800000; // one BEEEELLION values
 
@@ -26,7 +27,7 @@ int main(int argc, char* argv[])
     //we can configure inputs for testing
     if(atoi(argv[1]) == 1){
       printf("Test harness args format:\n");
-      printf("%s <controlFlg> <numVals> <upperBound>\n", argv[0]);
+      printf("%s <controlFlg> <numVals> <lowerBound> <upperBound>\n", argv[0]);
       printf(" - <controlFlg> :: flags to change various things\n");
       printf(" --- <flag> :: 1 for help or 2 for args \n");
       printf(" - <numVals> :: the number of values to generate to be processed by the application\n");
@@ -35,7 +36,8 @@ int main(int argc, char* argv[])
     }
     else if(atoi(argv[1]) == 2 && argc==4){
      // NVALUES = (unsigned int)atoi(argv[2]);
-     // UPPERBOUND = (unsigned int)atoi(argv[3]);
+     // lowerBound = (unsigned int)atoi(argv[3]);
+     // upperBound = (unsigned int)atoi(argv[4]);
       printf("Values ignored till further notice, running default\n");
     }
     else{

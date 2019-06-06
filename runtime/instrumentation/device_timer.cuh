@@ -69,14 +69,18 @@ public:
   }
 
   __device__
-  void setFGContainerUpperBound(unsigned long long upperBound)
+  void setFGContainerBounds(unsigned long long lowerBound, unsigned long long upperBound)
   {
-    __syncthreads();
-    if (IS_BOSS())
-    {
-      stampContainer.setUpperBound(upperBound);
-    }       
+      assert(IS_BOSS());
+      stampContainer.setBounds(lowerBound, upperBound);
   }
+
+  __device__
+  unsigned long long  getFGContainerLowerBound()const
+  {
+      return stampContainer.getLowerBound();
+  }
+
   __device__
   unsigned long long  getFGContainerUpperBound()const
   {
@@ -97,9 +101,9 @@ public:
     __syncthreads();
     if (IS_BOSS())
       {
-      totalStampsTaken++;
       DevClockT now = clock64();
       stampContainer.recordStamp(timeDiff(fineStart, now));
+      totalStampsTaken++;
       }
   }
 private:

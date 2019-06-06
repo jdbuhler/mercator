@@ -20,6 +20,22 @@ unsigned int munge(unsigned int key)
   return key;
 }
 
+#define UPPERBOUND 750000
+#define LOWERBOUND 700000 
+
+__device__
+void ModFilter_dev::
+Filter::init()
+{
+ //set upperbound for data collection
+  if(IS_BOSS()){
+    setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
+    }
+  __syncthreads(); // all threads must see updates to the bounds
+  
+}
+
+
 //
 // Hash each input item and emit the hash iff it is zero modulo
 // the current node's modulus value.  This code is shared by all
@@ -35,7 +51,7 @@ void ModFilter_dev::
 Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
 {
   unsigned int v = munge(inputItem);
-  for(int i=0; i<1000;i++){
+  for(int i=0; i<10000;i++){
     v = munge(v);
   } 
   

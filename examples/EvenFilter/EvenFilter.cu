@@ -7,6 +7,9 @@
 //
 
 #include "EvenFilter_dev.cuh"
+#define UPPERBOUNd 750000
+#define LOWERBOUND 700000 
+
 
 __device__
 unsigned int munge(unsigned int key)
@@ -20,6 +23,18 @@ unsigned int munge(unsigned int key)
   return key;
 }
 
+__device__
+void EvenFilter_dev::
+Filter::init()
+{
+ //set upperbound for data collection
+  if(IS_BOSS()){
+    setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUNd);
+    }
+  __syncthreads(); // all threads must see updates to the bounds
+  
+}
+
 //
 // Hash each input item and return only those hash values that
 // are even numbers.
@@ -30,11 +45,16 @@ Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
 {
   
   unsigned int v = munge(inputItem);
-  for (int i=0; i<1000; i++){
+  for (int i=0; i<10000; i++){
     v = munge(v);
   }
   // If no channel is specified, push sends a value to the module's
   // first output channel.
   if (v % 2 == 0)
     push(v, nodeIdx); // eqv to "push(v, nodeIdx, Out::accept);"
+}
+__device__
+void EvenFilter_dev::
+Filter::cleanup()
+{
 }

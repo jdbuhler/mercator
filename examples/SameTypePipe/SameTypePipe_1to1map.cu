@@ -3,15 +3,16 @@
 #include <curand_kernel.h>
 
 #include "BlackScholes/BlackScholes_device.cuh"
-
+#define UPPERBOUND 3000000
+#define LOWERBOUND 2500000
 __device__
 void 
 SameTypePipe_1to1map_dev::
 A::init()
 {
+  
   const int threadWidth = getNumActiveThreads();
   const int nInstances  = getNumInstances();
-  
   // allocate a random state vector for each node
   __shared__ curandState_t *randState;
   if (threadIdx.x == 0)
@@ -32,6 +33,13 @@ A::init()
 		  blockIdx.x * threadWidth + threadIdx.x,
 		  0, &randState[threadIdx.x]);
     }
+
+ //set upperbound for data collection
+if(IS_BOSS()){
+    setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
+    }
+  __syncthreads(); // all threads must see updates to the bounds
+  
 }
 
 __device__

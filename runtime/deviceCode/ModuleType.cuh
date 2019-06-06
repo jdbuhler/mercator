@@ -417,10 +417,10 @@ namespace Mercator  {
     //
     __device__
     virtual
-    void setFGContainerUpperBound(unsigned long long upperBound)
+    void setFGContainerBounds(unsigned long long lowerBound, unsigned long long upperBound)
     {
-      assert(IS_BOSS());
-        fineGrainedTimer.setFGContainerUpperBound(upperBound);
+        assert(IS_BOSS());
+        fineGrainedTimer.setFGContainerBounds(lowerBound, upperBound);
     }
 
     //
@@ -428,11 +428,18 @@ namespace Mercator  {
     //
     // @result upperbound is returned
     //
+
+    __device__
+    virtual
+    unsigned long long getFGContainerLowerBound()const
+    {
+        return fineGrainedTimer.getFGContainerLowerBound();
+    }
+
     __device__
     virtual
     unsigned long long getFGContainerUpperBound()const
     {
-      assert(IS_BOSS());
         return fineGrainedTimer.getFGContainerUpperBound();
     }
     
