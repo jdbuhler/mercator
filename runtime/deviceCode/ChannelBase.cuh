@@ -94,6 +94,20 @@ namespace Mercator  {
     virtual
     void scatterToSignalQueues(InstTagT, bool, bool) = 0;
 
+    // 
+    // @brief Check if this channel is an aggregate channel
+    //
+    __device__
+    virtual
+    bool isAggregate() const = 0;
+
+    // 
+    // @brief Check if this channel is an aggregate channel
+    //
+    __device__
+    virtual
+    void setAggregate() = 0;
+
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel, accessed by ModuleType
     ItemCounter<numInstances> itemCounter;

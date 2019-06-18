@@ -114,10 +114,16 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	{
 	  string moduleTypeVariant;
 	  
-	  if (mod->get_nElements() > 1)
+	  // stimcheck: Add special enumerate module type to the list of regular modules
+	  if (mod->get_isEnumerate()) {
+	    moduleTypeVariant = "ModuleType_Enumerate";
+	  }
+	  else if (mod->get_nElements() > 1) {
 	    moduleTypeVariant = "ModuleType_ManyItems";
-	  else
+	  }
+	  else {
 	    moduleTypeVariant = "ModuleType_SingleItem";
+	  }
 	  
 	  baseType =
 	    moduleTypeVariant
@@ -367,7 +373,8 @@ void genDeviceModuleClass(const App *app,
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
   
-  if (!mod->isSource() && !mod->isSink())
+  // stimcheck: In addition to Sources and Sinks, DO NOT make a run stub for Enumerates.
+  if (!mod->isSource() && !mod->isSink() && !mod->get_isEnumerate())
     {
       // run function (public because of CRTP)
       f.add("__device__");
@@ -377,6 +384,53 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
+  // stimcheck: Add begin and end functions to the codegened headers, make
+  // them blank stubs as necessary too (when unused).
+  if (!mod->isSource() && !mod->isSink())
+    {
+      // begin and end functions (public because of CRTP)
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	   // create headers for begin and end
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "begin", 
+			      genDeviceModuleBeginEndFcnParams()) + ";");
+           f.add("");
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "end", 
+			      genDeviceModuleBeginEndFcnParams()) + ";");
+           f.add("");
+	}
+      else
+	{
+	   // create empty stubs for modules without enumIds.
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "begin", 
+			      genDeviceModuleBeginEndFcnParams()) + "{ }");
+           f.add("");
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "end", 
+			      genDeviceModuleBeginEndFcnParams()) + "{ }");
+           f.add("");
+	}
+    }
+
+  // stimcheck: Add findCount function header to the codegened headers of
+  // enumerate modules.
+  if (!mod->isSource() && !mod->isSink() && mod->get_isEnumerate())
+    {
+      // findCount function (public because of CRTP)
+      f.add("__device__");
+      f.add(genFcnHeader("void",
+			 "findCount", 
+			 genDeviceModuleBeginEndFcnParams()) + ";");
+      f.add("");
+    }
+
   f.add("private:", true);
   f.add("");
   
@@ -547,7 +601,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   
   {
     // include only the module type specializations needed by the app
-    bool needsSingleItem = false, needsMultiItem = false;
+    bool needsSingleItem = false, needsMultiItem = false, needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
       {
@@ -557,6 +611,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  needsMultiItem = true;
 	else 
 	  needsSingleItem = true;
+
+	if (mod->get_isEnumerate())
+	  needsEnumerate = true;
       }
     
     if (needsSingleItem)
@@ -564,6 +621,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     
     if (needsMultiItem)
       f.add(genUserInclude("deviceCode/ModuleType_MultiItem.cuh"));
+
+    if (needsEnumerate)
+      f.add(genUserInclude("deviceCode/ModuleType_Enumerate.cuh"));
     
     f.add(genUserInclude("deviceCode/ModuleType_Source.cuh"));
     f.add(genUserInclude("deviceCode/ModuleType_Sink.cuh"));
@@ -657,22 +717,26 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add("");
 	}
       
-      // generate run function
-      f.add("__device__");
-      f.add(genFcnHeader("void",
-			 DeviceAppClass + "::\n" + 
-			 mod->get_name() + "::run", 
-			 genDeviceModuleRunFcnParams(mod)));
+      // stimcheck: Generate run functions for every module EXCEPT ENUMERATES.
+      if (!(mod->get_isEnumerate()))
+	{
+          // generate run function
+          f.add("__device__");
+          f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::run", 
+			     genDeviceModuleRunFcnParams(mod)));
       
-      f.add("{");
-      f.indent();
+          f.add("{");
+          f.indent();
       
-      f.add("");
+          f.add("");
       
-      f.unindent();
-      f.add("}");
+          f.unindent();
+          f.add("}");
       
-      f.add("");
+          f.add("");
+	}
 
       if (mod->get_isEnumerate())
 	{

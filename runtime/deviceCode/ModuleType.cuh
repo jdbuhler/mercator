@@ -621,7 +621,16 @@ namespace Mercator  {
     }
     
 #endif
-    
+  public: 
+    __device__
+    virtual
+    //void begin(InstTagT t) = 0;
+    void begin(InstTagT t) {}
+
+    __device__
+    virtual
+    //void end(InstTagT t) = 0;
+    void end(InstTagT t) {}
   protected:
 
     ChannelBase* channels[numChannels];  // module's output channels
@@ -720,6 +729,17 @@ namespace Mercator  {
       return (lastFireableCount[instIdx]);
     }
 
+/*
+    __device__
+    virtual
+    //void begin(InstTagT t) = 0;
+    void begin(InstTagT t) {}
+
+    __device__
+    virtual
+    //void end(InstTagT t) = 0;
+    void end(InstTagT t) {}
+*/
     //stimcheck: Signal handler function, preforms actions based on signals
     //that can currently be processed.
     __device__
@@ -779,6 +799,7 @@ namespace Mercator  {
 			switch(t) {
 
 				//Enumerate Signal
+				/*
 				case Signal::SignalTag::Enum:
 				{
 					//Actual enumeration functionality happens in the module,
@@ -805,11 +826,81 @@ namespace Mercator  {
 					printf("Enumerate Signal Processed\n");
 					break;
 				}
+				*/
+
+				case Signal::SignalTag::Enum:
+				{
+					this->begin(instIdx);
+					//Create a new enum signal to send downstream
+					Signal s;
+					s.setTag(Signal::SignalTag::Enum);
+
+					//Reserve space downstream for enum signal
+					unsigned int dsSignalBase;
+		        		for (unsigned int c = 0; c < numChannels; c++) {
+						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+
+						//Set the credit for our new signal depending on if there are already signals downstream.
+						if(channel->dsSignalQueueHasPending(instIdx)) {
+							s.setCredit(channel->getNumItemsProduced(instIdx));
+						}
+						else {
+							s.setCredit(channel->dsPendingOccupancy(instIdx));
+						}
+
+						//If the channel is NOT an aggregate channel, send a new enum signal downstream
+						if(!(channel->isAggregate())) {
+							dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+							//Write enum signal to downstream node
+							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+						}
+					}
+				//	printf("Enumerate Signal Processed\n");
+					break;
+				}
 
 				//Aggregate Signal
+				/*
 				case Signal::SignalTag::Agg:
 					printf("Aggregate Signal Processed\n");
 					break;
+				*/
+
+				case Signal::SignalTag::Agg:
+				{
+					this->end(instIdx);
+					//Create a new enum signal to send downstream
+					Signal s;
+					s.setTag(Signal::SignalTag::Agg);
+
+					//Reserve space downstream for agg signal
+					unsigned int dsSignalBase;
+		        		for (unsigned int c = 0; c < numChannels; c++) {
+						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
+						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+
+						//Set the credit for our new signal depending on if there are already signals downstream.
+						if(channel->dsSignalQueueHasPending(instIdx)) {
+							s.setCredit(channel->getNumItemsProduced(instIdx));
+						}
+						else {
+							s.setCredit(channel->dsPendingOccupancy(instIdx));
+						}
+
+						//If the channel is NOT an aggregate channel, send a new enum signal downstream
+						if(!(channel->isAggregate())) {
+							dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+							//Write enum signal to downstream node
+							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+						}
+					}
+					break;
+				}
 
 				//Tail Signal
 				//stimcheck: Name of this signal may be misleading.  By nature of being a signal, the tail flag that was being set is no longer needed, as enforcing full ensembles does not occur while a signal is present.
@@ -838,6 +929,7 @@ namespace Mercator  {
 						//Write tail signal to downstream node
 						channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 					}
+					printf("Tail Signal Processed\n");
 					break;
 				}
 				default:

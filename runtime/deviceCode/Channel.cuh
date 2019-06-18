@@ -556,6 +556,24 @@ namespace Mercator  {
 	//printf("DS SIGNAL QUEUE OVERSIZED: %d, dsInst: %d\n", dsSignalQueue->getOccupancy(dsInst), dsInst);
     }
 
+    // 
+    // @brief Check if this channel is an aggregate channel
+    //
+    __device__
+    bool isAggregate() const
+    {
+      return (propFlags & 0x01);
+    }
+
+    // 
+    // @brief Check if this channel is an aggregate channel
+    //
+    __device__
+    void setAggregate()
+    {
+      propFlags &= 0x01;
+    }
+
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to module
@@ -595,6 +613,9 @@ namespace Mercator  {
     //stimcheck: Counter for number of items produced between signals.
     // Used for setting right amount of credit for each signal.
     unsigned int numItemsProduced[numInstances];
+
+    //stimcheck: Signal propagation flags for this channel
+    unsigned int propFlags;
 
   }; // end Channel class
 }  // end Mercator namespace

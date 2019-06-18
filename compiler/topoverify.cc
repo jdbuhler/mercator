@@ -83,6 +83,7 @@ void TopologyVerifier::verifyTopology(App *app)
   
   for (Node *node : app->nodes)
     {
+	cout << "NODE " << node->get_name() << "\tMODULE NAME " << node->get_moduleType()->get_name() << endl;
       if (node->dfsStatus == Node::NotVisited)
 	{
 	  cerr << "ERROR: node " << node->get_name()
@@ -104,6 +105,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	  usmod->get_nElements()/usmod->get_nThreads();
 	
 	node->queueSize = maxInputsPerFiring * usChannel->maxOutputs;
+	cout << "\t\tMAX INPUTS PER FIRING: " << maxInputsPerFiring << "\tUPSTREAM CHANNEL MAX OUTPUTS: " << usChannel->maxOutputs << endl;
       }
       
       // if the node has a cycle parent, add to its queue size and

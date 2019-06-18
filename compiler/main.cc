@@ -81,7 +81,7 @@ void redefineEnum(input::AppSpec* appSpec)
 			input::DataType* dt = new input::DataType("unsigned int");
 			input::ChannelSpec* enumChanSpec = new input::ChannelSpec("out",
 									       dt,
-									       128,
+									       1,	//Max Outputs PER input
 									       true,
 									       false);
 

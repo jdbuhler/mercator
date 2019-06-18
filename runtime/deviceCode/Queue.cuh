@@ -67,11 +67,16 @@ namespace Mercator  {
 	  // ensure allocation succeeded
 	  if (data[i] == nullptr)
 	    {
-	      printf("ERROR: failed to allocate queue [block %d]\n",
-		     blockIdx.x);
+	      //printf("ERROR: failed to allocate queue [block %d]\n",
+		//     blockIdx.x);
 	      
+	      printf("ERROR: failed to allocate queue [block %d]\t\ti = %d\tnumInstances = %d\tcapacities[%d] = %d\tdataSizes[%d] = %d\n", blockIdx.x, i, numInstances, i, capacities[i], i, dataSizes[i]);
 	      crash();
 	    }
+	else {
+	//printf("ALLOCATED QUEUE [block %d], i = %d\n", blockIdx.x, i);
+	      //printf("\tALLOCATED QUEUE [block %d]\t\ti = %d\tnumInstances = %d\tcapacities[%d] = %d\tdataSizes[%d] = %d\n", blockIdx.x, i, numInstances, i, capacities[i], i, dataSizes[i]);
+	}
 	  
 	  totalCapacity += capacities[i];
 	}

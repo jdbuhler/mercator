@@ -44,8 +44,11 @@ void genModuleConstruction(const string &moduleObj,
   // create const array of queue sizes per instance
   {
     string nextStmt = "const unsigned int queueSizes[] = {";
-    for (const Node *node : mod->nodes)
+    printf("%s\n-----------------------------\n", mod->get_name().c_str());
+    for (const Node *node : mod->nodes) {
       nextStmt += to_string(node->get_queueSize() * options.queueScaler) + ", ";
+      printf("\tQUEUE SIZES: nodeQueueSize(%d) * optionsQueueScalar(%d) = %d\n", node->get_queueSize(), options.queueScaler, node->get_queueSize() * options.queueScaler);
+    }
     nextStmt += "};";
     
     f.add(nextStmt);

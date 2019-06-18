@@ -99,9 +99,9 @@ namespace Mercator  {
     void setAgg(bool v)
     { aggregate = v; }
 
-    __device__
-    virtual
-    unsigned int findCount() { return 0; }
+    //__device__
+    //virtual
+    //unsigned int findCount() { return 0; }
 
     ///////////////////////////////////////////////////////////////////
     // SCHEDULING INTERFACE (see ModuleType.cuh for details)
@@ -145,6 +145,13 @@ namespace Mercator  {
     __device__
     virtual void cleanup() {}
 
+/*
+    __device__
+    virtual void end(BaseType::InstTagT) {}
+    
+    __device__
+    virtual void begin(BaseType::InstTagT) {}
+*/
     //////////////////////////////////////////////////////////////
     // INSTRUMENTATION PRINTING (see ModuleType.h for details)
     //////////////////////////////////////////////////////////////
