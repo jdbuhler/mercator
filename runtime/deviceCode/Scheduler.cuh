@@ -176,19 +176,28 @@ namespace Mercator  {
       bool hasPending = false;
       bool hasPendingS = false;
       bool hasPendingC = false;
+      bool hasAllInTail = true;
       for (unsigned int j = 0; j < numModules; j++)
 	{
 	  unsigned int n = modules[j]->computeNumPendingTotal();
 	  unsigned int ns = modules[j]->computeNumPendingTotalSignal();
 	  bool nc = modules[j]->hasCredit();
+	  bool nt = modules[j]->isInTailInit();
 	  hasPending |= (n > 0);
+	  //if(n > 0) {
+		//printf("HASPENDING FAILED [blockIdx %d, threadIdx %d]:\t%d REMAINING\n", blockIdx.x, threadIdx.x, n);
+	  //}
 	  hasPendingS |= (ns > 0);
 	  hasPendingC |= (nc);
+	  if(modules[j] != sourceModule && modules[j]->isEnum()) {
+	  	hasAllInTail &= nt;
+	  }
 	}
       
+      assert(hasAllInTail);
       assert(!hasPendingS);
-      assert(!hasPending);
       assert(!hasPendingC);
+      assert(!hasPending);
 #endif
     }
 

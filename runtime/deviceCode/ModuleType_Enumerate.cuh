@@ -237,11 +237,12 @@ namespace Mercator  {
       __syncthreads();
 
 	//stimcheck: Only the boss thread needs to make the enumerate and aggregate signals
-	if(IS_BOSS()) {
+	
+	if(threadIdx.x < numInstances) {
 	unsigned int instIdx = threadIdx.x;
 	//Create a new enum signal to send downstream
-	Signal s;
-	s.setTag(Signal::SignalTag::Enum);
+	Signal* s = new Signal();
+	s->setTag(Signal::SignalTag::Enum);
 
 	//Reserve space downstream for enum signal
 	unsigned int dsSignalBase;
@@ -257,10 +258,10 @@ namespace Mercator  {
 		    static_cast<Channel *>(getChannel(c));
 		//Set the credit for our new signal depending on if there are already signals downstream.
 		if(channel->dsSignalQueueHasPending(instIdx)) {
-			s.setCredit(channel->getNumItemsProduced(instIdx));
+			s->setCredit(channel->getNumItemsProduced(instIdx));
 		}
 		else {
-			s.setCredit(channel->dsPendingOccupancy(instIdx));
+			s->setCredit(channel->dsPendingOccupancy(instIdx));
 		}
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
@@ -268,10 +269,11 @@ namespace Mercator  {
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 			//Write enum signal to downstream node
-			channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+			channel->directSignalWrite(instIdx, *s, dsSignalBase, 0);
 		}
 	}
 	}
+	
 	__syncthreads();
 
 	//stimcheck: Decrement credit for the module here (if needed)
@@ -282,6 +284,9 @@ namespace Mercator  {
 	}
 	__syncthreads();
 
+	if(IS_BOSS()) {
+		printf("CALLING SIGNAL HANDLER ENUMERATE. . . \n");
+	}
 	this->signalHandler();
 	__syncthreads();
     }

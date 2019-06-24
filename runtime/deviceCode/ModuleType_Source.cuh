@@ -333,6 +333,34 @@ namespace Mercator  {
 	}
       __syncthreads(); // all threads must see dsBase[] values
 */
+
+	__syncthreads(); ///
+
+	if(IS_BOSS()) {
+		//printf("BEFORE REQUEST [blockIdx %d]\tnumPending = %d\tpendingOffset = \n", blockIdx.x, numPending);
+		printf("BEFORE REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
+	}
+
+	/*__syncthreads(); ///
+      if(IS_BOSS()) {
+	numPending -= totalFireable;
+	pendingOffset += totalFireable;
+
+	if((!this->isInTail() && numPending == 0) || this->isInTailInit())
+	{
+		numPending = source->reserve(REQ_SIZE, &pendingOffset);
+	}
+      }
+	__syncthreads(); ///
+
+	if(IS_BOSS()) {
+		//printf("AFTER REQUEST [blockIdx %d]\tnumPending = %d\tpendingOffset = \n", blockIdx.x, numPending);
+		printf("AFTER REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
+	}
+
+	__syncthreads(); ///
+	*/
+
       if (IS_BOSS())
 	{
 	  numPending    -= totalFireable;
@@ -348,11 +376,15 @@ namespace Mercator  {
 	}
 	*/
 	  if ((!this->isInTail() && numPending == 0) || this->isInTailInit())
+	    //if(true)
 	    {
-	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
+		//printf("+++PUSHING TAIL+++\t%d\n", numChannels);
+	      ////numPending = source->reserve(REQ_SIZE, &pendingOffset);
+		printf("+++PUSHING TAIL+++\t%d\t%d\n", numChannels, numPending);
 		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
 			//printf("SECOND BLOCK %d, numPending %d\n", blockIdx.x, numPending);
 	      if (numPending == 0) { // no more input left to request!
+		//printf("+++PUSHING TAIL+++\t%d\t%d\n", numChannels, numPending);
 		this->setInTail(true);
 		//stimcheck:  Send tail Signal instead of setting for all downstream nodes immediately
 		Signal s;
@@ -376,8 +408,9 @@ namespace Mercator  {
      		 // Reserve space on all channels' downstream queues
   		 // for the data we are about to write, and get the
       		// base pointer at which to write it for each queue.
-      		__shared__ unsigned int dsSignalBase[numChannels];
+      		//__shared__ unsigned int dsSignalBase[numChannels];
       		//unsigned int dsSignalBase[numChannels];
+		unsigned int dsSignalBase;
 	        //if(blockIdx.x == 0) {
       		//if (tid < numChannels)
 	        for (unsigned int c = 0; c < numChannels; c++)
@@ -387,7 +420,11 @@ namespace Mercator  {
 
 		  s.setCredit(channel->dsPendingOccupancy(tid));	  
 
-	  	  dsSignalBase[c] = channel->directSignalReserve(0, 1);
+	  	  //dsSignalBase[c] = channel->directSignalReserve(0, 1);
+	  	  dsSignalBase = channel->directSignalReserve(0, 1);
+
+		  //channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		  channel->directSignalWrite(threadIdx.x, s, dsSignalBase, 0); 
 		}
       		//__syncthreads(); // all threads must see dsBase[] values
 
@@ -395,18 +432,19 @@ namespace Mercator  {
 	      // the output queue for each channel, bypassing the
 	      // channel buffer
 	      //if(blockIdx.x == 0) {
-	      for (unsigned int c = 0; c < numChannels; c++)
+	      //for (unsigned int c = 0; c < numChannels; c++)
 	      //if(tid < numChannels)
-		{
-		  const Channel *channel = 
-		    static_cast<Channel *>(getChannel(c));
+		//{
+		//printf("+++PUSHING TAIL+++\n");
+		  //const Channel *channel = 
+		    //static_cast<Channel *>(getChannel(c));
 
 		  //s.setCredit(channel->dsPendingOccupancy(tid));	  
 		  
-		  channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		  //channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
 		  //printf("Wrote Tail Signal to channel %d [SOURCE, %d]\tpending occupancy: %d", c, blockIdx.x, s.getCredit());
 		  //printf("Wrote Tail Signal to channel\n");
-		}
+		//}
 		  //printf("Wrote Tail Signal to channel\n");
 		//printf("Wrote Tail Signals to %d channels [SOURCE, %d]\tpending occupancy: %d", numChannels, blockIdx.x);
 		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
@@ -419,7 +457,23 @@ namespace Mercator  {
 	}
     
       __syncthreads(); // make sure all can see tail status
-    
+/*
+	if(IS_BOSS()) {
+	      for (unsigned int c = 0; c < numChannels; c++)
+	      //if(tid < numChannels)
+		{
+		  const Channel *channel = 
+		    static_cast<Channel *>(getChannel(c));
+
+		  printf("Channel dsPending after Source: %d\n", channel->dsPendingOccupancy(tid));	  
+		  
+		  //channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
+		  //printf("Wrote Tail Signal to channel %d [SOURCE, %d]\tpending occupancy: %d", c, blockIdx.x, s.getCredit());
+		  //printf("Wrote Tail Signal to channel\n");
+		}
+    	}
+	__syncthreads(); //////////////
+*/
       MOD_TIMER_STOP(gather);
     }
 

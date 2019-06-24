@@ -858,7 +858,7 @@ namespace Mercator  {
 							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 						}
 					}
-				//	printf("Enumerate Signal Processed\n");
+					//printf("Enumerate Signal Processed\t%d\n", sigQueueOcc);
 					break;
 				}
 
@@ -910,6 +910,8 @@ namespace Mercator  {
 					Signal s;
 					s.setTag(Signal::SignalTag::Tail);
 
+					setInTailInit(true);
+
 					//Reserve space downstream for tail signal
 					unsigned int dsSignalBase;
 		        		for (unsigned int c = 0; c < numChannels; c++) {
@@ -929,11 +931,12 @@ namespace Mercator  {
 						//Write tail signal to downstream node
 						channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 					}
-					printf("Tail Signal Processed\n");
+					printf("Tail Signal Processed\t%d\n", sigQueueOcc);
 					break;
 				}
 				default:
 					assert(false && "Signal without tag found, aborting . . .");
+					break;
 			}
 
 			//Reset number of items produced if we have processed a signal

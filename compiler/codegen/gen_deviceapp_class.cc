@@ -331,6 +331,11 @@ void genDeviceModuleConstructor(const App *app,
   // initialize device module's output channels
   genDeviceModuleChannelInitStmts(mod, f);
   
+  // stimcheck: initialize flag for enumerate, for debug purposes only
+  if(mod->get_isEnumerate())
+    {
+       f.add("setEnum(true);");
+    }
   f.unindent();
   f.add("}");
 }
