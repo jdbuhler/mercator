@@ -262,6 +262,8 @@ namespace Mercator  {
 		channels[c]->dsSignalCapacity(instIdx);
 	      
 	      //Check the setting of the credit for the total number of fireable items
+		if(numFireable < this->currentCredit[instIdx])
+			printf("numFireable [blockIdx %d] = %d\tcurrentCredit = %d\n", blockIdx.x, numFireable, currentCredit);
 		assert(numFireable >= this->currentCredit[instIdx]);
 	     	numFireable = min(numFireable, dsCapacity);
 	    }
@@ -624,12 +626,10 @@ namespace Mercator  {
   public: 
     __device__
     virtual
-    //void begin(InstTagT t) = 0;
     void begin(InstTagT t) {}
 
     __device__
     virtual
-    //void end(InstTagT t) = 0;
     void end(InstTagT t) {}
   protected:
 
@@ -729,17 +729,6 @@ namespace Mercator  {
       return (lastFireableCount[instIdx]);
     }
 
-/*
-    __device__
-    virtual
-    //void begin(InstTagT t) = 0;
-    void begin(InstTagT t) {}
-
-    __device__
-    virtual
-    //void end(InstTagT t) = 0;
-    void end(InstTagT t) {}
-*/
     //stimcheck: Signal handler function, preforms actions based on signals
     //that can currently be processed.
     __device__
@@ -799,35 +788,6 @@ namespace Mercator  {
 			switch(t) {
 
 				//Enumerate Signal
-				/*
-				case Signal::SignalTag::Enum:
-				{
-					//Actual enumeration functionality happens in the module,
-					//nothing needs to be set by the signal handler, other than
-					//to begin a new aggregate if needed, otherwise continue
-					//to pass the signal downstream.
-					if(!(this->isAgg())) {		
-						//Create a new tail signal to send downstream
-						Signal s;
-						//s.setEnum(true);
-						//s.setCredit(
-
-						//Reserve space downstream for tail signal
-						unsigned int dsSignalBase;
-		        			for (unsigned int c = 0; c < numChannels; c++) {
-							const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-							//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-							dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-							//Write tail signal to downstream node
-							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
-						}
-					}
-					printf("Enumerate Signal Processed\n");
-					break;
-				}
-				*/
-
 				case Signal::SignalTag::Enum:
 				{
 					this->begin(instIdx);
@@ -838,9 +798,8 @@ namespace Mercator  {
 					//Reserve space downstream for enum signal
 					unsigned int dsSignalBase;
 		        		for (unsigned int c = 0; c < numChannels; c++) {
+						s.setTag(Signal::SignalTag::Enum);
 						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
 
 						//Set the credit for our new signal depending on if there are already signals downstream.
 						if(channel->dsSignalQueueHasPending(instIdx)) {
@@ -858,17 +817,12 @@ namespace Mercator  {
 							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 						}
 					}
-					//printf("Enumerate Signal Processed\t%d\n", sigQueueOcc);
+					printf("Enumerate Signal Processed\t%d\n", sigQueueOcc);
 					break;
 				}
 
 				//Aggregate Signal
-				/*
-				case Signal::SignalTag::Agg:
-					printf("Aggregate Signal Processed\n");
-					break;
-				*/
-
+				// stimcheck: Not final, currently unused.
 				case Signal::SignalTag::Agg:
 				{
 					this->end(instIdx);
@@ -910,14 +864,14 @@ namespace Mercator  {
 					Signal s;
 					s.setTag(Signal::SignalTag::Tail);
 
+					// stimcheck: Using isInTailInit to flag whether or not all modules have seen a tail signal
 					setInTailInit(true);
 
 					//Reserve space downstream for tail signal
 					unsigned int dsSignalBase;
 		        		for (unsigned int c = 0; c < numChannels; c++) {
+						s.setTag(Signal::SignalTag::Tail);
 						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
 
 						//Set the credit for our new signal depending on if there are already signals downstream.
 						if(channel->dsSignalQueueHasPending(instIdx)) {

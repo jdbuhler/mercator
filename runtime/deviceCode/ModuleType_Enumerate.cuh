@@ -241,27 +241,23 @@ namespace Mercator  {
 	if(threadIdx.x < numInstances) {
 	unsigned int instIdx = threadIdx.x;
 	//Create a new enum signal to send downstream
-	Signal* s = new Signal();
-	s->setTag(Signal::SignalTag::Enum);
+	Signal s;
+	s.setTag(Signal::SignalTag::Enum);
 
 	//Reserve space downstream for enum signal
 	unsigned int dsSignalBase;
       	using Channel = typename BaseType::Channel<T>;
 	
-	//printf("\t\t\tNUM CHANNELS: %d\n", numChannels);
 	for (unsigned int c = 0; c < numChannels; c++) {
-		//const Channel *channel = static_cast<Channel *>(getChannel(c));
-		//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-		//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
-
 		  const Channel *channel = 
 		    static_cast<Channel *>(getChannel(c));
+
 		//Set the credit for our new signal depending on if there are already signals downstream.
 		if(channel->dsSignalQueueHasPending(instIdx)) {
-			s->setCredit(channel->getNumItemsProduced(instIdx));
+			s.setCredit(channel->getNumItemsProduced(instIdx));
 		}
 		else {
-			s->setCredit(channel->dsPendingOccupancy(instIdx));
+			s.setCredit(channel->dsPendingOccupancy(instIdx));
 		}
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
@@ -269,7 +265,7 @@ namespace Mercator  {
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 			//Write enum signal to downstream node
-			channel->directSignalWrite(instIdx, *s, dsSignalBase, 0);
+			channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
 		}
 	}
 	}
@@ -284,10 +280,8 @@ namespace Mercator  {
 	}
 	__syncthreads();
 
-	if(IS_BOSS()) {
-		printf("CALLING SIGNAL HANDLER ENUMERATE. . . \n");
-	}
 	this->signalHandler();
+
 	__syncthreads();
     }
   };  // end ModuleType class
