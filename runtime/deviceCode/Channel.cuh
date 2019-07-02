@@ -80,6 +80,7 @@ namespace Mercator  {
 	  dsSignalInstances[j]   = 0;
 	  reservedQueueEntries[j] = ireservedQueueEntries[j];
 	  reservedSignalQueueEntries[j] = ireservedQueueEntries[j];
+	  numItemsProduced[j] = 0;
 	}
       
       for (unsigned int j = 0; j < numThreadGroups; j++) {
@@ -202,16 +203,16 @@ namespace Mercator  {
       //Signals will be taken care of sequentially and scattered to their
       //respective queue after being "spent" (no credits remaining, and
       //downstream space is available).
+      //FIXME
       return dsBudget / outputsPerInput;
+	//return UINT_MAX;
     }
 
     __device__
     bool dsSignalQueueHasPending(unsigned int instIdx) const {
 	const Queue<Signal> *dsSignalQueue = dsSignalQueues[instIdx];
 	int dsInstance = dsInstances[instIdx];
-	if(dsSignalQueue == nullptr)
-		return false;
-	if(dsSignalQueue->getOccupancy(dsInstance) > 0)
+	if(dsSignalQueue != nullptr && dsSignalQueue->getOccupancy(dsInstance) > 0)
 		return true;
 	return false;
     }
@@ -252,34 +253,6 @@ namespace Mercator  {
 	  nextSlot[groupId]++;
 	}
     }
-    
-    // stimcheck: Push for Signals
-    //
-    // @brief move items in each (live) thread to the output buffer
-    // 
-    // @param item item to be pushed
-    // @param isWriter true iff thread is the writer for its group
-    //
-    __device__
-      void pushSignal(const Signal &item, bool isWriter)
-    {
-      if (isWriter)
-	{
-	  int groupId = threadIdx.x / threadGroupSize;
-	  
-	  assert(nextSignalSlot[groupId] < numSlotsPerGroup);
-	  
-	  unsigned int slotIdx =
-	    groupId * numSlotsPerGroup + nextSignalSlot[groupId];
-	  
-	  printf("PRE groupId: %d, slotIdx: %d, numSlotsPerGroup: %d, nextSignalSlot[groupId]: %d\n", groupId, slotIdx, numSlotsPerGroup, nextSignalSlot[groupId]);
-	  signalData[slotIdx] = item;
-	  
-	  nextSignalSlot[groupId]++;
-
-	  printf("groupId: %d, slotIdx: %d, numSlotsPerGroup: %d, nextSignalSlot[groupId]: %d\n", groupId, slotIdx, numSlotsPerGroup, nextSignalSlot[groupId]);
-	}
-    }
 
     __device__
     void resetNumProduced(unsigned int instIdx) {
@@ -302,9 +275,8 @@ namespace Mercator  {
     // @param isWriter true iff thread is the writer for its group
     //
     __device__
-      unsigned int scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
+      void scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
-      unsigned int instTotal = 0;
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
   
@@ -318,10 +290,7 @@ namespace Mercator  {
       
       unsigned int count = (isWriter ? nextSlot[groupId] : 0);
       unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
-      instTotal = sum;
 
-      numItemsProduced[instIdx] += sum;
-      
       //
       // Find the first and last thread for each instance.  Inputs
       // to one node are assigned to a contiguous set of threads.
@@ -339,21 +308,19 @@ namespace Mercator  {
       __shared__ unsigned int dsBase[numInstances];
       if (isTail && instIdx < numInstances)
 	{
-	  instTotal = sum + count; // exclusive -> inclusive sum
+	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
 	  COUNT_ITEMS(instTotal);  // instrumentation
 	      
 	  dsBase[instIdx] = directReserve(instIdx, instTotal);
+
+         //stimcheck: Add to the current counter of number of items produced
+         numItemsProduced[instIdx] += instTotal;
 	}
       
       __syncthreads(); // all threads must see updates to dsBase[]
       
-      //stimcheck: Add to the current counter of number of items produced
-      numItemsProduced[instIdx] += instTotal;
-
-      __syncthreads(); // all threads must see the updates to the numItemsProduced
-
-      //printf("NUMPRODUCED = %d\n", numItemsProduced[instIdx]);
+      //printf("\t\t\tNUMPRODUCED = %d\n", numItemsProduced[instIdx]);
 
       //
       // Finally, writer threads move the data to its queue.  We
@@ -387,8 +354,6 @@ namespace Mercator  {
 	nextSlot[tid] = 0;
 
 	//printf("DATA QUEUE OCCUPANCY: %d", dsQueue->getOccupancy(dsInstance));
-
-      return instTotal;
     }
     
     //

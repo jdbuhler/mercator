@@ -102,6 +102,8 @@ namespace Mercator  {
     using BaseType::itemCounter;
 #endif
 
+    unsigned int enumCount[numInstances];
+
     //Queue<T> *parentBuffer[numInstances]; 
     //
     //
@@ -172,17 +174,20 @@ namespace Mercator  {
 	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
 	    }
 	  
-	  const T &myData = 
-	    (idx < totalFireable
-	     ? queue.getElt(instIdx, instOffset)
-	     : queue.getDummy()); // don't create a null reference
+	  //const T &myData = 
+	  //  (idx < totalFireable
+	  //   ? queue.getElt(instIdx, instOffset)
+	  //   : queue.getDummy()); // don't create a null reference
+
+	  //stimcheck: Always get the head of the data queue for Enumerates.
+	  const T &myData = queue.getElt(instIdx, 0);
 	  
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
-	  if (runWithAllThreads || idx < totalFireable)
+	  //if (runWithAllThreads || idx < totalFireable)
 	    mod->run(myData, instIdx);
 	  
 	  __syncthreads(); // all threads must see active channel state
@@ -276,6 +281,7 @@ namespace Mercator  {
 	if(tid < numInstances) {
 		if(this->hasSignal[tid]) {
 			this->currentCredit[tid] -= fireableCount;
+			//this->numDataProduced[tid] += fireableCount;
 		}
 	}
 	__syncthreads();

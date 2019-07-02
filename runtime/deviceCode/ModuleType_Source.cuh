@@ -337,6 +337,19 @@ namespace Mercator  {
       __syncthreads(); // make sure all can see tail status
 
       MOD_TIMER_STOP(gather);
+
+      
+      //stimcheck: Decrement credit for the module here (if needed)
+      //Since this is a source module, credit can never exist here, so just
+      //increment the number of data items produced.
+      //if(IS_BOSS()) {
+	//if(this->hasSignal[tid]) {
+		//this->currentCredit[tid] -= fireableCount;
+		//this->numDataProduced[tid] += fireableCount;
+	//}
+      //}
+      //__syncthreads();
+
     }
 
     

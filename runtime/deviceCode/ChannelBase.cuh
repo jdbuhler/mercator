@@ -81,7 +81,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    unsigned int scatterToQueues(InstTagT, bool, bool) = 0;
+    void scatterToQueues(InstTagT, bool, bool) = 0;
     
     // stimcheck: Signal version of scattering to queues
     // Used when sending all buffered signals downstream

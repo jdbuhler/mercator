@@ -130,8 +130,9 @@ namespace Mercator  {
 		{
 		  fireableCounts[i] = numFireable;
 		  fireableSignalCounts[i] = numSignalFireable;
+		printf("fireableCounts: %d\tfireableSignalCounts: %d\tanyModuleFireable: %d\tanyModuleSignalFireable: %d\tcurrentModIdx: %d\n", fireableCounts[i], fireableSignalCounts[i], (anyModuleFireable), (anyModuleSignalFireable), i);
 		}
-
+	      __syncthreads();//
 	    }
 	  
 	  // If no module can be fired, either all have zero items pending
@@ -154,7 +155,12 @@ namespace Mercator  {
 	  __syncthreads();
 
 	  if(IS_BOSS()) {
-		assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
+		//printf("fireableCounts: %d\tfireableSignalCounts: %d\tanyModuleFireable: %d\tanyModuleSignalFireable: %d\tnextModuleIdx: %d\n", fireableCounts, fireableSignalCounts, (anyModuleFireable) ? 1 : 0, (anyModuleSignalFireable) ? 1 : 0, nextModuleIdx);
+		//printf("fireableCounts: %d\tfireableSignalCounts: %d\tanyModuleFireable: %d\tanyModuleSignalFireable: %d\tnextModuleIdx: %d\n", fireableCounts, fireableSignalCounts, (anyModuleFireable), (anyModuleSignalFireable), nextModuleIdx);
+		//assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
+		//assert(!(modules[nextModuleIdx]->computeNumPendingTotal() > 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
+		//assert(!(modules[nextModuleIdx]->computeNumPendingTotal() > 0 && modules[nextModuleIdx]->computeNumPendingTotalSignal() > 0 && modules[nextModuleIdx]->hasCredit() > 0));
+		assert(!(modules[nextModuleIdx]->computeNumPendingTotal() == 0 && modules[nextModuleIdx]->computeNumPendingTotalSignal() == 0));
 	  }
 
 	  __syncthreads(); ///

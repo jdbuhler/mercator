@@ -224,6 +224,7 @@ namespace Mercator  {
 	if(tid < numInstances) {
 		if(this->hasSignal[tid]) {
 			this->currentCredit[tid] -= fireableCount;
+			//this->numDataProduced[tid] += fireableCount;
 		}
 	}
 	__syncthreads();
