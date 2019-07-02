@@ -139,8 +139,9 @@ namespace Mercator  {
 			     cudaDevAttrMultiProcessorCount,
 			     dev);
       
-      //nBlocks = nBlocksPerSM_suggested * numSMs;
-      nBlocks = numSMs;
+      nBlocks = nBlocksPerSM_suggested * numSMs;
+      //nBlocks = numSMs;
+      //nBlocks=1;
       
       // allocate space on device for passing host parameter struct
       cudaMalloc(&hostParams, sizeof(HostParamsT));

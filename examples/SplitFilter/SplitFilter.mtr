@@ -35,3 +35,4 @@ Edge src -> f;
 Edge f::accept -> snkAccept; // specifies channel
 
 Edge f::reject -> snkReject; // specifies channel
+NodeState Filter::foo : int;

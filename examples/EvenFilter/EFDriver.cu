@@ -17,8 +17,8 @@ int main(int argc, char* argv[])
 {
 
   unsigned int NVALUES = 1000000000;
-  unsigned int lowerBound = 0;
-  unsigned int upperBound = 1000000;
+  //unsigned int lowerBound = 0;
+  //unsigned int upperBound = 1000000;
   //const unsigned int NVALUES = 4000; // one BEEEELLION values
   //const unsigned int NVALUES = 800000; // one BEEEELLION values
 
@@ -60,6 +60,7 @@ int main(int argc, char* argv[])
   
   EvenFilter efapp;
   
+ 
   efapp.src.setSource(inputBuffer);
   efapp.snk.setSink(outputBufferAccept);
   

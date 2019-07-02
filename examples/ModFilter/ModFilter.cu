@@ -7,6 +7,8 @@
 //
 
 #include "ModFilter_dev.cuh"
+#define UPPERBOUNd 750000
+#define LOWERBOUND 700000 
 
 __device__
 unsigned int munge(unsigned int key)
@@ -27,12 +29,13 @@ __device__
 void ModFilter_dev::
 Filter::init()
 {
+#ifdef INSTRUMENT_FG_TIME
  //set upperbound for data collection
   if(IS_BOSS()){
     setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
     }
   __syncthreads(); // all threads must see updates to the bounds
-  
+#endif  
 }
 
 
@@ -57,4 +60,9 @@ Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
   
   if (v % getParams()->modulus[nodeIdx] == 0)
     push(v, nodeIdx);
+}
+__device__
+void ModFilter_dev::
+Filter::cleanup()
+{
 }

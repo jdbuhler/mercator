@@ -34,12 +34,13 @@ A::init()
 		  0, &randState[threadIdx.x]);
     }
 
+#ifdef INSTRUMENT_FG_TIME
  //set upperbound for data collection
-if(IS_BOSS()){
+    if(IS_BOSS()){
     setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
     }
   __syncthreads(); // all threads must see updates to the bounds
-  
+#endif  
 }
 
 __device__

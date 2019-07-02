@@ -7,6 +7,8 @@
 //
 
 #include "SplitFilter_dev.cuh"
+#define UPPERBOUND 750000
+#define LOWERBOUND 700000 
 
 __device__
 uint32_t munge(uint32_t key)
@@ -20,19 +22,18 @@ uint32_t munge(uint32_t key)
   return key;
 }
 
-#define UPPERBOUND 750000
-#define LOWERBOUND 700000 
 
 __device__
 void SplitFilter_dev::
 Filter::init()
 {
+#ifdef INSTRUMENT_FG_TIME
  //set upperbound for data collection
   if(IS_BOSS()){
     setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUND);
     }
   __syncthreads(); // all threads must see updates to the bounds
-  
+#endif  
 }
 
 
@@ -50,4 +51,9 @@ Filter::run(const uint32_t& inputItem, InstTagT nodeIdx)
     v = munge(v);
   } 
   push(v, nodeIdx, (v % 2 == 0 ? Out::accept : Out::reject));
+}
+__device__
+void SplitFilter_dev::
+Filter::cleanup()
+{
 }

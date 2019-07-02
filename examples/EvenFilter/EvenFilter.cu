@@ -27,12 +27,13 @@ __device__
 void EvenFilter_dev::
 Filter::init()
 {
+#ifdef INSTRUMENT_FG_TIME
  //set upperbound for data collection
   if(IS_BOSS()){
     setFGContainerBounds((unsigned long long)LOWERBOUND, (unsigned long long)UPPERBOUNd);
     }
   __syncthreads(); // all threads must see updates to the bounds
-  
+#endif  
 }
 
 //

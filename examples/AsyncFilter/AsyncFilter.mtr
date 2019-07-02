@@ -33,3 +33,4 @@ Edge f -> snk;
 // Parameters are read-only on the device.
 
 Param Filter::modulus : {unsigned int};
+NodeState Filter::foo : int;
