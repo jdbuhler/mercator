@@ -1,0 +1,32 @@
+[ ]1. edit moduletypebase.cuh, adding :    
+    [ ]a. virtual getters for active/inactive flags in inhearited modules (stub)
+    [ ]b. virtual setters for active/inactive flags in inhearited modules (stub)
+    [ ]c. virtual computeIsFireable() stub
+
+[ ]2. edit moduletype.cuh, adding:
+    [ ]a. init active/inactive flag in constructor
+    [ ]b. implement getters for active/inactive flags 
+    [ ]c. implement setters for active/inactive flags
+    [ ]d. implement computeIsFireable()
+    [ ]e. private active/inactive variable
+
+[ ]3. edit Channel.cuh
+    [ ]a. create getdownstreamModule()
+    [ ]b. extend setDSEdge()  to accept both queue and module in arguements
+
+[ ]4. edit Schedular.cuh (Replace while loop in Schedular.cuh with #ifdef to switch modes)
+
+    while(true){
+        //tail checks
+        //find first firable by enumeration over all modules by computing active vs inactive
+            //break when we find a fireable module
+        //compute numFireable()for the module that we selected
+        //module.fire(); 
+        __syncthreads();
+    }
+
+
+[ ]5. Edit ModuleType_Source.cuh, ModuleType_Sink.Cuh and ModuleType_SingleItem.cuh fire function.
+    [ ]5a.    Check and set active/inactive status after the run but before we return,for both current node as well as ustream and downstream nodes 
+
+
