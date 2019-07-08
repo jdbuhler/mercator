@@ -51,8 +51,28 @@ namespace Mercator  {
     void setInTail(bool v)
     { inTail = v; }
 
+    
     ///////////////////////////////////////////////////////////////////
-    // SCHEDULING INTERFACE (see ModuleType.cuh for details)
+    //NEW INTERFACE FOR SCHEDULER_MINSWITCHES (see ModuleType.cuh for details)
+    ///////////////////////////////////////////////////////////////////
+
+    //called multithreaded
+    __device__
+    virtual
+    bool getActiveFlag() = 0; 
+
+    //called multithreaded
+    __device__
+    virtual
+    void flipActiveFlag() = 0; 
+
+    //called multithread
+    __device__
+    virtual
+    unsigned int computeIsFirable() = 0;
+
+    ///////////////////////////////////////////////////////////////////
+    //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////
     
     // called multithreaded, with enforceFullEnsembles same in all threads

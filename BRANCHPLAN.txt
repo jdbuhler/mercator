@@ -1,7 +1,7 @@
-[ ]1. edit moduletypebase.cuh, adding :    
-    [ ]a. virtual getters for active/inactive flags in inhearited modules (stub)
-    [ ]b. virtual setters for active/inactive flags in inhearited modules (stub)
-    [ ]c. virtual computeIsFireable() stub
+[X]1. edit moduletypebase.cuh, adding :    
+    [X]a. virtual getters for active/inactive flags in inhearited modules (stub)
+    [X]b. virtual setters for active/inactive flags in inhearited modules (stub)
+    [X]c. virtual computeIsFireable() stub
 
 [ ]2. edit moduletype.cuh, adding:
     [ ]a. init active/inactive flag in constructor
