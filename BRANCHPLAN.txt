@@ -7,19 +7,19 @@
     [X]a. init active/inactive flag in constructor
     [X]b. implement getters for active/inactive flags 
     [X]c. implement setters for active/inactive flags
-    [ ]d. implement computeIsFireable() //relies on getDSModule
+    [X]d. implement computeIsFireable() //relies on getDSModule
     [X]e. private active/inactive variable
 
 [ ]3. edit Channel.cuh
-    [ ]a. implement getDSModule(unsigned int instIdx) //depends on queue stuff
-    [ ]b. extend setDSEdge()  to accept both queue and module in arguements
+    [X]a. implement getDSModule(unsigned int instIdx) //depends on queue stuff
 
 []3.5 edit channelbase.cuh
     [X]a. create getDSModule(unsigned int instIdx) stub
 
-[ ]3.75 edit Queue.cuh
-    [ ]a. Store moduleID that this queue is associated with
-    
+[X]3.75 edit Queue.cuh
+    [X]a. store pointer to owning module
+    [X]b. get and set owning module
+
 [X]4. edit Schedular.cuh (Replace while loop in Schedular.cuh with #ifdef to switch modes)
 
     while(true){

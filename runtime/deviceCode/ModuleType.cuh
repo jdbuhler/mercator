@@ -37,13 +37,13 @@ namespace Mercator  {
   //           as have inputs?
   //
   template <typename _T, 
-	    unsigned int _numInstances, 
-	    unsigned int _numChannels,
-	    unsigned int _numEltsPerGroup,
-	    unsigned int _threadGroupSize,
-	    unsigned int _maxActiveThreads,
-	    bool _runWithAllThreads,
-	    unsigned int _THREADS_PER_BLOCK>
+      unsigned int _numInstances, 
+      unsigned int _numChannels,
+      unsigned int _numEltsPerGroup,
+      unsigned int _threadGroupSize,
+      unsigned int _maxActiveThreads,
+      bool _runWithAllThreads,
+      unsigned int _THREADS_PER_BLOCK>
   struct ModuleTypeProperties {
     typedef _T T;
     static const unsigned int numInstances     = _numInstances;
@@ -122,7 +122,7 @@ namespace Mercator  {
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
-	channels[c] = nullptr;
+  channels[c] = nullptr;
       
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
@@ -132,6 +132,8 @@ namespace Mercator  {
       for(unsigned int j = 0; j < numInstances; ++j)
         activeFlag[j] = false;
 
+      //tell our queue who we are
+      queue.setModuleAssocation((void*)this);
     }
     
     
@@ -143,11 +145,11 @@ namespace Mercator  {
     ~ModuleType()
     {
       for (unsigned int c = 0; c < numChannels; ++c)
-	{
-	  ChannelBase *channel = channels[c];
-	  if (channel)
-	    delete channel;
-	}
+  {
+    ChannelBase *channel = channels[c];
+    if (channel)
+      delete channel;
+  }
     }
     
     
@@ -163,8 +165,8 @@ namespace Mercator  {
     template<typename DST>
     __device__
     void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput,
-		     const unsigned int *reservedSlots)
+         unsigned int outputsPerInput,
+         const unsigned int *reservedSlots)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
@@ -173,16 +175,16 @@ namespace Mercator  {
       assert(channels[c] == nullptr);
       
       channels[c] = new Channel<DST>(outputsPerInput, 
-				     reservedSlots);
+             reservedSlots);
       
       // make sure alloc succeeded
       if (channels[c] == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-	  
-	  crash();
-	}
+  {
+    printf("ERROR: failed to allocate channel object [block %d]\n",
+     blockIdx.x);
+    
+    crash();
+  }
     }
     
     
@@ -200,12 +202,12 @@ namespace Mercator  {
     template <typename DSP>
     __device__
     void setDSEdge(unsigned int channelIdx,
-		   unsigned int usInstIdx,
-		   ModuleType<DSP> *dsModule, 
-		   unsigned int dsInstIdx)
+       unsigned int usInstIdx,
+       ModuleType<DSP> *dsModule, 
+       unsigned int dsInstIdx)
     { 
       Channel<typename DSP::T> *channel = 
-	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
+  static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
       
       channel->setDSEdge(usInstIdx, dsModule->getQueue(), dsInstIdx);
     }
@@ -240,14 +242,50 @@ namespace Mercator  {
     } 
 
 
+    unsigned int computeNODEIsFirable(unsigned int instIdx){
+      bool nodeActiveFlag = getActiveFlag(tid);  //true's add zero, false adds one, so we can use scann 
+      for (unsigned int c = 0; c < numChannels; ++c){
+        //get dsModule for tid node
+        ModuleType* dsMod = (ModuleType*)channels[c]->getDSModule(tid);
+        nodeActiveFlag = nodeActiveFlag&  !dsMod->getActiveFlag(tid); //is this correct?
+      }
+      return (unsigned int)nodeActiveFlag; //cast bool to int 1 is node is firable 0 is not firable
+    }
+
+
+
     //called multithread
     __device__
     bool computeIsFirable() const{
       int tid = threadIdx.x;
-      //if this node is active and DS is inactive or were in tail
+      __shared__ bool isFirable;
+
+      if (tid < WARP_SIZE)
+      {
+      
+        unsigned int local_isFireable = computeNODEIsFirable(tid);
+
+        unsigned int totalFireable;
+
+        using Scan = WarpScan<unsigned int, WARP_SIZE>;
+        unsigned int sf = Scan::sum(local_isFireable, totalFireable);
+        
+        if (tid == 0){
+          if(totalFireable>0){ //at least one node of this module is fireable
+            isFirable = true;
+          }
+          else{
+            isFirable = false;
+          }
+        }
+      }
+  
+      //if this node is active and all DS are inactive or we're in tail
         //return true
       //else it is not firable
-      return false;
+
+      __syncthreads();
+      return isFirable;
     }
     
     ///////////////////////////////////////////////////////////////////
@@ -277,16 +315,16 @@ namespace Mercator  {
       unsigned int numFireable = numInputsPending(instIdx);
       
       if (numFireable > 0)
-	{
-	  // for each channel
-	  for (unsigned int c = 0; c < numChannels; ++c)
-	    {
-	      unsigned int dsCapacity = 
-		channels[c]->dsCapacity(instIdx);
-	      
-	      numFireable = min(numFireable, dsCapacity);
-	    }
-	}
+  {
+    // for each channel
+    for (unsigned int c = 0; c < numChannels; ++c)
+      {
+        unsigned int dsCapacity = 
+    channels[c]->dsCapacity(instIdx);
+        
+        numFireable = min(numFireable, dsCapacity);
+      }
+  }
       
       return numFireable;
     }
@@ -318,36 +356,36 @@ namespace Mercator  {
       // just do the computation in a single warp, and then propagate
       // the final result out to all threads in the block.
       if (tid < WARP_SIZE)
-	{
-	  unsigned int numFireable = 0;
-	  if (tid < numInstances)
-	    numFireable = computeNumFireable(tid);
-	  
-	  unsigned int totalFireable;
-	  
-	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
-	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
-	  
-	  if (enforceFullEnsembles)
-	    {
-	      // round total fireable count down to a full multiple of # of
-	      // elements that can be consumed by one call to run()
-	      totalFireable = 
-		(totalFireable / maxRunSize) * maxRunSize;
-	      
-	      // adjust individual fireable counts to match reduced total 
-	      if (numFireable + sf > totalFireable)
-		numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
-	    }
-	  
-	  // cache results of per-instance fireable calculation for later
-	  // use by module's firing function
-	  if (tid < numInstances)
-	    lastFireableCount[tid] = numFireable;
-	  
-	  if (tid == 0)
-	    tf = totalFireable;
-	}
+      {
+        unsigned int numFireable = 0;
+        if (tid < numInstances)
+          numFireable = computeNumFireable(tid);
+        
+        unsigned int totalFireable;
+        
+        using Scan = WarpScan<unsigned int, WARP_SIZE>;
+        unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
+        
+        if (enforceFullEnsembles)
+          {
+            // round total fireable count down to a full multiple of # of
+            // elements that can be consumed by one call to run()
+            totalFireable = 
+        (totalFireable / maxRunSize) * maxRunSize;
+            
+            // adjust individual fireable counts to match reduced total 
+            if (numFireable + sf > totalFireable)
+        numFireable = (sf > totalFireable ? 0 : totalFireable - sf);
+          }
+        
+        // cache results of per-instance fireable calculation for later
+        // use by module's firing function
+        if (tid < numInstances)
+          lastFireableCount[tid] = numFireable;
+        
+        if (tid == 0)
+          tf = totalFireable;
+        }
       
       __syncthreads();
       
@@ -371,17 +409,17 @@ namespace Mercator  {
       // the computation in a single warp, and then propagate the
       // final result out to all threads in the block.
       if (tid < WARP_SIZE)
-	{
-	  unsigned int numPending = 0;
-	  if (tid < numInstances)
-	    numPending = numInputsPending(tid);
-	  
-	  using Sum = WarpReduce<unsigned int, WARP_SIZE>;
-	  unsigned int totalPending = Sum::sum(numPending, numInstances);
-	  
-	  if (tid == 0)
-	    tp = totalPending;
-	}
+  {
+    unsigned int numPending = 0;
+    if (tid < numInstances)
+      numPending = numInputsPending(tid);
+    
+    using Sum = WarpReduce<unsigned int, WARP_SIZE>;
+    unsigned int totalPending = Sum::sum(numPending, numInstances);
+    
+    if (tid == 0)
+      tp = totalPending;
+  }
       
       __syncthreads();
       
@@ -409,7 +447,7 @@ namespace Mercator  {
       DeviceTimer::DevClockT scatterTime = scatterTimer.getTotalTime();
       
       printf("%d,%u,%llu,%llu,%llu\n",
-	     blockIdx.x, moduleId, gatherTime, runTime, scatterTime);
+       blockIdx.x, moduleId, gatherTime, runTime, scatterTime);
     }
 
 #endif
@@ -426,11 +464,11 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       printf("%d,%u,%u,%llu,%llu,%llu\n",
-	     blockIdx.x, moduleId,
-	     occCounter.sizePerRun,
-	     occCounter.totalInputs,
-	     occCounter.totalRuns,
-	     occCounter.totalFullRuns);
+       blockIdx.x, moduleId,
+       occCounter.sizePerRun,
+       occCounter.totalInputs,
+       occCounter.totalRuns,
+       occCounter.totalFullRuns);
     }
 #endif
 
@@ -449,7 +487,7 @@ namespace Mercator  {
       printCountsSingle(itemCounter, moduleId, -1);
       
       for (unsigned int c = 0; c < numChannels; c++)
-	printCountsSingle(channels[c]->itemCounter, moduleId, c);
+  printCountsSingle(channels[c]->itemCounter, moduleId, c);
     }
     
     //
@@ -462,12 +500,12 @@ namespace Mercator  {
     //
     __device__
     void printCountsSingle(const ItemCounter<numInstances> &counter,
-			   unsigned int moduleId, int channelId) const
+         unsigned int moduleId, int channelId) const
     {
       // print counts for every instance of this channel
       for (unsigned int i = 0; i < numInstances; i++)
-	printf("%d,%u,%d,%u,%llu\n",
-	       blockIdx.x, moduleId, channelId, i, counter.counts[i]);
+  printf("%d,%u,%d,%u,%llu\n",
+         blockIdx.x, moduleId, channelId, i, counter.counts[i]);
     }
     
 #endif
@@ -591,11 +629,11 @@ namespace Mercator  {
     template<typename DST>
     __device__
     void push(const DST &item, 
-	      InstTagT instTag, 
-	      unsigned int channelIdx = 0) const
+        InstTagT instTag, 
+        unsigned int channelIdx = 0) const
     {
       Channel<DST>* channel = 
-	static_cast<Channel<DST> *>(channels[channelIdx]);
+  static_cast<Channel<DST> *>(channels[channelIdx]);
       
       channel->push(item, isThreadGroupLeader());
     }

@@ -35,14 +35,13 @@ namespace Mercator  {
      //
     //  @brief get the downstream module of the
     //  the specified instance of this channel's
-    //  module without overrunning the available downstream
-    //  queue space.  Virtual because it requires access to
+    //  module . Virtual because it requires access to
     //  the channel's queue, which does not have an untyped base.
     //
 
     __device__
     virtual 
-    unsigned int  getDSModuleID(unsigned int instIdx) const = 0;
+    void* getDSModule(unsigned int instIdx) const = 0;
 
     //
     //  @brief get the number of inputs that can be safely be

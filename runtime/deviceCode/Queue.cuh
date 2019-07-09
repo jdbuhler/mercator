@@ -85,7 +85,18 @@ namespace Mercator  {
 	delete [] data[i];
     }
     
+    __device__
+    void setModuleAssocation(void* _owning_module){
+      owner = _owning_module;
+    }
     
+    __device__
+    void* getAssocatedModule(){
+      return owner;
+    }
+
+
+
     //
     // @ brief return total capacity of all our component queues
     //
@@ -238,6 +249,8 @@ namespace Mercator  {
     { return data[0][0]; }
     
   private:
+
+    void* owner; //what is the module id that should be associated witht his queue
 
     const unsigned int numInstances;  // # instances in this queue
     

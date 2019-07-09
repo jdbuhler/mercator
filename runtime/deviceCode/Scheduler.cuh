@@ -69,8 +69,8 @@ namespace Mercator  {
     void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
     {
       int tid = threadIdx.x;
-      
       TIMER_START(scheduler);
+      printf("new\n"); 
       
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
@@ -151,6 +151,7 @@ namespace Mercator  {
     __device__
     void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
     {
+      printf("old\n"); 
       int tid = threadIdx.x;
       
       TIMER_START(scheduler);
