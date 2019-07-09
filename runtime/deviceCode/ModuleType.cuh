@@ -224,16 +224,14 @@ namespace Mercator  {
     //NEW INTERFACE FOR SCHEDULER_MINSWITCHES
     ///////////////////////////////////////////////////////////////////
 
-    //called multithreaded
     __device__
-    bool getActiveFlag(unsigned int instIdx)
+    bool getActiveFlag(unsigned int instIdx) const
     {
       assert(instIdx < numInstances);
       return activeFlag[instIdx];
     } 
 
 
-    //called multithreaded
     __device__
     void flipActiveFlag(unsigned int instIdx)
     { 
@@ -242,34 +240,24 @@ namespace Mercator  {
     } 
 
 
-    unsigned int computeNODEIsFirable(unsigned int instIdx){
-      bool nodeActiveFlag = getActiveFlag(tid);  //true's add zero, false adds one, so we can use scann 
-      for (unsigned int c = 0; c < numChannels; ++c){
-        //get dsModule for tid node
-        ModuleType* dsMod = (ModuleType*)channels[c]->getDSModule(tid);
-        nodeActiveFlag = nodeActiveFlag&  !dsMod->getActiveFlag(tid); //is this correct?
-      }
-      return (unsigned int)nodeActiveFlag; //cast bool to int 1 is node is firable 0 is not firable
-    }
 
-
-
-    //called multithread
+    //called with all threads
     __device__
     bool computeIsFirable() const{
       int tid = threadIdx.x;
+      unsigned int local_isFireable=false;
       __shared__ bool isFirable;
 
       if (tid < WARP_SIZE)
       {
       
-        unsigned int local_isFireable = computeNODEIsFirable(tid);
+        if(tid<numInstances){
+          local_isFireable = NODEIsFirable(tid);
+        }
 
-        unsigned int totalFireable;
+        using Sum = WarpReduce<unsigned int, WARP_SIZE>;
+        unsigned int totalFireable = Sum::sum(local_isFireable, numInstances);
 
-        using Scan = WarpScan<unsigned int, WARP_SIZE>;
-        unsigned int sf = Scan::sum(local_isFireable, totalFireable);
-        
         if (tid == 0){
           if(totalFireable>0){ //at least one node of this module is fireable
             isFirable = true;
@@ -279,7 +267,6 @@ namespace Mercator  {
           }
         }
       }
-  
       //if this node is active and all DS are inactive or we're in tail
         //return true
       //else it is not firable
@@ -287,7 +274,20 @@ namespace Mercator  {
       __syncthreads();
       return isFirable;
     }
-    
+
+    __device__
+    unsigned int NODEIsFirable(unsigned int instIdx)const{
+      assert(instIdx < numInstances);
+
+      bool nodeActiveFlag = getActiveFlag(instIdx);  //true's add zero, false adds one, so we can use scann 
+
+      for (unsigned int c = 0; c < numChannels; ++c){
+        //get dsModule for tid node
+        ModuleType* dsMod = (ModuleType*)channels[c]->getDSModule(instIdx);
+        nodeActiveFlag = nodeActiveFlag&  !dsMod->getActiveFlag(instIdx); //is this correct?
+      }
+      return (unsigned int)nodeActiveFlag; //cast bool to int 1 is node is firable 0 is not firable
+    }
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
     ///////////////////////////////////////////////////////////////////

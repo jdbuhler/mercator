@@ -70,7 +70,6 @@ namespace Mercator  {
     {
       int tid = threadIdx.x;
       TIMER_START(scheduler);
-      printf("new\n"); 
       
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
@@ -96,13 +95,12 @@ namespace Mercator  {
             __syncthreads(); // make sure everyone can see tail status
         }
         
-        __shared__ unsigned int fireableCounts [numModules];
+        //__shared__ unsigned int fireableCounts [numModules];
    
         // find first module that is firable (active folled by inactive)
         unsigned int nextFire=NULL;
         for (unsigned int i = 0; i < numModules; ++i){
-          ModuleTypeBase *mod = modules[i];
-          if (mod->computeIsFirable()){
+          if (modules[i]->computeIsFirable()){
             nextFire = i;
             break;
           }
@@ -117,8 +115,8 @@ namespace Mercator  {
 
 
         //get num fireable for the next firing node
-        unsigned int numFireable =  
-            modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
+        //unsigned int numFireable =  
+            //modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
         
         // make sure all threads can see fireableCounts[], and
         // that all modules can see results of firable calculation
@@ -151,7 +149,6 @@ namespace Mercator  {
     __device__
     void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
     {
-      printf("old\n"); 
       int tid = threadIdx.x;
       
       TIMER_START(scheduler);

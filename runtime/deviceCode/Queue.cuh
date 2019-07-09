@@ -91,7 +91,7 @@ namespace Mercator  {
     }
     
     __device__
-    void* getAssocatedModule(){
+    void* getAssocatedModule() const{
       return owner;
     }
 

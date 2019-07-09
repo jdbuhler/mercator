@@ -90,6 +90,7 @@ namespace Mercator  {
 
     __device__
     void* getDSModule(unsigned int instIdx) const{
+      printf("instIdx:%i, numInstances:%i\n",instIdx, numInstances);
       const Queue<T> *dsQueue = dsQueues[instIdx];
       return dsQueue->getAssocatedModule();
     }
