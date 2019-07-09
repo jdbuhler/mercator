@@ -33,7 +33,7 @@ namespace Mercator  {
   //
   
   template <unsigned int numModules,
-	    unsigned int THREADS_PER_BLOCK>
+      unsigned int THREADS_PER_BLOCK>
   class Scheduler {
     
   public:
@@ -63,6 +63,8 @@ namespace Mercator  {
     //
     // @brief run the MERCATOR application to consume all input
     //
+
+  #ifdef SCHEDULER_MINSWITCHES
     __device__
     void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
     {
@@ -73,111 +75,176 @@ namespace Mercator  {
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
       for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
-	{
-	  int idx = base + tid;
-	  
-	  if (idx < numModules && modules[idx] != sourceModule)
-	    modules[idx]->setInTail(false);
-	}
+      {
+        int idx = base + tid;
+        if (idx < numModules && modules[idx] != sourceModule)
+        modules[idx]->setInTail(false);
+      }
+      
+      //TODO:: set source to active
+
+      // main scheduling loop
+      while (true){
+        //Tail check
+        if (sourceModule->isInTail()){
+            for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
+              int idx = base + tid;
+              if (idx < numModules)
+                modules[idx]->setInTail(true);
+            }
+            __syncthreads(); // make sure everyone can see tail status
+        }
+        
+        __shared__ unsigned int fireableCounts [numModules];
+   
+        // find first module that is firable (active folled by inactive)
+        unsigned int nextFire=NULL;
+        for (unsigned int i = 0; i < numModules; ++i){
+          ModuleTypeBase *mod = modules[i];
+          if (mod->computeIsFirable()){
+            nextFire = i;
+            break;
+          }
+        }
+
+        
+        // If no module can be fired, either all have zero items pending
+        // (we are done), or no module with pending inputs can fire
+        // (we are deadlocked -- should not happen!).
+        if (nextFire==NULL)
+          break;
+        
+        // make sure all threads can see fireableCounts[], and
+        // that all modules can see results of firable calculation
+        __syncthreads(); 
+        
+        TIMER_STOP(scheduler);
+        
+        modules[nextFire]->fire();
+        
+        TIMER_START(scheduler);
+      }
+        
+      __syncthreads(); // make sure final state is visible to all threads
+        
+      TIMER_STOP(scheduler);
+        
+      #ifndef NDEBUG
+        // deadlock check -- make sure no module still has pending inputs
+        bool hasPending = false;
+        for (unsigned int j = 0; j < numModules; j++){
+          unsigned int n = modules[j]->computeNumPendingTotal();
+          hasPending |= (n > 0);
+        }
+        assert(!hasPending);
+      #endif
+    }
+
+  #else
+
+    __device__
+    void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
+    {
+      int tid = threadIdx.x;
+      
+      TIMER_START(scheduler);
+      
+      // reset the tail state for all modules except the source
+      // (which figures out its own tail state)
+      for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
+      {
+        int idx = base + tid;
+        if (idx < numModules && modules[idx] != sourceModule)
+        modules[idx]->setInTail(false);
+      }
       
       // main scheduling loop
-      while (true)
-	{
-	  // First, check if the global input buffer is exhausted by seeing
-	  // if the source module has run out of work to do.  If so, every
-	  // module should be in the tail of execution.
-	  //
-	  // FIXME: the tail indicator should become a signal that is
-	  // passed from the source down through the app, so that modules
-	  // do not switch to the tail of execution prematurely.
-	  //
-	  if (sourceModule->isInTail())
-	    {
-	      for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
-		{
-		  int idx = base + tid;
-		  
-		  if (idx < numModules)
-		    modules[idx]->setInTail(true);
-		}
-	      
-	      __syncthreads(); // make sure everyone can see tail status
-	    }
-	  
-	  __shared__ unsigned int fireableCounts [numModules];
-	  
-	  // Calc number of inputs that can be fired (pending, and there
-	  // is space in the downstream queue to hold the results) for
-	  // each module.
-	  bool anyModuleFireable = false;
-	  for (unsigned int i = 0; i < numModules; ++i)
-	    {
-	      ModuleTypeBase *mod = modules[i];
-	      
-	      // ignore full ensemble rule if we are in the tail of
-	      // execution, or if we are the source
-	      bool enforceFullEnsembles =
-		(PREFER_FULL_ENSEMBLES   && 
-		 !sourceModule->isInTail() && 
-		 mod != sourceModule);
-	      
-	      unsigned int numFireable =  
-		mod->computeNumFireableTotal(enforceFullEnsembles);
-	      
-	      if (numFireable > 0)
-		anyModuleFireable = true;
-	      
-	      if (IS_BOSS())
-		{
-		  fireableCounts[i] = numFireable;
-		}
-	    }
-	  
-	  // If no module can be fired, either all have zero items pending
-	  // (we are done), or no module with pending inputs can fire
-	  // (we are deadlocked -- should not happen!).
-	  if (!anyModuleFireable)
-	    break;
-	  
-	  // make sure all threads can see fireableCounts[], and
-	  // that all modules can see results of firable calculation
-	  __syncthreads(); 
-	  
-	  //
-	  // Call the scheduling algorithm to pick next module to fire
-	  //
-	  unsigned int nextModuleIdx = chooseModuleToFire(fireableCounts);
-	  
-	  TIMER_STOP(scheduler);
-	  
-	  modules[nextModuleIdx]->fire();
-	  
-	  TIMER_START(scheduler);
-	}
-      
+      while (true){
+        // First, check if the global input buffer is exhausted by seeing
+        // if the source module has run out of work to do.  If so, every
+        // module should be in the tail of execution.
+        //
+        // FIXME: the tail indicator should become a signal that is
+        // passed from the source down through the app, so that modules
+        // do not switch to the tail of execution prematurely.
+        //
+        if (sourceModule->isInTail()){
+            for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
+              int idx = base + tid;
+              if (idx < numModules)
+                modules[idx]->setInTail(true);
+            }
+            __syncthreads(); // make sure everyone can see tail status
+        }
+        
+        __shared__ unsigned int fireableCounts [numModules];
+        
+        // Calc number of inputs that can be fired (pending, and there
+        // is space in the downstream queue to hold the results) for
+        // each module.
+        bool anyModuleFireable = false;
+        for (unsigned int i = 0; i < numModules; ++i){
+          ModuleTypeBase *mod = modules[i];
+          // ignore full ensemble rule if we are in the tail of
+          // execution, or if we are the source
+          bool enforceFullEnsembles =
+            (PREFER_FULL_ENSEMBLES   && 
+             !sourceModule->isInTail() && 
+             mod != sourceModule); 
+          unsigned int numFireable =  
+            mod->computeNumFireableTotal(enforceFullEnsembles);
+          if (numFireable > 0)
+            anyModuleFireable = true;
+          if (IS_BOSS()){
+            fireableCounts[i] = numFireable;
+          }
+        }
+        
+        // If no module can be fired, either all have zero items pending
+        // (we are done), or no module with pending inputs can fire
+        // (we are deadlocked -- should not happen!).
+        if (!anyModuleFireable)
+          break;
+        
+        // make sure all threads can see fireableCounts[], and
+        // that all modules can see results of firable calculation
+        __syncthreads(); 
+        
+        //
+        // Call the scheduling algorithm to pick next module to fire
+        //
+        unsigned int nextModuleIdx = chooseModuleToFire(fireableCounts);
+        
+        TIMER_STOP(scheduler);
+        
+        modules[nextModuleIdx]->fire();
+        
+        TIMER_START(scheduler);
+      }
+        
       __syncthreads(); // make sure final state is visible to all threads
-      
+        
       TIMER_STOP(scheduler);
-      
-#ifndef NDEBUG
-      // deadlock check -- make sure no module still has pending inputs
-      bool hasPending = false;
-      for (unsigned int j = 0; j < numModules; j++)
-	{
-	  unsigned int n = modules[j]->computeNumPendingTotal();
-	  hasPending |= (n > 0);
-	}
-      
-      assert(!hasPending);
-#endif
+        
+      #ifndef NDEBUG
+        // deadlock check -- make sure no module still has pending inputs
+        bool hasPending = false;
+        for (unsigned int j = 0; j < numModules; j++){
+          unsigned int n = modules[j]->computeNumPendingTotal();
+          hasPending |= (n > 0);
+        }
+        assert(!hasPending);
+      #endif
     }
+  
+  #endif
 
 #ifdef INSTRUMENT_TIME
     __device__
     void printTimersCSV() const
     {
       printf("%d,%d,%llu,%llu,%llu\n",
-	     blockIdx.x, -1, schedulerTimer.getTotalTime(), 0, 0);
+       blockIdx.x, -1, schedulerTimer.getTotalTime(), 0, 0);
     }
 #endif
     
@@ -206,7 +273,7 @@ namespace Mercator  {
       
       // initially, we set all lottery weights equal
       for (unsigned int j = 0; j < numModules; ++j)
-	lotteryWeights[j] = 1.0/numModules;
+  lotteryWeights[j] = 1.0/numModules;
     }
     
     ////////////////////////////////////////////////////////////////
@@ -222,38 +289,38 @@ namespace Mercator  {
     unsigned int chooseModule_maxOcc(const unsigned int *fireableCounts)
     {
       using ArgMax = BlockArgMax<unsigned int, 
-				 unsigned int, 
-				 THREADS_PER_BLOCK>;
+         unsigned int, 
+         THREADS_PER_BLOCK>;
       
       __shared__ unsigned int globalMaxIdx;
       unsigned int globalMaxFC             = 0;
       
       for (unsigned int base = 0; base < numModules; base += THREADS_PER_BLOCK)
-	{
-	  unsigned int modIdx = base + threadIdx.x;
-	  unsigned int chunkSize = min(numModules - base, THREADS_PER_BLOCK);
-	  
-	  // Find the module with maximum fireable count within the
-	  // current block-sized chunk.
-	  unsigned int fireableCount = 
-	    (modIdx < numModules ? fireableCounts[modIdx] : 0);
-	  
-	  unsigned int maxFC;
-	  unsigned int maxIdx = ArgMax::argmax(modIdx, fireableCount, maxFC,
-					       chunkSize);
-	
-	  // Compare the max result for this chunk to the global max.
-	  if (IS_BOSS())
-	    {
-	      if (maxFC > globalMaxFC)
-		{
-		  globalMaxFC = maxFC;
-		  globalMaxIdx = maxIdx;
-		}
-	    }
-	  
-	  __syncthreads();
-	}
+  {
+    unsigned int modIdx = base + threadIdx.x;
+    unsigned int chunkSize = min(numModules - base, THREADS_PER_BLOCK);
+    
+    // Find the module with maximum fireable count within the
+    // current block-sized chunk.
+    unsigned int fireableCount = 
+      (modIdx < numModules ? fireableCounts[modIdx] : 0);
+    
+    unsigned int maxFC;
+    unsigned int maxIdx = ArgMax::argmax(modIdx, fireableCount, maxFC,
+                 chunkSize);
+  
+    // Compare the max result for this chunk to the global max.
+    if (IS_BOSS())
+      {
+        if (maxFC > globalMaxFC)
+    {
+      globalMaxFC = maxFC;
+      globalMaxIdx = maxIdx;
+    }
+      }
+    
+    __syncthreads();
+  }
             
       return globalMaxIdx;
     }
@@ -271,7 +338,7 @@ namespace Mercator  {
       
       unsigned int modIdx = threadIdx.x;
       unsigned int fireableCount = 
-	(modIdx < numModules ? fireableCounts[modIdx] : 0);
+  (modIdx < numModules ? fireableCounts[modIdx] : 0);
       
       // get scheduling weights for each module, zeroing out those that
       // cannot be fired right now.  (Assumes invalid module IDs have zero
@@ -286,10 +353,10 @@ namespace Mercator  {
       
       __shared__ float schedVal;
       if (IS_BOSS())
-	{
-	  // curand_uniform chooses from (0, 1]; we want (0, totalWeight]
-	  schedVal = curand_uniform(&randState) * totalWeight;
-	}
+  {
+    // curand_uniform chooses from (0, 1]; we want (0, totalWeight]
+    schedVal = curand_uniform(&randState) * totalWeight;
+  }
       __syncthreads();
       
       //
@@ -305,7 +372,7 @@ namespace Mercator  {
       
       __shared__ int chosenModIdx; 
       if (isTail)
-	chosenModIdx = modIdx;
+  chosenModIdx = modIdx;
       __syncthreads();
       
       // FIXME: do something sensible to weights to bias future

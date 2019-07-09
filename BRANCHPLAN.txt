@@ -18,7 +18,7 @@
     [X]a. create getDSModule(unsigned int instIdx) stub
 
 
-[ ]4. edit Schedular.cuh (Replace while loop in Schedular.cuh with #ifdef to switch modes)
+[X]4. edit Schedular.cuh (Replace while loop in Schedular.cuh with #ifdef to switch modes)
 
     while(true){
         //tail checks
