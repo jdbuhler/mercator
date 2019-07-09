@@ -82,6 +82,7 @@ namespace Mercator  {
       }
       
       //TODO:: set source to active
+      sourceModule->flipActiveFlag(0); //only has one instance
 
       // main scheduling loop
       while (true){
@@ -113,6 +114,11 @@ namespace Mercator  {
         // (we are deadlocked -- should not happen!).
         if (nextFire==NULL)
           break;
+
+
+        //get num fireable for the next firing node
+        unsigned int numFireable =  
+            modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
         
         // make sure all threads can see fireableCounts[], and
         // that all modules can see results of firable calculation
@@ -236,7 +242,7 @@ namespace Mercator  {
         assert(!hasPending);
       #endif
     }
-  
+
   #endif
 
 #ifdef INSTRUMENT_TIME

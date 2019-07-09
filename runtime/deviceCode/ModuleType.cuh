@@ -239,6 +239,7 @@ namespace Mercator  {
       activeFlag[instIdx] = !activeFlag[instIdx];
     } 
 
+
     //called multithread
     __device__
     bool computeIsFirable() const{
