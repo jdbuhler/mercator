@@ -16,7 +16,8 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
+#set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
+set(MERCATOR_ROOT_DIR /home/research/planot/mercator)
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
@@ -54,7 +55,7 @@ include(${MERCATOR_ROOT_DIR}/mercator-rules.txt)
 if(${BUILDING_IN_TREE})
   # Override default path to MERCATOR compiler to allow build from
   # non-installed version
-  set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/build/compiler/mercator)
+  set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/compiler/mercator)
   include_directories(AFTER ${MERCATOR_ROOT_DIR}/build/runtime)
 endif()
 

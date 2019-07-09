@@ -404,6 +404,9 @@ namespace Mercator  {
       
       // probabilistically choose module proportionally by weight
       unsigned int modIdx = chooseModule_lottery(fireableCounts);    
+
+#elif defined(SCHEDULER_MINSWITCHES)
+      unsigned int modIdx = 0;
 #else
       
 #error "INVALID SCHEDULER SELECTION"
