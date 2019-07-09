@@ -53,5 +53,6 @@
 // Scheduling algorithms
 #define SCHEDULER_MAXOCC    // choose queue with max fireable occupancy
 //#define SCHEDULER_LOTTERY // choose queue probabilistically
+//#define SCHEDULER_MINSWITCHES //schedule with new policy
 
 #endif

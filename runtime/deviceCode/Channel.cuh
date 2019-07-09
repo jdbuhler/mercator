@@ -82,7 +82,18 @@ namespace Mercator  {
     {
       delete [] data;
     }
-    
+
+    // 
+    //  @brief return the moduleid of the downsteam module along this channel
+    //
+    //
+
+    __device__
+    unsigned int getDSModuleID(unsigned int instIdx) const{
+      return 0;
+    }
+
+
     
     //
     // @brief Set the downstream target of the edge for

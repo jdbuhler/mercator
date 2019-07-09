@@ -56,20 +56,20 @@ namespace Mercator  {
     //NEW INTERFACE FOR SCHEDULER_MINSWITCHES (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////
 
-    //called multithreaded
+    //called multithreaded ish
     __device__
     virtual
-    bool getActiveFlag() = 0; 
+    bool getActiveFlag(unsigned int instIdx) = 0; 
 
-    //called multithreaded
+    //called multithreaded ish
     __device__
     virtual
-    void flipActiveFlag() = 0; 
+    void flipActiveFlag(unsigned int instIdx)=0;
 
     //called multithread
     __device__
     virtual
-    unsigned int computeIsFirable() = 0;
+    bool computeIsFirable() = 0;
 
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)

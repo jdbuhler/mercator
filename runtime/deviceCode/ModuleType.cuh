@@ -127,6 +127,11 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
+
+      //init activeFlag to always false in all nodes except source
+      for(unsigned int j = 0; j < numInstances; ++j)
+        activeFlag[j] = false;
+
     }
     
     
@@ -212,6 +217,37 @@ namespace Mercator  {
     __device__
     Queue<T> *getQueue()
     { return &queue; }
+
+    ///////////////////////////////////////////////////////////////////
+    //NEW INTERFACE FOR SCHEDULER_MINSWITCHES
+    ///////////////////////////////////////////////////////////////////
+
+    //called multithreaded
+    __device__
+    bool getActiveFlag(unsigned int instIdx)
+    {
+      assert(instIdx < numInstances);
+      return activeFlag[instIdx];
+    } 
+
+
+    //called multithreaded
+    __device__
+    void flipActiveFlag(unsigned int instIdx)
+    { 
+      assert(instIdx < numInstances);
+      activeFlag[instIdx] = !activeFlag[instIdx];
+    } 
+
+    //called multithread
+    __device__
+    bool computeIsFirable() const{
+      int tid = threadIdx.x;
+      //if this node is active and DS is inactive or were in tail
+        //return true
+      //else it is not firable
+      return false;
+    }
     
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
@@ -436,6 +472,8 @@ namespace Mercator  {
 #endif
     
   protected:
+
+    bool activeFlag[numInstances]; //is this node active 
 
     ChannelBase* channels[numChannels];  // module's output channels
     
