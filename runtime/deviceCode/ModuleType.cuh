@@ -619,12 +619,10 @@ namespace Mercator  {
   public: 
     __device__
     virtual
-    //void begin(InstTagT t) = 0;
     void begin(InstTagT t) {}
 
     __device__
     virtual
-    //void end(InstTagT t) = 0;
     void end(InstTagT t) {}
   protected:
 
@@ -676,17 +674,6 @@ namespace Mercator  {
     }
 
     //
-    // @brief inspector for the channels array (for subclasses)
-    // @param c index of channel to get
-    //
-    __device__
-    ChannelBase *getModChannel(unsigned int c) 
-    { 
-      assert(c < numChannels);
-      return channels[c]; 
-    }
-
-    //
     // @brief number of inputs currently enqueued for a particular
     // instance of this module.
     //
@@ -725,7 +712,6 @@ namespace Mercator  {
     unsigned int maxPending() const
     { return queue.getTotalCapacity(); }
     
-    
     //
     // @brief get last cached count of number of inputs fireable for
     // a particular instance of this module
@@ -750,50 +736,28 @@ namespace Mercator  {
       
       return (lastFireableSignalCount[instIdx]);
     }
-/*
-    __device__
-    virtual
-    //void begin(InstTagT t) = 0;
-    void begin(InstTagT t) {}
 
-    __device__
-    virtual
-    //void end(InstTagT t) = 0;
-    void end(InstTagT t) {}
-*/
     //stimcheck: Signal handler function, preforms actions based on signals
     //that can currently be processed.
     __device__
     void signalHandler() {
-
 	//Perform actions based on signals in each instance's signal queue
-	unsigned int tid = threadIdx.x;
-	unsigned int instIdx = tid;
+	unsigned int instIdx = threadIdx.x;
 	unsigned int i = 0;
-	unsigned int sigQueueOcc = 0;
-	unsigned int cachedFireableSignals = 0;
 	Signal s;
-	__syncthreads();
-
-	//stimcheck: Get the occupancy of the signal queue.  May not be needed?
-	if(instIdx < numInstances) {
-		sigQueueOcc = signalQueue.getOccupancy(instIdx);
-		cachedFireableSignals = getFireableSignalCount(instIdx);
-	}
-
-	__syncthreads();
 
 	if(instIdx < numInstances) {
+		//Get the number of signals currently in the signal queue
+		unsigned int sigQueueOcc = signalQueue.getOccupancy(instIdx);
+
+		//Get the number of fireable signals calculated from the Scheduler
+		unsigned int cachedFireableSignals = getFireableSignalCount(instIdx);
 		while(sigQueueOcc > i && cachedFireableSignals > i) {
 			s = signalQueue.getElt(instIdx, i);
 			//Base case: we have credit to wait on
 
+			//Must have a positive credit always
 			assert(currentCredit[instIdx] >= 0);
-
-			//Currently must be true, since we are only working with signals that use the current downstream space
-			//if(currentCredit[instIdx] > 0) {
-			//	assert(currentCredit[instIdx] <= queue.getOccupancy(instIdx));
-			//}
 
 			//Signal has Credit
 			// AND
@@ -812,6 +776,7 @@ namespace Mercator  {
 				hasSignal[instIdx] = false;
 			}
 
+			//Must have a signal by this point
 			assert(!(hasSignal[instIdx]));
 
 			///////////////////
@@ -822,35 +787,6 @@ namespace Mercator  {
 			switch(t) {
 
 				//Enumerate Signal
-				/*
-				case Signal::SignalTag::Enum:
-				{
-					//Actual enumeration functionality happens in the module,
-					//nothing needs to be set by the signal handler, other than
-					//to begin a new aggregate if needed, otherwise continue
-					//to pass the signal downstream.
-					if(!(this->isAgg())) {		
-						//Create a new tail signal to send downstream
-						Signal s;
-						//s.setEnum(true);
-						//s.setCredit(
-
-						//Reserve space downstream for tail signal
-						unsigned int dsSignalBase;
-		        			for (unsigned int c = 0; c < numChannels; c++) {
-							const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-							//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-							dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-							//Write tail signal to downstream node
-							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
-						}
-					}
-					printf("Enumerate Signal Processed\n");
-					break;
-				}
-				*/
-
 				case Signal::SignalTag::Enum:
 				{
 					this->begin(instIdx);
@@ -859,26 +795,18 @@ namespace Mercator  {
 					s.setTag(Signal::SignalTag::Enum);
 
 					//Reserve space downstream for enum signal
-					unsigned int dsSignalBase;
 		        		for (unsigned int c = 0; c < numChannels; c++) {
-						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
-
-						//Set the credit for our new signal depending on if there are already signals downstream.
-						if(channel->dsSignalQueueHasPending(instIdx)) {
-							s.setCredit(channel->getNumItemsProduced(instIdx));
-						}
-						else {
-							s.setCredit(channel->dsPendingOccupancy(instIdx));
-						}
+						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
 
 						//If the channel is NOT an aggregate channel, send a new enum signal downstream
 						if(!(channel->isAggregate())) {
-							dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-							//Write enum signal to downstream node
-							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+							if(channel->dsSignalQueueHasPending(instIdx)) {
+								s.setCredit(channel->getNumItemsProduced(instIdx));
+							}
+							else {
+								s.setCredit(channel->dsPendingOccupancy(instIdx));
+							}
+							pushSignal(s, instIdx, channel);
 						}
 					}
 					//printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
@@ -886,12 +814,6 @@ namespace Mercator  {
 				}
 
 				//Aggregate Signal
-				/*
-				case Signal::SignalTag::Agg:
-					printf("Aggregate Signal Processed\n");
-					break;
-				*/
-
 				case Signal::SignalTag::Agg:
 				{
 					this->end(instIdx);
@@ -899,27 +821,19 @@ namespace Mercator  {
 					Signal s;
 					s.setTag(Signal::SignalTag::Agg);
 
-					//Reserve space downstream for agg signal
-					unsigned int dsSignalBase;
+					//Reserve space downstream for enum signal
 		        		for (unsigned int c = 0; c < numChannels; c++) {
-						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
-
-						//Set the credit for our new signal depending on if there are already signals downstream.
-						if(channel->dsSignalQueueHasPending(instIdx)) {
-							s.setCredit(channel->getNumItemsProduced(instIdx));
-						}
-						else {
-							s.setCredit(channel->dsPendingOccupancy(instIdx));
-						}
+						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
 
 						//If the channel is NOT an aggregate channel, send a new enum signal downstream
 						if(!(channel->isAggregate())) {
-							dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-							//Write enum signal to downstream node
-							channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+							if(channel->dsSignalQueueHasPending(instIdx)) {
+								s.setCredit(channel->getNumItemsProduced(instIdx));
+							}
+							else {
+								s.setCredit(channel->dsPendingOccupancy(instIdx));
+							}
+							pushSignal(s, instIdx, channel);
 						}
 					}
 					break;
@@ -938,11 +852,8 @@ namespace Mercator  {
 					setInTailInit(true);
 
 					//Reserve space downstream for tail signal
-					unsigned int dsSignalBase;
 		        		for (unsigned int c = 0; c < numChannels; c++) {
-						const Channel<int> *channel = static_cast<Channel<int> *>(getChannel(c));
-						//dsSignalBase[c] = channel->directSignalReserve(0, 1);
-						//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
 
 						//Set the credit for our new signal depending on if there are already signals downstream.
 						if(channel->dsSignalQueueHasPending(instIdx)) {
@@ -951,10 +862,7 @@ namespace Mercator  {
 						else {
 							s.setCredit(channel->dsPendingOccupancy(instIdx));
 						}
-						dsSignalBase = channel->directSignalReserve(instIdx, 1);
-
-						//Write tail signal to downstream node
-						channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+						pushSignal(s, instIdx, channel);
 					}
 					printf("Tail Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
 					break;
@@ -964,14 +872,6 @@ namespace Mercator  {
 					break;
 			}
 
-			//Reset number of items produced if we have processed a signal
-			if(i == 0) {
-				for(unsigned int c = 0; c < numChannels; c++) {
-					Channel<int> *channel = static_cast<Channel<int> *>(getModChannel(c));
-					channel->resetNumProduced(instIdx);
-				}
-			}
-
 			//Increment counter to next index in signal queue
 			++i;
 		}
@@ -979,20 +879,14 @@ namespace Mercator  {
 	__syncthreads();	//Bring all threads together at end
 	
 	//Release all signals that were processed
-	if(instIdx < numInstances && i > 0) {
+	//if(instIdx < numInstances && i > 0) {
+	if(instIdx < numInstances) {
 		signalQueue.release(instIdx, i);
 	}
 
 	__syncthreads();
     }
 
-    __device__
-    void decrementCredit(unsigned int c, unsigned int instIdx) {
-	if(instIdx < numInstances)
-		currentCredit[instIdx] -= c;
-    }
-    
-    
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
@@ -1057,14 +951,21 @@ namespace Mercator  {
     // @param channelIdx channel to which to write the item
     //
     __device__
-    void pushSignal(const Signal &item, 
-	      InstTagT instTag, 
-	      unsigned int channelIdx = 0) const
+    void pushSignal(Signal &s, 
+	      unsigned int instIdx, 
+	      Channel<void*> *channel) const
     {
-      Channel<void*>* channel = 
-	static_cast<Channel<void*> *>(channels[channelIdx]);
+      //Channel<void*>* channel = 
+	//static_cast<Channel<void*> *>(channels[channelIdx]);
       
-      channel->pushSignal(item, isThreadGroupLeader());
+     // channel->pushSignal(item, isThreadGroupLeader());
+	unsigned int dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+	//Write enum signal to downstream node
+	channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+
+	//Reset number of items produced if we have processed a signal
+	channel->resetNumProduced(instIdx);
     }
   };  // end ModuleType class
 }  // end Mercator namespace
