@@ -129,8 +129,10 @@ namespace Mercator  {
 #endif
 
       //init activeFlag to always false in all nodes except source
-      for(unsigned int j = 0; j < numInstances; ++j)
+      for(unsigned int j = 0; j < numInstances; ++j){
         activeFlag[j] = false;
+        firingMask[j] = false;
+      }
 
       //tell our queue who we are
       queue.setModuleAssocation((void*)this);
@@ -240,13 +242,12 @@ namespace Mercator  {
     } 
 
 
-
     //called with all threads
     __device__
-    bool computeIsFirable() const{
+    bool computeIsFirable(){
       int tid = threadIdx.x;
       unsigned int local_isFireable=false;
-      __shared__ bool isFirable;
+      __shared__ bool isFireable;
 
       if (tid < WARP_SIZE)
       {
@@ -260,10 +261,10 @@ namespace Mercator  {
 
         if (tid == 0){
           if(totalFireable>0){ //at least one node of this module is fireable
-            isFirable = true;
+            isFireable = true;
           }
           else{
-            isFirable = false;
+            isFireable = false;
           }
         }
       }
@@ -272,21 +273,26 @@ namespace Mercator  {
       //else it is not firable
 
       __syncthreads();
-      return isFirable;
+      return isFireable;
     }
 
     __device__
-    unsigned int NODEIsFirable(unsigned int instIdx)const{
+    unsigned int NODEIsFirable(unsigned int instIdx){
       assert(instIdx < numInstances);
+      //clear firing mask for this instance
+      firingMask[instIdx]=false; 
 
-      bool nodeActiveFlag = getActiveFlag(instIdx);  //true's add zero, false adds one, so we can use scann 
+      bool isFireable = getActiveFlag(instIdx);  //true's add zero, false adds one, so we can use scann 
 
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
         ModuleType* dsMod = (ModuleType*)channels[c]->getDSModule(instIdx);
-        nodeActiveFlag = nodeActiveFlag&  !dsMod->getActiveFlag(instIdx); //is this correct?
+        isFireable = isFireable&  !dsMod->getActiveFlag(instIdx); //is this correct?
       }
-      return (unsigned int)nodeActiveFlag; //cast bool to int 1 is node is firable 0 is not firable
+
+      //update firingMask[instIdx], if this module is not selected, then this is irrelivent
+      firingMask[instIdx]=isFireable; 
+      return (unsigned int)isFireable; //cast bool to int 1 is node is firable 0 is not firable
     }
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
@@ -513,7 +519,7 @@ namespace Mercator  {
   protected:
 
     bool activeFlag[numInstances]; //is this node active 
-
+    bool firingMask[numInstances];
     ChannelBase* channels[numChannels];  // module's output channels
     
     Queue<T> queue;                     // module's input queue
@@ -582,7 +588,17 @@ namespace Mercator  {
       
       return (lastFireableCount[instIdx]);
     }
-    
+   
+    __device__
+    unsigned int getMaskedFireableCount(unsigned int instIdx)const
+    {
+      assert(instIdx < numInstances);
+
+      if(firingMask[instIdx]){
+        return (lastFireableCount[instIdx]);
+      }
+      return 0;
+    } 
     
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 

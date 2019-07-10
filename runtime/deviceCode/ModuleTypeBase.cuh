@@ -67,7 +67,7 @@ namespace Mercator  {
     //called with all threads
     __device__
     virtual
-    bool computeIsFirable() const = 0;
+    bool computeIsFirable()= 0;
 
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)

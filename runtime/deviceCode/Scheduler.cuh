@@ -97,10 +97,11 @@ namespace Mercator  {
         
         //__shared__ unsigned int fireableCounts [numModules];
    
-        // find first module that is firable (active folled by inactive)
+        // find first module that is firable (active followed by inactive)
         unsigned int nextFire=NULL;
         for (unsigned int i = 0; i < numModules; ++i){
           if (modules[i]->computeIsFirable()){
+            //set the actual node to fire
             nextFire = i;
             break;
           }

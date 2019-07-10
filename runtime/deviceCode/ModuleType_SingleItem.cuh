@@ -88,35 +88,41 @@ namespace Mercator  {
     using BaseType::getThreadGroupSize;
     using BaseType::isThreadGroupLeader;
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::gatherTimer;
-    using BaseType::runTimer;
-    using BaseType::scatterTimer;
-#endif
+  #ifdef INSTRUMENT_TIME
+      using BaseType::gatherTimer;
+      using BaseType::runTimer;
+      using BaseType::scatterTimer;
+  #endif
 
-#ifdef INSTRUMENT_OCC
-    using BaseType::occCounter;
-#endif
+  #ifdef INSTRUMENT_OCC
+      using BaseType::occCounter;
+  #endif
 
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
-#endif
+  #ifdef INSTRUMENT_COUNTS
+      using BaseType::itemCounter;
+  #endif
 
-    //
-    // @brief fire a module, consuming as much from its queue as possible
-    //
-    __device__
-    virtual
-    void fire()
-    {
-      unsigned int tid = threadIdx.x;
-      
-      MOD_TIMER_START(gather);
-      
-      // obtain number of inputs that can be consumed by each instance
-      unsigned int fireableCount = 
-	(tid < numInstances ? getFireableCount(tid) : 0);
-      
+      //
+      // @brief fire a module, consuming as much from its queue as possible
+      //
+      __device__
+      virtual
+      void fire()
+      {
+        unsigned int tid = threadIdx.x;
+        
+        MOD_TIMER_START(gather);
+        
+        // obtain number of inputs that can be consumed by each instance, potentially taking into account the firing mask, set durring sched 
+    #ifdef SCHEDULER_MINSWITCHES  
+        unsigned int fireableCount = 
+          (tid < numInstances ? getMaskedFireableCount(tid) : 0);
+    #else
+        unsigned int fireableCount = 
+          (tid < numInstances ? getFireableCount(tid) : 0);
+    #endif
+
+
       // compute progressive sums of items to be consumed in each instance,
       // and replicate these sums in each WARP as Ai.
       using Gather = QueueGather<numInstances>;
@@ -202,6 +208,26 @@ namespace Mercator  {
       __syncthreads();
       
       MOD_TIMER_STOP(gather);
+      //MOD_TIMER_START(activate);
+    
+      DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+      //update active/ inactive status here
+          
+      //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
+      //  active -> inactive when input queue  has fewer than v_i inputs remaining.
+      unsigned int remainingItems =  mod->numInputsPending(instIdx);
+      if(remainingItems < WARP_SIZE){
+        mod->flipActiveFlag(instIdx);
+      }
+      //2. we may have just activated the DS node
+      //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
+
+      //MOD_TIMER_STOP(activate);
+    
+      //make sure all threads see the new active/inactive status flags
+      //__syncthreads();
+
+
     }
   };  // end ModuleType class
 }  // end Mercator namespace
