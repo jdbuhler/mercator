@@ -123,7 +123,7 @@ namespace Mercator  {
         __syncthreads(); 
         
         TIMER_STOP(scheduler);
-        
+        printf("firing mod:%i\n", nextFire);  
         modules[nextFire]->fire();
         
         TIMER_START(scheduler);
