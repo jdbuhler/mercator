@@ -79,7 +79,8 @@ namespace Mercator  {
         
     using BaseType::getChannel;
     using BaseType::getFireableCount;
-    
+    using BaseType::getMaskedFireableCount;   
+ 
     using BaseType::maxRunSize; 
     
     // make these downwardly available to the user
@@ -169,8 +170,14 @@ namespace Mercator  {
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
+    //choose to respect the firingMask or nah, dependant on scheduler  
+    #ifdef SCHEDULER_MINSWITCHES  
+	  if (checkFiringMask(instIdx))
+	    mod->run(myData, instIdx);
+    #else
 	  if (runWithAllThreads || idx < totalFireable)
 	    mod->run(myData, instIdx);
+    #endif
 	  
 	  __syncthreads(); // all threads must see active channel state
 	  

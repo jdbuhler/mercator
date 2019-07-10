@@ -588,7 +588,15 @@ namespace Mercator  {
       
       return (lastFireableCount[instIdx]);
     }
-   
+
+
+
+   ///////////////////////////////////////////////////////////////////
+    // Mask related functions
+    // These functions allow the fire() function to interact with 
+    // the firingMask array set in the scheduling process
+    ///////////////////////////////////////////////////////////////////
+
     __device__
     unsigned int getMaskedFireableCount(unsigned int instIdx)const
     {
@@ -599,7 +607,16 @@ namespace Mercator  {
       }
       return 0;
     } 
-    
+  
+  
+    __device__
+    bool checkFiringMask(unsigned int instIdx)const{
+      assert(instIdx < numInstances);
+      return firingMask[instIdx];
+    }
+
+
+
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
