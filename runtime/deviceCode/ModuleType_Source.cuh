@@ -338,24 +338,24 @@ namespace Mercator  {
 
 	if(IS_BOSS()) {
 		//printf("BEFORE REQUEST [blockIdx %d]\tnumPending = %d\tpendingOffset = \n", blockIdx.x, numPending);
-		printf("BEFORE REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
+		//////printf("BEFORE REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
 	}
 
 	/*__syncthreads(); ///
-      if(IS_BOSS()) {
-	numPending -= totalFireable;
-	pendingOffset += totalFireable;
+      //if(IS_BOSS()) {
+	//numPending -= totalFireable;
+	//pendingOffset += totalFireable;
 
-	if((!this->isInTail() && numPending == 0) || this->isInTailInit())
-	{
-		numPending = source->reserve(REQ_SIZE, &pendingOffset);
-	}
-      }
+	//if((!this->isInTail() && numPending == 0) || this->isInTailInit())
+	//{
+		//numPending = source->reserve(REQ_SIZE, &pendingOffset);
+	//}
+      //}
 	__syncthreads(); ///
 
 	if(IS_BOSS()) {
 		//printf("AFTER REQUEST [blockIdx %d]\tnumPending = %d\tpendingOffset = \n", blockIdx.x, numPending);
-		printf("AFTER REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
+		//////printf("AFTER REQUEST [blockIdx %d]\tnumPending = %d\tisInTailInit = %d\n", blockIdx.x, numPending, (this->isInTailInit() ? 1 : 0));
 	}
 
 	__syncthreads(); ///
@@ -379,8 +379,8 @@ namespace Mercator  {
 	    //if(true)
 	    {
 		//printf("+++PUSHING TAIL+++\t%d\n", numChannels);
-	      ////numPending = source->reserve(REQ_SIZE, &pendingOffset);
-		printf("+++PUSHING TAIL+++\t%d\t%d\n", numChannels, numPending);
+	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
+		////////printf("+++PUSHING TAIL+++\t%d\t%d\n", numChannels, numPending);
 		//printf("INSIDE TOTAL FIREABLE: %d, NUM PENDING: %d\n", totalFireable, numPending);
 			//printf("SECOND BLOCK %d, numPending %d\n", blockIdx.x, numPending);
 	      if (numPending == 0) { // no more input left to request!

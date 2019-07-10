@@ -154,7 +154,8 @@ namespace Mercator  {
 	  __syncthreads();
 
 	  if(IS_BOSS()) {
-		assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
+		////printf("[%d] Calling next module %d\n", blockIdx.x, nextModuleIdx);
+		//assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
 	  }
 
 	  __syncthreads(); ///

@@ -153,6 +153,7 @@ namespace Mercator  {
     {
       assert(instIdx < numInstances);
       
+	printf("[%d] getOccupancy(%d): %d\tgetCapacity(%d): %d\t nElts: %d\tgC - nE = %d\n", blockIdx.x, instIdx, getOccupancy(instIdx), instIdx, getCapacity(instIdx), nElts, getCapacity(instIdx) - nElts);
       assert(getOccupancy(instIdx) <= getCapacity(instIdx) - nElts);
       
       unsigned int oldTail = tails[instIdx];

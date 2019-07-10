@@ -80,6 +80,7 @@ namespace Mercator  {
 	  dsSignalInstances[j]   = 0;
 	  reservedQueueEntries[j] = ireservedQueueEntries[j];
 	  reservedSignalQueueEntries[j] = ireservedQueueEntries[j];
+	  numItemsProduced[j] = 0;
 	}
       
       for (unsigned int j = 0; j < numThreadGroups; j++) {
@@ -283,13 +284,15 @@ namespace Mercator  {
 
     __device__
     void resetNumProduced(unsigned int instIdx) {
+	//printf("NUM PRODUCED RESET\n");
 	numItemsProduced[instIdx] = 0;
     }
 
     __device__
     unsigned int getNumItemsProduced(unsigned int instIdx) const {
-	unsigned int total = numItemsProduced[instIdx];
-	return total;
+	//unsigned int total = numItemsProduced[instIdx];
+	//return total;
+	return numItemsProduced[instIdx];
     }
 
     //
@@ -320,7 +323,7 @@ namespace Mercator  {
       unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
       instTotal = sum;
 
-      numItemsProduced[instIdx] += sum;
+      //numItemsProduced[instIdx] += sum;
       
       //
       // Find the first and last thread for each instance.  Inputs
@@ -344,12 +347,15 @@ namespace Mercator  {
 	  COUNT_ITEMS(instTotal);  // instrumentation
 	      
 	  dsBase[instIdx] = directReserve(instIdx, instTotal);
+      	  //stimcheck: Add to the current counter of number of items produced
+          numItemsProduced[instIdx] += instTotal;
+          ////printf("[%d] NUMPRODUCED[inst %d] = %d\n", blockIdx.x, instIdx, numItemsProduced[instIdx]);
 	}
       
       __syncthreads(); // all threads must see updates to dsBase[]
       
       //stimcheck: Add to the current counter of number of items produced
-      numItemsProduced[instIdx] += instTotal;
+      //numItemsProduced[instIdx] += instTotal;
 
       __syncthreads(); // all threads must see the updates to the numItemsProduced
 

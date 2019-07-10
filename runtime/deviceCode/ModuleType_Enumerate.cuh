@@ -149,11 +149,12 @@ namespace Mercator  {
       // Iterate over inputs to be run in block-sized chunks.
       // Do both gathering and execution of inputs in each iteration.
       // Every thread in a group receives the same input. 
-      for (unsigned int base = 0;
-	   base < totalFireable; 
-	   base += maxRunSize)
-	{
-		
+      //for (unsigned int base = 0;
+	//   base < totalFireable; 
+	//   base += maxRunSize)
+	//{
+	
+	  unsigned int base = 0;	//Dummy var to replace old loop	
 	  //this->signalHandler();
 
 	  unsigned int groupId = tid / threadGroupSize;
@@ -172,17 +173,18 @@ namespace Mercator  {
 	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
 	    }
 	  
-	  const T &myData = 
-	    (idx < totalFireable
-	     ? queue.getElt(instIdx, instOffset)
-	     : queue.getDummy()); // don't create a null reference
+	  //const T &myData = 
+	  //  (idx < totalFireable
+	  //   ? queue.getElt(instIdx, instOffset)
+	  //   : queue.getDummy()); // don't create a null reference
+	  const T &myData = queue.getElt(instIdx, 0);
 	  
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
-	  if (runWithAllThreads || idx < totalFireable)
+	  //if (runWithAllThreads || idx < totalFireable)
 	    mod->run(myData, instIdx);
 	  
 	  __syncthreads(); // all threads must see active channel state
@@ -212,7 +214,7 @@ namespace Mercator  {
 	  
 	  MOD_TIMER_STOP(scatter);
 	  MOD_TIMER_START(gather);
-	}
+	//} //end for
       
       // protect use of queue->getElt() from changes to head pointer due
       // to release.
@@ -222,7 +224,8 @@ namespace Mercator  {
       if (tid < numInstances)
 	{
 	  COUNT_ITEMS(fireableCount);
-	  queue.release(tid, fireableCount);
+	  //queue.release(tid, fireableCount);
+	  queue.release(tid, 1);
 	}
 
 
@@ -241,8 +244,8 @@ namespace Mercator  {
 	if(threadIdx.x < numInstances) {
 	unsigned int instIdx = threadIdx.x;
 	//Create a new enum signal to send downstream
-	Signal* s = new Signal();
-	s->setTag(Signal::SignalTag::Enum);
+	Signal s;
+	s.setTag(Signal::SignalTag::Enum);
 
 	//Reserve space downstream for enum signal
 	unsigned int dsSignalBase;
@@ -254,14 +257,14 @@ namespace Mercator  {
 		//dsSignalBase[c] = channel->directSignalReserve(0, 1);
 		//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
 
-		  const Channel *channel = 
+		  Channel *channel = 
 		    static_cast<Channel *>(getChannel(c));
 		//Set the credit for our new signal depending on if there are already signals downstream.
 		if(channel->dsSignalQueueHasPending(instIdx)) {
-			s->setCredit(channel->getNumItemsProduced(instIdx));
+			s.setCredit(channel->getNumItemsProduced(instIdx));
 		}
 		else {
-			s->setCredit(channel->dsPendingOccupancy(instIdx));
+			s.setCredit(channel->dsPendingOccupancy(instIdx));
 		}
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
@@ -269,7 +272,8 @@ namespace Mercator  {
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 			//Write enum signal to downstream node
-			channel->directSignalWrite(instIdx, *s, dsSignalBase, 0);
+			channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+			channel->resetNumProduced(instIdx);
 		}
 	}
 	}
@@ -279,14 +283,15 @@ namespace Mercator  {
 	//stimcheck: Decrement credit for the module here (if needed)
 	if(tid < numInstances) {
 		if(this->hasSignal[tid]) {
-			this->currentCredit[tid] -= fireableCount;
+			//this->currentCredit[tid] -= fireableCount;
+			this->currentCredit[tid] -= 1;
 		}
 	}
 	__syncthreads();
 
-	if(IS_BOSS()) {
-		printf("CALLING SIGNAL HANDLER ENUMERATE. . . \n");
-	}
+	//if(IS_BOSS()) {
+	//	printf("CALLING SIGNAL HANDLER ENUMERATE. . . \n");
+	//}
 	this->signalHandler();
 	__syncthreads();
     }
