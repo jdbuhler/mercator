@@ -286,7 +286,7 @@ namespace Mercator  {
       //clear firing mask for this instance
       firingMask[instIdx]=false; 
 
-      bool isFireable = getActiveFlag(instIdx);  //true's add zero, false adds one, so we can use scann 
+      bool isFireable = getActiveFlag(instIdx);  
 
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
@@ -296,6 +296,9 @@ namespace Mercator  {
 
       //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
+
+
+      printf("NodeIsFireable instidx:%i, val:%u\n", instIdx, (unsigned int)firingMask[instIdx]);
       return (unsigned int)isFireable; //cast bool to int 1 is node is firable 0 is not firable
     }
     ///////////////////////////////////////////////////////////////////
@@ -617,6 +620,41 @@ namespace Mercator  {
     bool checkFiringMask(unsigned int instIdx)const{
       assert(instIdx < numInstances);
       return firingMask[instIdx];
+    }
+
+    
+    __device__
+    void postRunActivation(unsigned int tid){
+      //update active/ inactive status here
+
+      //if we just fired
+      if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
+          printf("stuff\n");
+        //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
+        //  active -> inactive when input queue  has fewer than v_i inputs remaining.
+        unsigned int remainingItems =  this->numInputsPending(tid);
+        if(remainingItems < WARP_SIZE){
+          this->flipActiveFlag(tid);
+        }
+        
+        //2. we may have just activated the DS node
+        //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
+        for(unsigned int c=0; c<numChannels; c++){
+          class ChannelBase* outgoingEdge = this->getChannel(c);
+          ModuleTypeBase* dsModule = outgoingEdge->getDSModule(tid);
+          unsigned int dsInstId = (unsigned int)outgoingEdge->getDSInstance(tid);
+          QueueBase* dsQueue = dsModule->getUntypedQueue();
+          unsigned int queueCap = dsQueue->getCapacity(dsInstId);
+          unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
+          unsigned int dsQueue_rem = queueCap - queueOcc;
+          printf("here\n");
+          if(dsQueue_rem < (WARP_SIZE-1)*(outgoingEdge->getGain()-1)){ //sould be WARP_SIZE*gain
+            printf("activated\n");
+            dsModule->flipActiveFlag(dsInstId);
+      
+          } 
+        }  
+      }
     }
 
 

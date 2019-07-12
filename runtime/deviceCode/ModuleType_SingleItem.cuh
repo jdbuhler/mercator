@@ -218,35 +218,8 @@ namespace Mercator  {
       
       MOD_TIMER_STOP(gather);
       //MOD_TIMER_START(activate);
-    
-      DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-      //update active/ inactive status here
-
-      //if we just fired
-      if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
-        //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
-        //  active -> inactive when input queue  has fewer than v_i inputs remaining.
-        unsigned int remainingItems =  mod->numInputsPending(tid);
-        if(remainingItems < WARP_SIZE){
-          mod->flipActiveFlag(tid);
-        }
-        
-        //2. we may have just activated the DS node
-        //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
-        for(unsigned int c=0; c<numChannels; c++){
-          class ChannelBase* outgoingEdge = mod->getChannel(c);
-          ModuleTypeBase* dsModule = outgoingEdge->getDSModule(tid);
-          QueueBase* dsQueue = dsModule->getUntypedQueue();
-          unsigned int queueCap = dsQueue->getCapacity(tid);
-          unsigned int queueOcc = dsQueue->getOccupancy(tid);
-          unsigned int dsQueue_rem = queueCap - queueOcc;
-          if(dsQueue_rem < WARP_SIZE){ //sould be WARP_SIZE*gain
-            dsModule->flipActiveFlag(tid);
-          } 
-        }  
-      }
+      this->postRunActivation(tid);
       //MOD_TIMER_STOP(activate);
-    
       //make sure all threads see the new active/inactive status flags
       __syncthreads();
 

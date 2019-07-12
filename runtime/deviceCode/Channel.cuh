@@ -92,7 +92,11 @@ namespace Mercator  {
     ModuleTypeBase* getDSModule(unsigned int instIdx) const{
       return dsQueues[instIdx]->getAssocatedModule();
     }
-
+  
+    __device__
+    InstTagT getDSInstance(unsigned int instIdx) const{
+      return dsInstances[instIdx];
+    }
 
     
     //
@@ -292,7 +296,12 @@ namespace Mercator  {
       if (dsQueue)
 	dsQueue->putElt(dsInst, base, offset, item);
     }
+  
     
+    __device__ 
+    unsigned int getGain()const
+    {return outputsPerInput;}
+      
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to module

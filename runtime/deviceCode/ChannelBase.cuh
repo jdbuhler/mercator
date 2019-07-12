@@ -32,6 +32,12 @@ namespace Mercator  {
     virtual
     ~ChannelBase() {}
     
+
+    __device__
+    virtual 
+    unsigned int getGain()const=0;
+
+
      //
     //  @brief get the downstream module of the
     //  the specified instance of this channel's
@@ -43,6 +49,9 @@ namespace Mercator  {
     virtual 
     ModuleTypeBase* getDSModule(unsigned int instIdx) const = 0;
 
+    __device__
+    virtual
+    InstTagT getDSInstance(unsigned int instIdx) const=0;
     //
     //  @brief get the number of inputs that can be safely be
     //  consumed by the specified instance of this channel's

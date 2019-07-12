@@ -117,14 +117,16 @@ namespace Mercator  {
 
         //get num fireable for the next firing node
         //unsigned int numFireable =  
-            //modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
+        //    modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
         
         // make sure all threads can see fireableCounts[], and
         // that all modules can see results of firable calculation
         __syncthreads(); 
         
         TIMER_STOP(scheduler);
-        printf("firing mod:%i\n", nextFire);  
+        if(tid==0){
+          printf("firing mod:%i\n", nextFire);  
+        }
         modules[nextFire]->fire();
         
         TIMER_START(scheduler);
