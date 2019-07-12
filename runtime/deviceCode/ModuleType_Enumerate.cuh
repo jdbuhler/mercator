@@ -70,7 +70,12 @@ namespace Mercator  {
     __device__
     ModuleType_Enumerate(const unsigned int *queueSizes)
       : BaseType(queueSizes)
-    {}
+    {
+	for(unsigned int i = 0; i < numInstances; ++i)
+	{
+		dataCount[i] = 0;
+	}
+    }
     
   protected:
 
@@ -102,6 +107,7 @@ namespace Mercator  {
     using BaseType::itemCounter;
 #endif
 
+    unsigned int dataCount[numInstances];
     //Queue<T> *parentBuffer[numInstances]; 
     //
     //

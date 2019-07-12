@@ -430,7 +430,7 @@ void genDeviceModuleClass(const App *app,
     {
       // findCount function (public because of CRTP)
       f.add("__device__");
-      f.add(genFcnHeader("void",
+      f.add(genFcnHeader("unsigned int",
 			 "findCount", 
 			 genDeviceModuleBeginEndFcnParams()) + ";");
       f.add("");
@@ -747,13 +747,13 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	{
 	  //generate findCount function
 	  f.add("__device__");
-	  f.add(genFcnHeader("void",
+	  f.add(genFcnHeader("unsigned int",
 			     DeviceAppClass + "::\n" + 
 			     mod->get_name() + "::findCount", 
 			     genDeviceModuleBeginEndFcnParams()));
 	  
 	  f.add("{");
-	  f.add("");
+	  f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");
 	  f.add("}");
 	  
 	  f.add("");
