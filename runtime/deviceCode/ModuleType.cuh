@@ -222,6 +222,10 @@ namespace Mercator  {
     Queue<T> *getQueue()
     { return &queue; }
 
+    __device__
+    QueueBase *getUntypedQueue()const
+    {return (QueueBase*)&queue;}
+    
     ///////////////////////////////////////////////////////////////////
     //NEW INTERFACE FOR SCHEDULER_MINSWITCHES
     ///////////////////////////////////////////////////////////////////
@@ -286,7 +290,7 @@ namespace Mercator  {
 
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
-        ModuleType* dsMod = (ModuleType*)channels[c]->getDSModule(instIdx);
+        ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
         isFireable = isFireable&  !dsMod->getActiveFlag(instIdx); //is this correct?
       }
 

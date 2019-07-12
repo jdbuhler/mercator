@@ -41,7 +41,7 @@ namespace Mercator  {
 
     __device__
     virtual 
-    void* getDSModule(unsigned int instIdx) const = 0;
+    ModuleTypeBase* getDSModule(unsigned int instIdx) const = 0;
 
     //
     //  @brief get the number of inputs that can be safely be

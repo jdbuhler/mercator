@@ -89,7 +89,7 @@ namespace Mercator  {
     //
 
     __device__
-    void* getDSModule(unsigned int instIdx) const{
+    ModuleTypeBase* getDSModule(unsigned int instIdx) const{
       return dsQueues[instIdx]->getAssocatedModule();
     }
 

@@ -10,9 +10,8 @@
 // MERCATOR
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
-
 #include "options.cuh"
-
+#include "QueueBase.cuh"
 namespace Mercator  {
   
   //
@@ -68,6 +67,10 @@ namespace Mercator  {
     __device__
     virtual
     bool computeIsFirable()= 0;
+  
+    __device__
+    virtual
+    QueueBase *getUntypedQueue() const =0;
 
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)

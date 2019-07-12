@@ -14,6 +14,8 @@
 
 #include "ModuleType.cuh"
 
+#include "ChannelBase.cuh"
+
 #include "module_options.cuh"
 
 #include "mapqueues/gather.cuh"
@@ -232,17 +234,21 @@ namespace Mercator  {
         //2. we may have just activated the DS node
         //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
         for(unsigned int c=0; c<numChannels; c++){
-          ChannelBase outgoingEdge= mod->getChannel(c);
-          ModuleType* dsModule = (ModuleType*)outgoingEdge->getDSModule(tid);
-          //dsModule->getQueue()//how get queue template type, guess igt must be same type as outgoing edge
-          
- 
+          class ChannelBase* outgoingEdge = mod->getChannel(c);
+          ModuleTypeBase* dsModule = outgoingEdge->getDSModule(tid);
+          QueueBase* dsQueue = dsModule->getUntypedQueue();
+          unsigned int queueCap = dsQueue->getCapacity(tid);
+          unsigned int queueOcc = dsQueue->getOccupancy(tid);
+          unsigned int dsQueue_rem = queueCap - queueOcc;
+          if(dsQueue_rem < WARP_SIZE){ //sould be WARP_SIZE*gain
+            dsModule->flipActiveFlag(tid);
+          } 
         }  
       }
       //MOD_TIMER_STOP(activate);
     
       //make sure all threads see the new active/inactive status flags
-      //__syncthreads();
+      __syncthreads();
 
 
     }

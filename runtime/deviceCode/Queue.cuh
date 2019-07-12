@@ -12,7 +12,7 @@
 #include <cassert>
 
 #include "device_config.cuh"
-
+#include "QueueBase.cuh"
 namespace Mercator  {
 
   //
@@ -41,7 +41,7 @@ namespace Mercator  {
   // @tparam T Type of data item held in this Queue
   //
   template<typename T>
-  class Queue  {
+  class Queue final: public QueueBase {
   
   public:
 
@@ -91,8 +91,8 @@ namespace Mercator  {
     }
     
     __device__
-    void* getAssocatedModule() const{
-      return owner;
+    ModuleTypeBase* getAssocatedModule() const{
+      return (ModuleTypeBase*) owner;
     }
 
 
