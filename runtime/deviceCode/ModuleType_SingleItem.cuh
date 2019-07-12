@@ -80,7 +80,7 @@ namespace Mercator  {
     using BaseType::getChannel;
     using BaseType::getFireableCount;
     using BaseType::getMaskedFireableCount;   
- 
+    using BaseType::checkFiringMask;
     using BaseType::maxRunSize; 
     
     // make these downwardly available to the user
@@ -219,16 +219,26 @@ namespace Mercator  {
     
       DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
       //update active/ inactive status here
-          
-      //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
-      //  active -> inactive when input queue  has fewer than v_i inputs remaining.
-      unsigned int remainingItems =  mod->numInputsPending(instIdx);
-      if(remainingItems < WARP_SIZE){
-        mod->flipActiveFlag(instIdx);
-      }
-      //2. we may have just activated the DS node
-      //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
 
+      //if we just fired
+      if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
+        //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
+        //  active -> inactive when input queue  has fewer than v_i inputs remaining.
+        unsigned int remainingItems =  mod->numInputsPending(tid);
+        if(remainingItems < WARP_SIZE){
+          mod->flipActiveFlag(tid);
+        }
+        
+        //2. we may have just activated the DS node
+        //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
+        for(unsigned int c=0; c<numChannels; c++){
+          ChannelBase outgoingEdge= mod->getChannel(c);
+          ModuleType* dsModule = (ModuleType*)outgoingEdge->getDSModule(tid);
+          //dsModule->getQueue()//how get queue template type, guess igt must be same type as outgoing edge
+          
+ 
+        }  
+      }
       //MOD_TIMER_STOP(activate);
     
       //make sure all threads see the new active/inactive status flags
