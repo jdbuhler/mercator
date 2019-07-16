@@ -303,10 +303,39 @@ namespace Mercator  {
       //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
       //updatee fireable cache 
-      lastFireableCount[instIdx] = numInputsPending(instIdx);
+      lastFireableCount[instIdx] = WARP_SIZE; //allways fire with warpsize and not more
 
       return isFireable; //cast bool to int 1 is node is fireable 0 is not fireable
     }
+
+
+    //called single threaded
+    __device__
+    virtual
+    bool canStillFire(unsigned int instIdx){
+      for(unsigned int c=0; c<numChannels; c++){
+        class ChannelBase* outgoingEdge = this->getChannel(c);
+        ModuleTypeBase* dsModule = outgoingEdge->getDSModule(instIdx);
+        unsigned int dsInstId = (unsigned int)outgoingEdge->getDSInstance(instIdx);
+        QueueBase* dsQueue = dsModule->getUntypedQueue();
+        unsigned int queueCap = dsQueue->getCapacity(dsInstId);
+        unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
+        unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
+        if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
+          printf("activated DS");
+          dsModule->flipActiveFlag(dsInstId);
+          return false;
+        } 
+      }  
+
+      if(this->numInputsPending(instIdx) < WARP_SIZE ){
+        printf("deactivating self: ");
+        this->flipActiveFlag(instIdx);
+        return false; 
+      }
+      return true;
+    } 
+
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
     ///////////////////////////////////////////////////////////////////

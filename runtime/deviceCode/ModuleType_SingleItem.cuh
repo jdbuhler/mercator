@@ -168,10 +168,11 @@ namespace Mercator  {
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
+
            //respect the firingMask 
 	  if (checkFiringMask(instIdx))
 	    mod->run(myData, instIdx);
-	  
+
 	  __syncthreads(); // all threads must see active channel state
 	  
 	  MOD_TIMER_STOP(run);

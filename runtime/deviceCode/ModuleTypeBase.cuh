@@ -72,6 +72,10 @@ namespace Mercator  {
     virtual
     QueueBase *getUntypedQueue() const =0;
 
+    __device__
+    virtual
+    bool canStillFire(unsigned int instIdx) const =0; 
+
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////
