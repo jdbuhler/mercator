@@ -131,6 +131,7 @@ namespace Mercator  {
 
     using BaseType::getChannel;
     using BaseType::getFireableCount;
+    using BaseType::getMaskedFireableCount;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
@@ -181,6 +182,8 @@ namespace Mercator  {
     // moves the inputs directly to the downstream queue for each
     // channel, since there is no filtering behavior.
     //
+
+    #ifdef SCHEDULER_MINSWITCHES  
     __device__
     virtual
     void fire()
@@ -193,8 +196,8 @@ namespace Mercator  {
       
       MOD_TIMER_START(gather);
       
-      // determine how many items we are going to consume
-      unsigned int totalFireable = getFireableCount(0);
+      // obtain number of inputs that can be consumed by each instance, potentially taking into account the firing mask, set durring sched 
+      unsigned int totalFireable = getMaskedFireableCount(0);
       
       assert(totalFireable > 0);
       assert(totalFireable <= numPending);
@@ -210,6 +213,7 @@ namespace Mercator  {
       // Reserve space on all channels' downstream queues
       // for the data we are about to write, and get the
       // base pointer at which to write it for each queue.
+      
       __shared__ unsigned int dsBase[numChannels];
       if (tid < numChannels)
 	{
@@ -267,7 +271,6 @@ namespace Mercator  {
       // Decrement the available data from our current reservation.
       // If we've exhausted it, try to get more.
       //
-      
       if (IS_BOSS())
 	{
 	  numPending    -= totalFireable;
@@ -291,6 +294,113 @@ namespace Mercator  {
       __syncthreads();
     }
 
+  #else
+
+    __device__
+    virtual
+    void fire()
+    {
+      // type of our downstream channels matchses our input type,
+      // since the source module just copies its inputs downstream
+      using Channel = typename BaseType::Channel<T>;
+      
+      int tid = threadIdx.x;
+      
+      MOD_TIMER_START(gather);
+      
+      // obtain number of inputs that can be consumed by each instance,
+      unsigned int totalFireable = getFireableCount(0);
+      
+      assert(totalFireable > 0);
+      assert(totalFireable <= numPending);
+      
+      MOD_OCC_COUNT(totalFireable);
+      
+      if (tid == 0)
+	COUNT_ITEMS(totalFireable);
+
+      MOD_TIMER_STOP(gather);
+      MOD_TIMER_START(scatter);
+      
+      // Reserve space on all channels' downstream queues
+      // for the data we are about to write, and get the
+      // base pointer at which to write it for each queue.
+      
+      __shared__ unsigned int dsBase[numChannels];
+      if (tid < numChannels)
+	{
+	  const Channel *channel = 
+	    static_cast<Channel *>(getChannel(tid));
+	  
+	  dsBase[tid] = channel->directReserve(0, totalFireable);
+	}
+      __syncthreads(); // all threads must see dsBase[] values
+      
+      MOD_TIMER_STOP(scatter);
+      MOD_TIMER_START(gather);
+      
+      //
+      // move the data from the source to the downstream queues,
+      // using all available threads.
+      //
+      
+      for (unsigned int base = 0; 
+	   base < totalFireable;
+	   base += THREADS_PER_BLOCK)
+	{
+	  unsigned int idx = base + tid;
+	  	  
+	  // access input buffer only if we need an element, to avoid
+	  // non-copy construction of a T.
+	  T myData;
+	  if (idx < totalFireable)
+	    myData = source->get(pendingOffset + idx);
+	  
+	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_START(scatter);
+
+	  if (idx < totalFireable)
+	    {
+	      // data needs no compaction, so transfer it directly to
+	      // the output queue for each channel, bypassing the
+	      // channel buffer
+	      for (unsigned int c = 0; c < numChannels; c++)
+		{
+		  const Channel *channel = 
+		    static_cast<Channel *>(getChannel(c));
+		  
+		  channel->directWrite(0, myData, dsBase[c], idx); 
+		}
+	    }
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
+	}
+      
+      __syncthreads(); // protect run from later changes to pending
+      
+      //
+      // Decrement the available data from our current reservation.
+      // If we've exhausted it, try to get more.
+      //
+      if (IS_BOSS())
+	{
+	  numPending    -= totalFireable;
+	  pendingOffset += totalFireable;
+	
+	  if (!this->isInTail() && numPending == 0)
+	    {
+	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
+	      if (numPending == 0) // no more input left to request!
+		this->setInTail(true);
+	    }
+	}
+    
+      __syncthreads(); // make sure all can see tail status
+    
+      MOD_TIMER_STOP(gather);
+    }
+  #endif
     
   private:
     

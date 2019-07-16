@@ -57,7 +57,7 @@ namespace Mercator  {
 
     __device__
     virtual
-    bool getActiveFlag(unsigned int instIdx) const = 0; 
+    unsigned int getActiveFlag(unsigned int instIdx) const = 0; 
 
     __device__
     virtual
@@ -66,7 +66,7 @@ namespace Mercator  {
     //called with all threads
     __device__
     virtual
-    bool computeIsFirable()= 0;
+    unsigned int computeIsFireable(unsigned int modID_debug)= 0;
   
     __device__
     virtual

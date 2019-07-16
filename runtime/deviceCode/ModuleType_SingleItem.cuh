@@ -108,6 +108,8 @@ namespace Mercator  {
       //
       // @brief fire a module, consuming as much from its queue as possible
       //
+    #ifdef SCHEDULER_MINSWITCHES
+
       __device__
       virtual
       void fire()
@@ -116,14 +118,117 @@ namespace Mercator  {
         
         MOD_TIMER_START(gather);
         
-        // obtain number of inputs that can be consumed by each instance, potentially taking into account the firing mask, set durring sched 
-    #ifdef SCHEDULER_MINSWITCHES  
+        // obtain number of inputs that can be consumed by each instance 
         unsigned int fireableCount = 
           (tid < numInstances ? getMaskedFireableCount(tid) : 0);
+
+      // compute progressive sums of items to be consumed in each instance,
+      // and replicate these sums in each WARP as Ai.
+      using Gather = QueueGather<numInstances>;
+      
+      unsigned int totalFireable;
+      unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
+      
+      assert(totalFireable > 0);
+      
+      MOD_OCC_COUNT(totalFireable);
+      
+      Queue<T> &queue = this->queue; 
+      
+      // Iterate over inputs to be run in block-sized chunks.
+      // Do both gathering and execution of inputs in each iteration.
+      // Every thread in a group receives the same input. 
+      for (unsigned int base = 0;
+	   base < totalFireable; 
+	   base += maxRunSize)
+	{
+	  unsigned int groupId = tid / threadGroupSize;
+	  unsigned int idx     = base + groupId;
+	  InstTagT     instIdx = NULLTAG;
+	  unsigned int instOffset;
+	  
+	  // activeWarps = ceil( max run size / WARP_SIZE )
+	  unsigned int activeWarps = 
+	    (maxRunSize + WARP_SIZE - 1)/WARP_SIZE;
+	  
+	  // only execute warps that need to pull at least one input value
+	  if (tid / WARP_SIZE < activeWarps)
+	    {
+	      // Compute queue and offset values for each thread's input 
+	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
+	    }
+	  
+	  const T &myData = 
+	    (idx < totalFireable
+	     ? queue.getElt(instIdx, instOffset)
+	     : queue.getDummy()); // don't create a null reference
+	  
+	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_START(run);
+	  
+	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+	  
+           //respect the firingMask 
+	  if (checkFiringMask(instIdx))
+	    mod->run(myData, instIdx);
+	  
+	  __syncthreads(); // all threads must see active channel state
+	  
+	  MOD_TIMER_STOP(run);
+	  MOD_TIMER_START(scatter);
+	  
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      // mark first thread writing to each instance
+	      bool isHead = (tid == 0 || instOffset == 0);
+	      
+	      getChannel(c)->scatterToQueues(instIdx,
+					     isHead,	
+					     isThreadGroupLeader());
+	    }
+	  
+	  __syncthreads(); // all threads must see reset channel state
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
+	}
+      
+      // protect use of queue->getElt() from changes to head pointer due
+      // to release.
+      __syncthreads();
+      
+      // release any items that we consumed in this firing
+      if (tid < numInstances)
+	{
+	  COUNT_ITEMS(fireableCount);
+	  queue.release(tid, fireableCount);
+	}
+      
+      // make sure caller sees updated queue state
+      __syncthreads();
+      
+      MOD_TIMER_STOP(gather);
+      //MOD_TIMER_START(activate);
+      this->postRunActivation(tid);
+      //MOD_TIMER_STOP(activate);
+      //make sure all threads see the new active/inactive status flags
+      __syncthreads();
+
+
+    }
     #else
+
+      __device__
+      virtual
+      void fire()
+      {
+        unsigned int tid = threadIdx.x;
+        
+        MOD_TIMER_START(gather);
+        
+        // obtain number of inputs that can be consumed by each instance
         unsigned int fireableCount = 
           (tid < numInstances ? getFireableCount(tid) : 0);
-    #endif
 
 
       // compute progressive sums of items to be consumed in each instance,
@@ -172,14 +277,8 @@ namespace Mercator  {
 	  
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
-    //choose to respect the firingMask or nah, dependant on scheduler  
-    #ifdef SCHEDULER_MINSWITCHES  
-	  if (checkFiringMask(instIdx))
-	    mod->run(myData, instIdx);
-    #else
 	  if (runWithAllThreads || idx < totalFireable)
 	    mod->run(myData, instIdx);
-    #endif
 	  
 	  __syncthreads(); // all threads must see active channel state
 	  
@@ -217,14 +316,8 @@ namespace Mercator  {
       __syncthreads();
       
       MOD_TIMER_STOP(gather);
-      //MOD_TIMER_START(activate);
-      this->postRunActivation(tid);
-      //MOD_TIMER_STOP(activate);
-      //make sure all threads see the new active/inactive status flags
-      __syncthreads();
-
-
     }
+    #endif
   };  // end ModuleType class
 }  // end Mercator namespace
 

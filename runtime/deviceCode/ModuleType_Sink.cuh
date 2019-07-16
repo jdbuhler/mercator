@@ -101,6 +101,7 @@ namespace Mercator  {
     using          BaseType::NULLTAG;
     
     using BaseType::getFireableCount;
+    using BaseType::getMaskedFireableCount;
     using BaseType::maxRunSize;
     
 #ifdef INSTRUMENT_TIME
@@ -126,6 +127,101 @@ namespace Mercator  {
     // This version of fire() needs to see into the input queues
     // in a way that run() cannot, so we customize it.
     //
+
+  #ifdef SCHEDULER_MINSWITCHES
+    __device__
+    virtual
+    void fire()
+    {
+      unsigned int tid = threadIdx.x;
+      
+      MOD_TIMER_START(gather);
+      
+      // obtain number of inputs that can be consumed by each instance
+      unsigned int fireableCount = 
+          (tid < numInstances ? getMaskedFireableCount(tid) : 0);
+
+      // compute progressive sums of items to be consumed in each instance,
+      // and replicate these sums in each WARP as Ai.
+      using Gather = QueueGather<numInstances>;
+      
+      unsigned int totalFireable;
+      unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
+      
+      assert(totalFireable > 0);
+      
+      MOD_OCC_COUNT(totalFireable);
+      
+      // reserve enough room to hold the fireable data in each output sink
+      __shared__ unsigned int basePtrs[numInstances];
+      if (tid < numInstances)
+	basePtrs[tid] = sinks[tid]->reserve(fireableCount);
+      
+      __syncthreads(); // make sure all threads see base values
+      
+      Queue<T> &queue = this->queue; 
+      
+      // Iterate over inputs to be run in block-sized chunks.
+      // Transfer data directly from input queues for each instance
+      // to output sinks.
+      for (unsigned int base = 0;
+	   base < totalFireable; 
+	   base += maxRunSize)
+	{
+	  unsigned int idx = base + tid;
+	  InstTagT instIdx = NULLTAG;
+	  unsigned int instOffset;
+	  
+	  // activeWarps = ceil( max run size / WARP_SIZE )
+	  unsigned int activeWarps = 
+	    (maxRunSize + WARP_SIZE - 1)/WARP_SIZE;
+	  
+	  // only execute warps that need to pull at least one input value
+	  if (tid / WARP_SIZE < activeWarps)
+	    {
+	      // Compute queue and offset values for each thread's input 
+	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
+	    }
+	  
+	  const T &myData =
+	    (idx < totalFireable
+	     ? queue.getElt(instIdx, instOffset)
+	     : queue.getDummy()); // don't create a null reference
+
+	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_START(scatter);
+	  
+	  if (idx < totalFireable)
+	    {
+	      sinks[instIdx]->put(basePtrs[instIdx],
+				  instOffset,
+				  myData);
+	    }
+	  
+	  MOD_TIMER_STOP(scatter);
+	  MOD_TIMER_START(gather);
+	}
+      
+      // protect use of queue->getElt() from changes to head pointer due
+      // to release.
+      __syncthreads();
+      
+      // release any items that we consumed in this firing
+      if (tid < numInstances)
+	{
+	  COUNT_ITEMS(fireableCount);
+	  queue.release(tid, fireableCount);
+	}
+      
+      MOD_TIMER_STOP(gather);
+      //MOD_TIMER_START(activate);
+      this->postRunActivation(tid);
+      //MOD_TIMER_STOP(activate);
+      //make sure all threads see the new active/inactive status flags
+      __syncthreads();
+
+    }
+  #else
     __device__
     virtual
     void fire()
@@ -211,14 +307,8 @@ namespace Mercator  {
 	}
       
       MOD_TIMER_STOP(gather);
-      //MOD_TIMER_START(activate);
-      this->postRunActivation(tid);
-      //MOD_TIMER_STOP(activate);
-      //make sure all threads see the new active/inactive status flags
-      __syncthreads();
-
     }
-    
+   #endif 
   };
 
 }; // namespace Mercator

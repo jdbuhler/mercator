@@ -130,8 +130,8 @@ namespace Mercator  {
 
       //init activeFlag to always false in all nodes except source
       for(unsigned int j = 0; j < numInstances; ++j){
-        activeFlag[j] = false;
-        firingMask[j] = false;
+        activeFlag[j] = 0;
+        firingMask[j] = 0;
       }
 
       //tell our queue who we are
@@ -231,7 +231,7 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////////////
 
     __device__
-    bool getActiveFlag(unsigned int instIdx) const
+    unsigned int getActiveFlag(unsigned int instIdx) const
     {
       assert(instIdx < numInstances);
       return activeFlag[instIdx];
@@ -248,16 +248,17 @@ namespace Mercator  {
 
     //called with all threads
     __device__
-    bool computeIsFirable(){
+    unsigned int computeIsFireable(unsigned int modID_debug){
       int tid = threadIdx.x;
-      unsigned int local_isFireable=false;
-      __shared__ bool isFireable;
+      unsigned int local_isFireable=0;
+      __shared__ unsigned int isFireable;
 
       if (tid < WARP_SIZE)
       {
       
         if(tid<numInstances){
-          local_isFireable = NODEIsFirable(tid);
+          local_isFireable = NODEIsFireable(modID_debug, tid);
+          //printf("Mod:tid returned %u:%u fireable:%u\n",modID_debug, tid,local_isFireable );
         }
 
         using Sum = WarpReduce<unsigned int, WARP_SIZE>;
@@ -265,41 +266,46 @@ namespace Mercator  {
 
         if (tid == 0){
           if(totalFireable>0){ //at least one node of this module is fireable
-            isFireable = true;
+            isFireable = 1;
           }
           else{
-            isFireable = false;
+            isFireable = 0;
           }
         }
       }
       //if this node is active and all DS are inactive or we're in tail
         //return true
-      //else it is not firable
+      //else it is not fireable
 
       __syncthreads();
       return isFireable;
     }
 
     __device__
-    unsigned int NODEIsFirable(unsigned int instIdx){
+    unsigned int NODEIsFireable(unsigned int modID,unsigned int instIdx){
       assert(instIdx < numInstances);
       //clear firing mask for this instance
-      firingMask[instIdx]=false; 
+      firingMask[instIdx]=0; 
 
-      bool isFireable = getActiveFlag(instIdx);  
-
+      unsigned int isFireable = getActiveFlag(instIdx);  
+      //printf("Mod %u tid %u is before fireable%u\n", modID, instIdx, isFireable);
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
         ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
-        isFireable = isFireable&  !dsMod->getActiveFlag(instIdx); //is this correct?
-      }
+        unsigned int dsInstIdx = (unsigned int)channels[c]->getDSInstance(instIdx);      
 
+
+        isFireable = isFireable && !dsMod->getActiveFlag(dsInstIdx);
+
+        //printf("Mod %u tid %u is durring fireable%u\n", modID, instIdx, isFireable);
+      }
+      //  printf("Mod %u tid %u is after fireable%u\n", modID, instIdx, isFireable);
       //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
+      //updatee fireable cache 
+      lastFireableCount[instIdx] = numInputsPending(instIdx);
 
-
-      printf("NodeIsFireable instidx:%i, val:%u\n", instIdx, (unsigned int)firingMask[instIdx]);
-      return (unsigned int)isFireable; //cast bool to int 1 is node is firable 0 is not firable
+      return isFireable; //cast bool to int 1 is node is fireable 0 is not fireable
     }
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING
@@ -328,16 +334,16 @@ namespace Mercator  {
       unsigned int numFireable = numInputsPending(instIdx);
       
       if (numFireable > 0)
-  {
-    // for each channel
-    for (unsigned int c = 0; c < numChannels; ++c)
       {
-        unsigned int dsCapacity = 
-    channels[c]->dsCapacity(instIdx);
+        // for each channel
+        for (unsigned int c = 0; c < numChannels; ++c)
+        {
+          unsigned int dsCapacity = 
+            channels[c]->dsCapacity(instIdx);
         
-        numFireable = min(numFireable, dsCapacity);
+            numFireable = min(numFireable, dsCapacity);
+        }
       }
-  }
       
       return numFireable;
     }
@@ -525,8 +531,8 @@ namespace Mercator  {
     
   protected:
 
-    bool activeFlag[numInstances]; //is this node active 
-    bool firingMask[numInstances];
+    unsigned int activeFlag[numInstances]; //is this node active 
+    unsigned int firingMask[numInstances];
     ChannelBase* channels[numChannels];  // module's output channels
     
     Queue<T> queue;                     // module's input queue
@@ -626,19 +632,21 @@ namespace Mercator  {
     __device__
     void postRunActivation(unsigned int tid){
       //update active/ inactive status here
-
-      //if we just fired
+      if(tid==0){
+        printf("post run fun: ");
+      }
+      //is we are in range and just fired
       if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
-          printf("stuff\n");
         //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
         //  active -> inactive when input queue  has fewer than v_i inputs remaining.
         unsigned int remainingItems =  this->numInputsPending(tid);
         if(remainingItems < WARP_SIZE){
+          printf("deactivating self: ");
           this->flipActiveFlag(tid);
         }
         
         //2. we may have just activated the DS node
-        //  inactive DSnode becomes active when its input queue  has fewer than vi−1gi−1 spaces remaining.
+        //  inactive DSnode becomes active when its input queue  has fewer than (vigi)−1 spaces remaining.
         for(unsigned int c=0; c<numChannels; c++){
           class ChannelBase* outgoingEdge = this->getChannel(c);
           ModuleTypeBase* dsModule = outgoingEdge->getDSModule(tid);
@@ -646,14 +654,17 @@ namespace Mercator  {
           QueueBase* dsQueue = dsModule->getUntypedQueue();
           unsigned int queueCap = dsQueue->getCapacity(dsInstId);
           unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
-          unsigned int dsQueue_rem = queueCap - queueOcc;
-          printf("here\n");
-          if(dsQueue_rem < (WARP_SIZE-1)*(outgoingEdge->getGain()-1)){ //sould be WARP_SIZE*gain
-            printf("activated\n");
+          unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
+
+          if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
+            printf("activated DS");
             dsModule->flipActiveFlag(dsInstId);
       
           } 
         }  
+      }
+      if(tid==0){
+        printf("\n");
       }
     }
 

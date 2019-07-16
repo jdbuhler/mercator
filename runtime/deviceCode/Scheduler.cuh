@@ -70,7 +70,7 @@ namespace Mercator  {
     {
       int tid = threadIdx.x;
       TIMER_START(scheduler);
-      
+      int sched_count=0; 
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
       for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
@@ -80,7 +80,6 @@ namespace Mercator  {
         modules[idx]->setInTail(false);
       }
       
-      //TODO:: set source to active
       sourceModule->flipActiveFlag(0); //only has one instance
 
       // main scheduling loop
@@ -92,44 +91,42 @@ namespace Mercator  {
               if (idx < numModules)
                 modules[idx]->setInTail(true);
             }
-            __syncthreads(); // make sure everyone can see tail status
+        if(tid==0){
+          printf("ENTERING TAIL !\n");
+        }
+        __syncthreads(); // make sure everyone can see tail status
         }
         
-        //__shared__ unsigned int fireableCounts [numModules];
    
-        // find first module that is firable (active followed by inactive)
+        // find first module that is fireable (active followed by inactive)
         unsigned int nextFire=NULL;
         for (unsigned int i = 0; i < numModules; ++i){
-          if (modules[i]->computeIsFirable()){
-            //set the actual node to fire
-            nextFire = i;
+          if (modules[i]->computeIsFireable(i)){
+            nextFire = i+1; //set the node to fire +1, we will subtract this off whenwe call fire, but apparently 0==NULL is true and was trigging the break bellow 
             break;
           }
         }
-
         
         // If no module can be fired, either all have zero items pending
         // (we are done), or no module with pending inputs can fire
         // (we are deadlocked -- should not happen!).
-        if (nextFire==NULL)
+        if (nextFire==NULL){
           break;
+        }
 
-
-        //get num fireable for the next firing node
-        //unsigned int numFireable =  
-        //    modules[nextFire]->computeNumFireableTotal(enforceFullEnsembles);
-        
-        // make sure all threads can see fireableCounts[], and
-        // that all modules can see results of firable calculation
         __syncthreads(); 
         
-        TIMER_STOP(scheduler);
         if(tid==0){
-          printf("firing mod:%i\n", nextFire);  
+          printf("firing %u\n-----",nextFire-1);
         }
-        modules[nextFire]->fire();
+        TIMER_STOP(scheduler);
+        modules[nextFire-1]->fire(); //remove the added +1 from before
         
         TIMER_START(scheduler);
+        if(tid==0){
+          sched_count++;
+          printf("fired %u, schedcount %i\n", nextFire-1, sched_count);
+        }
       }
         
       __syncthreads(); // make sure final state is visible to all threads
@@ -214,7 +211,7 @@ namespace Mercator  {
           break;
         
         // make sure all threads can see fireableCounts[], and
-        // that all modules can see results of firable calculation
+        // that all modules can see results of fireable calculation
         __syncthreads(); 
         
         //
