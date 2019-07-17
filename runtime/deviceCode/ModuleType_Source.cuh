@@ -131,7 +131,6 @@ namespace Mercator  {
 
     using BaseType::getChannel;
     using BaseType::getFireableCount;
-    using BaseType::getMaskedFireableCount;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
@@ -197,7 +196,7 @@ namespace Mercator  {
       MOD_TIMER_START(gather);
       
       // obtain number of inputs that can be consumed by each instance, potentially taking into account the firing mask, set durring sched 
-      unsigned int totalFireable = getMaskedFireableCount(0);
+      unsigned int totalFireable = getFireableCount(0);
       
       assert(totalFireable > 0);
       assert(totalFireable <= numPending);

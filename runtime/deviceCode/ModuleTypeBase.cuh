@@ -61,7 +61,12 @@ namespace Mercator  {
 
     __device__
     virtual
-    void flipActiveFlag(unsigned int instIdx)=0;
+    void deactivate(unsigned int instIdx)=0;
+
+    __device__
+    virtual
+    void activate(unsigned int instIdx)=0;
+
 
     //called with all threads
     __device__
@@ -74,7 +79,7 @@ namespace Mercator  {
 
     __device__
     virtual
-    bool canStillFire(unsigned int instIdx) const =0; 
+    bool canStillFire(unsigned int instIdx) =0; 
 
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)

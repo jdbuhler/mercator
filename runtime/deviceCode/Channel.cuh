@@ -182,6 +182,106 @@ namespace Mercator  {
     // @param isHead is this the first thread for its instance?
     // @param isWriter true iff thread is the writer for its group
     //
+    #ifdef SCHEDULER_MINSWITCHES
+    __device__
+      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
+    {
+      int tid = threadIdx.x;
+      int groupId = tid / threadGroupSize;
+  
+      //
+      // Compute a segmented exclusive sum of the number of outputs to
+      // be written back to queues by each thread group.  Only the
+      // writer threads contribute to the sums.
+      //
+      
+      BlockSegScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
+      
+      unsigned int count = (isWriter ? nextSlot[groupId] : 0);
+      unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
+      
+      //
+      // Find the first and last thread for each instance.  Inputs
+      // to one node are assigned to a contiguous set of threads.
+      //
+      
+      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
+      
+      bool isTail = disc.flagTails(instIdx, NULLTAG);
+        
+      //
+      // The last thread with a given instance can compute the total
+      // number of outputs written for that instance.  That total
+      // is used to reserve space in the instance's downstream queue. 
+      //
+      __shared__ unsigned int dsBase[numInstances];
+      if (isTail && instIdx < numInstances)
+	{
+	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
+	  	  
+	  COUNT_ITEMS(instTotal);  // instrumentation
+	      
+	  dsBase[instIdx] = directReserve(instIdx, instTotal);
+	}
+      
+      __syncthreads(); // all threads must see updates to dsBase[]
+      
+      //
+      // Finally, writer threads move the data to its queue.  We
+      // take some loss of occupancy by looping over the outputs, 
+      // but it saves us from having to tag each output with its
+      // instance number (which would be needed if we tried to do
+      // the writes using contiguous threads.)
+      //
+      
+      if (isWriter)
+	{
+	  for (unsigned int j = 0; j < count; j++)
+	    {
+	      // where is the item in the ouput buffer?
+	      unsigned int srcOffset = tid * outputsPerInput + j;
+	      
+	      // where is the item going in the ds queue?
+	      unsigned int dstOffset = sum + j;
+	      
+	      if (instIdx < numInstances) // is this thread active?
+		{
+		  const T &myData = data[srcOffset];
+		  
+		  directWrite(instIdx, myData, dsBase[instIdx], dstOffset);
+		}
+	    }
+	}
+      
+      // finally, reset the output counters per thread group
+      if (tid < numThreadGroups)
+	nextSlot[tid] = 0;
+    
+      __syncthreads();
+
+      //check if there is enough space for a full warp to be fired again
+      unsigned int dsInstId = dsInstances[instIdx];
+      unsigned int queueCap = dsQueues[instIdx]->getCapacity(dsInstId);
+      unsigned int queueOcc = dsQueues[instIdx]->getOccupancy(dsInstId);
+      unsigned int dsQueue_rem = queueCap - queueOcc;
+
+      if(dsQueue_rem > (WARP_SIZE*outputsPerInput-1)){//it is safe to fire again 
+        //printf("there is %u slots in ds queue\n", dsQueue_rem);
+        return true;
+      }
+      
+      //not enough space, so lets go ahead and activate this guy
+      //only one thread activates the ds modules
+      if(tid==0){
+        ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
+        dsModule->activate(dsInstId);
+        printf("activating DS node\n");
+      }
+      return false;
+
+    }
+    #else
+
     __device__
       void scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
@@ -256,7 +356,7 @@ namespace Mercator  {
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
     }
-    
+#endif
     
     //
     // @brief prepare for a direct write to the downstream queue(s)

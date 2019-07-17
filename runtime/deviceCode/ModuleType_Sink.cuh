@@ -101,7 +101,6 @@ namespace Mercator  {
     using          BaseType::NULLTAG;
     
     using BaseType::getFireableCount;
-    using BaseType::getMaskedFireableCount;
     using BaseType::maxRunSize;
     
 #ifdef INSTRUMENT_TIME
@@ -139,7 +138,7 @@ namespace Mercator  {
       
       // obtain number of inputs that can be consumed by each instance
       unsigned int fireableCount = 
-          (tid < numInstances ? getMaskedFireableCount(tid) : 0);
+          (tid < numInstances ? getFireableCount(tid) : 0);
 
       // compute progressive sums of items to be consumed in each instance,
       // and replicate these sums in each WARP as Ai.
@@ -210,6 +209,7 @@ namespace Mercator  {
       if (tid < numInstances)
 	{
 	  COUNT_ITEMS(fireableCount);
+          printf("sink releasing %u\n", fireableCount);
 	  queue.release(tid, fireableCount);
 	}
       

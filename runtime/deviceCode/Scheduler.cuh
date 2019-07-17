@@ -80,7 +80,7 @@ namespace Mercator  {
         modules[idx]->setInTail(false);
       }
       
-      sourceModule->flipActiveFlag(0); //only has one instance
+      sourceModule->activate(0); //only has one instance
 
       // main scheduling loop
       while (true){

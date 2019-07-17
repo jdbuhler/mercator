@@ -238,13 +238,19 @@ namespace Mercator  {
     } 
 
 
+    // call single threaded
     __device__
-    void flipActiveFlag(unsigned int instIdx)
-    { 
+    void deactivate(unsigned int instIdx){
       assert(instIdx < numInstances);
-      activeFlag[instIdx] = !activeFlag[instIdx];
-    } 
+      activeFlag[instIdx] = 0;
+    }    
 
+    // call single threaded
+    __device__
+    void activate(unsigned int instIdx){
+      assert(instIdx < numInstances);
+      activeFlag[instIdx] = 1;
+    }    
 
     //called with all threads
     __device__
@@ -264,7 +270,7 @@ namespace Mercator  {
         using Sum = WarpReduce<unsigned int, WARP_SIZE>;
         unsigned int totalFireable = Sum::sum(local_isFireable, numInstances);
 
-        if (tid == 0){
+       if (tid == 0){
           if(totalFireable>0){ //at least one node of this module is fireable
             isFireable = 1;
           }
@@ -303,7 +309,7 @@ namespace Mercator  {
       //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
       //updatee fireable cache 
-      lastFireableCount[instIdx] = WARP_SIZE; //allways fire with warpsize and not more
+      lastFireableCount[instIdx] = computeNumFireable(instIdx); //for the first fire, use as much as possible
 
       return isFireable; //cast bool to int 1 is node is fireable 0 is not fireable
     }
@@ -311,7 +317,6 @@ namespace Mercator  {
 
     //called single threaded
     __device__
-    virtual
     bool canStillFire(unsigned int instIdx){
       for(unsigned int c=0; c<numChannels; c++){
         class ChannelBase* outgoingEdge = this->getChannel(c);
@@ -323,16 +328,17 @@ namespace Mercator  {
         unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
         if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
           printf("activated DS");
-          dsModule->flipActiveFlag(dsInstId);
+          dsModule->activate(dsInstId);
           return false;
         } 
       }  
 
       if(this->numInputsPending(instIdx) < WARP_SIZE ){
         printf("deactivating self: ");
-        this->flipActiveFlag(instIdx);
+        this->deactivate(instIdx);
         return false; 
       }
+      lastFireableCount[instIdx] = computeNumFireable(instIdx); //update last fireable
       return true;
     } 
 
@@ -373,7 +379,6 @@ namespace Mercator  {
             numFireable = min(numFireable, dsCapacity);
         }
       }
-      
       return numFireable;
     }
     
@@ -640,18 +645,6 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////////////
 
     __device__
-    unsigned int getMaskedFireableCount(unsigned int instIdx)const
-    {
-      assert(instIdx < numInstances);
-
-      if(firingMask[instIdx]){
-        return (lastFireableCount[instIdx]);
-      }
-      return 0;
-    } 
-  
-  
-    __device__
     bool checkFiringMask(unsigned int instIdx)const{
       assert(instIdx < numInstances);
       return firingMask[instIdx];
@@ -671,7 +664,7 @@ namespace Mercator  {
         unsigned int remainingItems =  this->numInputsPending(tid);
         if(remainingItems < WARP_SIZE){
           printf("deactivating self: ");
-          this->flipActiveFlag(tid);
+          this->deactivate(tid);
         }
         
         //2. we may have just activated the DS node
@@ -687,7 +680,7 @@ namespace Mercator  {
 
           if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
             printf("activated DS");
-            dsModule->flipActiveFlag(dsInstId);
+            dsModule->activate(dsInstId);
       
           } 
         }  

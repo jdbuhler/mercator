@@ -158,13 +158,18 @@ namespace Mercator  {
     unsigned int reserve(unsigned int instIdx, unsigned int nElts)
     {
       assert(instIdx < numInstances);
-      
+      //if(instIdx==0){
+      //  printf("reserve may crash, instIdx:%u, trying to reserve%u\n", instIdx, nElts); 
+      //}
       assert(getOccupancy(instIdx) <= getCapacity(instIdx) - nElts);
       
       unsigned int oldTail = tails[instIdx];
       
       tails[instIdx] = 
 	addModulo(tails[instIdx], nElts, dataSizes[instIdx]);
+      //if(instIdx==0){
+      //  printf("reserve didnt crash\n"); 
+      //}
       
       return oldTail;
     }
@@ -182,10 +187,16 @@ namespace Mercator  {
     {
       assert(instIdx < numInstances);
       
+      //if(instIdx==0){
+      //  printf("release may crash, instIdx:%u, releasing:%u\n", instIdx, nElts); 
+      //}
       assert(getOccupancy(instIdx) >= nElts);
       
       heads[instIdx] = 
 	addModulo(heads[instIdx], nElts, dataSizes[instIdx]);
+      //if(instIdx==0){
+      //  printf("release didnt crash\n"); 
+      //}
     }
     
     
@@ -228,12 +239,15 @@ namespace Mercator  {
 		    unsigned int offset) const
     {
       assert(instIdx < numInstances);
-      
+      printf("getElt may crash, instIdx:%u, offset:%u, occ:%u\n", instIdx, offset, getOccupancy(instIdx)); 
       assert(getOccupancy(instIdx) > offset);
       
       unsigned int head = heads[instIdx];
       unsigned int myIdx = addModulo(head, offset, dataSizes[instIdx]);
       
+      if(offset==0){
+        printf("getElt didnt crash\n"); 
+      }
       return data[instIdx][myIdx]; 
     }
     
