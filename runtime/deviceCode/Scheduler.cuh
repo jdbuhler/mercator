@@ -118,23 +118,19 @@ namespace Mercator  {
 
         __syncthreads(); 
         
-        if(tid==0){
-          printf("firing %u\n-----",nextFire-1);
-        }
         TIMER_STOP(scheduler);
         modules[nextFire-1]->fire(); //remove the added +1 from before
         
         TIMER_START(scheduler);
         if(tid==0){
           sched_count++;
-          printf("fired %u, schedcount %i\n", nextFire-1, sched_count);
         }
       }
         
       __syncthreads(); // make sure final state is visible to all threads
         
       TIMER_STOP(scheduler);
-        
+       
       #ifndef NDEBUG
         // deadlock check -- make sure no module still has pending inputs
         bool hasPending = false;

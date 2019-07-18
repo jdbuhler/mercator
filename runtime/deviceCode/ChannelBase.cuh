@@ -71,7 +71,7 @@ namespace Mercator  {
   #ifdef SCHEDULER_MINSWITCHES
     __device__
     virtual
-    bool scatterToQueues(InstTagT, bool, bool) = 0;
+    bool  scatterToQueues(InstTagT, bool, bool, unsigned int) = 0;
   #else 
     __device__
     virtual

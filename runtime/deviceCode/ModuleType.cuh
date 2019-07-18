@@ -327,14 +327,14 @@ namespace Mercator  {
         unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
         unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
         if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-          printf("activated DS");
+    //      printf("activated DS");
           dsModule->activate(dsInstId);
           return false;
         } 
       }  
 
       if(this->numInputsPending(instIdx) < WARP_SIZE ){
-        printf("deactivating self: ");
+      //  printf("deactivating self: ");
         this->deactivate(instIdx);
         return false; 
       }
@@ -655,7 +655,7 @@ namespace Mercator  {
     void postRunActivation(unsigned int tid){
       //update active/ inactive status here
       if(tid==0){
-        printf("post run fun: ");
+       // printf("post run fun: ");
       }
       //is we are in range and just fired
       if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
@@ -663,7 +663,7 @@ namespace Mercator  {
         //  active -> inactive when input queue  has fewer than v_i inputs remaining.
         unsigned int remainingItems =  this->numInputsPending(tid);
         if(remainingItems < WARP_SIZE){
-          printf("deactivating self: ");
+         // printf("deactivating self: ");
           this->deactivate(tid);
         }
         
@@ -679,14 +679,11 @@ namespace Mercator  {
           unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
 
           if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-            printf("activated DS");
+           // printf("activated DS");
             dsModule->activate(dsInstId);
       
           } 
         }  
-      }
-      if(tid==0){
-        printf("\n");
       }
     }
 

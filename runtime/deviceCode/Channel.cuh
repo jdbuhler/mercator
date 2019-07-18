@@ -184,7 +184,7 @@ namespace Mercator  {
     //
     #ifdef SCHEDULER_MINSWITCHES
     __device__
-      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
+      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter, unsigned int ensembleWidth)
     {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
@@ -265,7 +265,7 @@ namespace Mercator  {
       unsigned int queueOcc = dsQueues[instIdx]->getOccupancy(dsInstId);
       unsigned int dsQueue_rem = queueCap - queueOcc;
 
-      if(dsQueue_rem > (WARP_SIZE*outputsPerInput-1)){//it is safe to fire again 
+      if(dsQueue_rem > (ensembleWidth*outputsPerInput-1)){//it is safe to fire again 
         //printf("there is %u slots in ds queue\n", dsQueue_rem);
         return true;
       }

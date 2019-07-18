@@ -156,7 +156,7 @@ namespace Mercator  {
                     // mark first thread writing to each instance
                     bool isHead = (tid == 0);
                     //update if we should fire again also flips active flag on ds node
-                    isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader());
+                    isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader(),maxRunSize);
                     
                 }
                 
@@ -178,9 +178,10 @@ namespace Mercator  {
               __syncthreads();
 
               //set up to maybe fire again or not
-              if(mod->numInputsPending(node) <WARP_SIZE){
+              //TODO:: use maxRunSize here, not WARP_SIZE
+              if(mod->numInputsPending(node) <maxRunSize){
                 if(tid==0){//only one flips state
-                  printf("deactivating self: only %u inputs\n", mod->numInputsPending(node));
+                  //printf("deactivating self: only %u inputs\n", mod->numInputsPending(node));
                 }
                 suffInput=false;//everyone sets false
                 mod->deactivate(node);

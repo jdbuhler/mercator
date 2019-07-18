@@ -209,7 +209,7 @@ namespace Mercator  {
       if (tid < numInstances)
 	{
 	  COUNT_ITEMS(fireableCount);
-          printf("sink releasing %u\n", fireableCount);
+          //printf("sink releasing %u\n", fireableCount);
 	  queue.release(tid, fireableCount);
 	}
       
