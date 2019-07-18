@@ -275,7 +275,6 @@ namespace Mercator  {
       if(tid==0){
         ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
         dsModule->activate(dsInstId);
-        printf("activating DS node\n");
       }
       return false;
 

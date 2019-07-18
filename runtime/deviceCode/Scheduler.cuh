@@ -93,10 +93,12 @@ namespace Mercator  {
             }
         if(tid==0){
           printf("ENTERING TAIL !\n");
+          assert(false);
         }
         __syncthreads(); // make sure everyone can see tail status
         }
-        
+        //force source active
+        sourceModule->activate(0); 
    
         // find first module that is fireable (active followed by inactive)
         unsigned int nextFire=NULL;

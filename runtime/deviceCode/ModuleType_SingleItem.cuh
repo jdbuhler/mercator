@@ -131,14 +131,11 @@ namespace Mercator  {
             while(isDSSpace && suffInput){
               unsigned int nodeFireableCount=temp;
               if(tid==0){
-                printf("Firing with %u\n",nodeFireableCount );
               } 
               for (unsigned int base = 0; base < nodeFireableCount; base += maxRunSize){
                 unsigned int maxTID = min(maxRunSize, nodeFireableCount); 
-              //TODO:: this is still wrong. need to fix it breaks when nodeFireableCount> 128 but < 255
-                printf("maxTid %u\n",maxTID);
                 const T &myData = 
-                  tid < maxTID
+                  base+tid < maxTID
                    ? queue.getElt(node, base+tid)
                    : queue.getDummy(); // don't create a null reference
 
@@ -146,7 +143,7 @@ namespace Mercator  {
                 MOD_TIMER_START(run);
                 
                 //run with only maxRunSize threads
-                if (tid < maxTID)
+                if (base+tid < maxTID)
                   mod->run(myData, tid);
 
                 __syncthreads(); // all threads must see active channel state
@@ -179,8 +176,6 @@ namespace Mercator  {
             
               // make sure caller sees updated queue state
               __syncthreads();
-              if(tid==0)
-                printf("dsSpace:%s\n", isDSSpace?"true":"false");
 
               //set up to maybe fire again or not
               if(mod->numInputsPending(node) <WARP_SIZE){

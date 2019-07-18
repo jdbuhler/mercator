@@ -239,15 +239,13 @@ namespace Mercator  {
 		    unsigned int offset) const
     {
       assert(instIdx < numInstances);
-      printf("getElt may crash, instIdx:%u, offset:%u, occ:%u\n", instIdx, offset, getOccupancy(instIdx)); 
-      assert(getOccupancy(instIdx) > offset);
+      if (!(getOccupancy(instIdx) > offset)){
+        printf("getElt may crash, instIdx:%u, offset:%u, occ:%u\n", instIdx, offset, getOccupancy(instIdx)); 
+        assert(getOccupancy(instIdx) > offset);
+      }
       
       unsigned int head = heads[instIdx];
       unsigned int myIdx = addModulo(head, offset, dataSizes[instIdx]);
-      
-      if(offset==0){
-        printf("getElt didnt crash\n"); 
-      }
       return data[instIdx][myIdx]; 
     }
     
