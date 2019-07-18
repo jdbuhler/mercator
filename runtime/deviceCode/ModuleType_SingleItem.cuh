@@ -188,7 +188,7 @@ namespace Mercator  {
                 
               }
               else{
-                temp=WARP_SIZE;
+                temp=maxRunSize;
               }
             }
           }
