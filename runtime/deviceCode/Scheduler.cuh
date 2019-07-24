@@ -109,13 +109,13 @@ namespace Mercator  {
 
 		//__syncthreads();
 
-	      unsigned int numFireable =  
-		mod->computeNumFireableTotal(enforceFullEnsembles);
+	      ////unsigned int numFireable =  
+		////mod->computeNumFireableTotal(enforceFullEnsembles);
 
-	      if (numFireable > 0)
-		anyModuleFireable = true;
+	      ////if (numFireable > 0)
+		////anyModuleFireable = true;
 
-	      __syncthreads();
+	      ////__syncthreads();
 	      
               //stimcheck:  Find the number of signals that remain to be fired for each module
 	      unsigned int numSignalFireable =  
@@ -123,6 +123,14 @@ namespace Mercator  {
 
 	      if (numSignalFireable > 0)
 		anyModuleSignalFireable = true;
+
+	      __syncthreads();
+
+	      unsigned int numFireable =  
+		mod->computeNumFireableTotal(enforceFullEnsembles);
+
+	      if (numFireable > 0)
+		anyModuleFireable = true;
 
 	      __syncthreads();
 

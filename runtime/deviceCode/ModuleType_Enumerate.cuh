@@ -74,6 +74,7 @@ namespace Mercator  {
 	for(unsigned int i = 0; i < numInstances; ++i)
 	{
 		dataCount[i] = 0;
+		currentCount[i] = 0;
 	}
     }
     
@@ -107,7 +108,10 @@ namespace Mercator  {
     using BaseType::itemCounter;
 #endif
 
+    //stimcheck: Stores the amount of data we are still waiting on being processed before
+    //removing the head data item.
     unsigned int dataCount[numInstances];
+    unsigned int currentCount[numInstances];
     //Queue<T> *parentBuffer[numInstances]; 
     //
     //
@@ -149,6 +153,17 @@ namespace Mercator  {
       assert(totalFireable > 0);
       
       MOD_OCC_COUNT(totalFireable);
+
+      //stimcheck: Get the dataCount for the current input if not already taken
+      //if(tid < numInstances) {
+      //	if(currentCount[tid] == dataCount[tid]) {
+	//  	DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+	//	dataCount[tid] = mod->findCount(tid);
+	//	currentCount[tid] = 0;
+      	//}
+      //}
+
+      //__syncthreads(); //All threads need to see new dataCount, and reset currentCount
       
       Queue<T> &queue = this->queue; 
 
@@ -191,6 +206,7 @@ namespace Mercator  {
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
 	  //if (runWithAllThreads || idx < totalFireable)
+	  //if(idx < dataCount[instIdx])
 	    mod->run(myData, instIdx);
 	  
 	  __syncthreads(); // all threads must see active channel state

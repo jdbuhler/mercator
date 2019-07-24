@@ -258,11 +258,17 @@ namespace Mercator  {
 	    {
 	      unsigned int dsCapacity = 
 		channels[c]->dsCapacity(instIdx);
-	      //unsigned int dsSignalCapacity =
-		//channels[c]->dsSignalCapacity(instIdx);
+	      unsigned int dsSignalCapacity =
+		channels[c]->dsSignalCapacity(instIdx);
 	      
 	      //Check the setting of the credit for the total number of fireable items
 		//assert(numFireable >= this->currentCredit[instIdx]);
+		//TODO
+		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
+		if(dsSignalCapacity == 1) {
+		  numFireable = 0;
+		  break;
+		}
 	     	numFireable = min(numFireable, dsCapacity);
 	    }
 
