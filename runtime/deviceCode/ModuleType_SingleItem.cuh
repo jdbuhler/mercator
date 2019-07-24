@@ -117,6 +117,7 @@ namespace Mercator  {
         
         MOD_TIMER_START(gather);
         
+        bool tailFlag = this->isInTail(); 
       
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
@@ -178,13 +179,11 @@ namespace Mercator  {
               __syncthreads();
 
               //set up to maybe fire again or not
-              //TODO:: use maxRunSize here, not WARP_SIZE
               if(mod->numInputsPending(node) <maxRunSize){
-                if(tid==0){//only one flips state
-                  //printf("deactivating self: only %u inputs\n", mod->numInputsPending(node));
-                }
                 suffInput=false;//everyone sets false
-                mod->deactivate(node);
+                if(!tailFlag){
+                  mod->deactivate(node);
+                }
                 
               }
               else{

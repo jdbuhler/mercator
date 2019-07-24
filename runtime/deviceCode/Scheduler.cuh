@@ -79,31 +79,30 @@ namespace Mercator  {
         if (idx < numModules && modules[idx] != sourceModule)
         modules[idx]->setInTail(false);
       }
-      
-      sourceModule->activate(0); //only has one instance
 
       // main scheduling loop
       while (true){
-        //Tail check
-        if (sourceModule->isInTail()){
-            for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
-              int idx = base + tid;
-              if (idx < numModules)
-                modules[idx]->setInTail(true);
-            }
-        if(tid==0){
-          printf("ENTERING TAIL !\n");
-          assert(false);
-        }
-        __syncthreads(); // make sure everyone can see tail status
-        }
         //force source active
         sourceModule->activate(0); 
+
+        //Tail check
+        if (sourceModule->isInTail()){          
+            //force source inactive
+            sourceModule->deactivate(0);
+            for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
+              int idx = base + tid;
+              if (idx < numModules){
+                modules[idx]->setInTail(true);
+                modules[idx]->activateAll();
+              }
+            }
+        __syncthreads(); // make sure everyone can see tail status
+        }
    
         // find first module that is fireable (active followed by inactive)
         unsigned int nextFire=NULL;
         for (unsigned int i = 0; i < numModules; ++i){
-          if (modules[i]->computeIsFireable(i)){
+          if (modules[i]->computeIsFireable()){
             nextFire = i+1; //set the node to fire +1, we will subtract this off whenwe call fire, but apparently 0==NULL is true and was trigging the break bellow 
             break;
           }
@@ -137,6 +136,9 @@ namespace Mercator  {
         for (unsigned int j = 0; j < numModules; j++){
           unsigned int n = modules[j]->computeNumPendingTotal();
           hasPending |= (n > 0);
+          if(tid==0){
+          //  printf("mod %u of %u has %u pending\n", j, numModules,  n);
+          }
         }
         assert(!hasPending);
       #endif

@@ -67,19 +67,19 @@ namespace Mercator  {
     virtual
     void activate(unsigned int instIdx)=0;
 
+    __device__
+    virtual
+    void activateAll()=0;
+
 
     //called with all threads
     __device__
     virtual
-    unsigned int computeIsFireable(unsigned int modID_debug)= 0;
+    unsigned int computeIsFireable()= 0;
   
     __device__
     virtual
     QueueBase *getUntypedQueue() const =0;
-
-    __device__
-    virtual
-    bool canStillFire(unsigned int instIdx) =0; 
 
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)
