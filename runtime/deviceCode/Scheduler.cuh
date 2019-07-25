@@ -80,25 +80,22 @@ namespace Mercator  {
         modules[idx]->setInTail(false);
       }
       
-      sourceModule->activate(0); //only has one instance
-
       // main scheduling loop
       while (true){
+        //force source active at all times that arnt tail
+        sourceModule->activate(0); 
         //Tail check
         if (sourceModule->isInTail()){
+            sourceModule->deactivate(0); 
             for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
               int idx = base + tid;
-              if (idx < numModules)
+              if (idx < numModules){
                 modules[idx]->setInTail(true);
+                modules[idx]->activateAll();
+              }
             }
-        if(tid==0){
-          printf("ENTERING TAIL !\n");
-          assert(false);
-        }
         __syncthreads(); // make sure everyone can see tail status
         }
-        //force source active
-        sourceModule->activate(0); 
    
         // find first module that is fireable (active followed by inactive)
         unsigned int nextFire=NULL;

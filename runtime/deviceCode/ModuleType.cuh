@@ -252,6 +252,14 @@ namespace Mercator  {
       activeFlag[instIdx] = 1;
     }    
 
+    __device__
+    void activateAll(){
+      int tid = threadIdx.x;
+      if(tid<numInstances){
+        activeFlag[tid] = 1;
+      }
+    }
+
     //called with all threads
     __device__
     unsigned int computeIsFireable(unsigned int modID_debug){
@@ -279,10 +287,6 @@ namespace Mercator  {
           }
         }
       }
-      //if this node is active and all DS are inactive or we're in tail
-        //return true
-      //else it is not fireable
-
       __syncthreads();
       return isFireable;
     }
@@ -291,10 +295,21 @@ namespace Mercator  {
     unsigned int NODEIsFireable(unsigned int modID,unsigned int instIdx){
       assert(instIdx < numInstances);
       //clear firing mask for this instance
-      firingMask[instIdx]=0; 
+      firingMask[instIdx]=0;   
 
       unsigned int isFireable = getActiveFlag(instIdx);  
-      //printf("Mod %u tid %u is before fireable%u\n", modID, instIdx, isFireable);
+      if(isInTail()){
+        lastFireableCount[instIdx] = computeNumFireable(instIdx); //for the first fire, use as much as possible
+        if ( lastFireableCount[instIdx]>0 ){
+          firingMask[instIdx]=1; 
+          return 1;
+        }
+        else{
+          firingMask[instIdx]=0; 
+          return 0;
+        }
+      }
+
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
         ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
@@ -303,9 +318,7 @@ namespace Mercator  {
 
         isFireable = isFireable && !dsMod->getActiveFlag(dsInstIdx);
 
-        //printf("Mod %u tid %u is durring fireable%u\n", modID, instIdx, isFireable);
       }
-      //  printf("Mod %u tid %u is after fireable%u\n", modID, instIdx, isFireable);
       //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
       //updatee fireable cache 
