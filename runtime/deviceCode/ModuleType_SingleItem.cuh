@@ -267,7 +267,8 @@ namespace Mercator  {
 	    {
 	      // mark first thread writing to each instance
 	      bool isHead = (tid == 0 || instOffset == 0);
-	      
+              if(tid==0)
+	        printf("Channel %u -- ",c);     
 	      getChannel(c)->scatterToQueues(instIdx,
 					     isHead,	
 					     isThreadGroupLeader());
