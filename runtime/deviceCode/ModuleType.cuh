@@ -242,14 +242,19 @@ namespace Mercator  {
     __device__
     void deactivate(unsigned int instIdx){
       assert(instIdx < numInstances);
-      activeFlag[instIdx] = 0;
+      if(threadIdx.x==instIdx){//one writer
+        activeFlag[instIdx] = 0;
+      }
     }    
 
     // call single threaded
     __device__
     void activate(unsigned int instIdx){
       assert(instIdx < numInstances);
-      activeFlag[instIdx] = 1;
+      if(threadIdx.x==instIdx){//one writer
+        printf("called activate on %u where there are %u instances\n", instIdx, numInstances);
+        activeFlag[instIdx] = 1;
+      }
     }    
 
     __device__
@@ -580,7 +585,8 @@ namespace Mercator  {
     
   protected:
 
-    unsigned int activeFlag[numInstances]; //is this node active 
+    unsigned int  activeFlag[numInstances]; //is this node active 
+    //uint1 activeFlag[numInstances];
     unsigned int firingMask[numInstances];
     ChannelBase* channels[numChannels];  // module's output channels
     

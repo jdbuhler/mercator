@@ -159,6 +159,7 @@ namespace Mercator  {
       
       // main scheduling loop
       while (true){
+        //Tail check
         // First, check if the global input buffer is exhausted by seeing
         // if the source module has run out of work to do.  If so, every
         // module should be in the tail of execution.

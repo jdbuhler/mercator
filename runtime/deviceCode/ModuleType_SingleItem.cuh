@@ -155,6 +155,8 @@ namespace Mercator  {
                 for (unsigned int c = 0; c < numChannels; c++){
                     // mark first thread writing to each instance
                     bool isHead = (tid == 0);
+                    if(tid==0)
+                      printf("Channel %u -- ",c);     
                     //update if we should fire again also flips active flag on ds node
                     isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader(),maxRunSize);
                     
