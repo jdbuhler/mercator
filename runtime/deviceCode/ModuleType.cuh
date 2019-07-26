@@ -252,7 +252,6 @@ namespace Mercator  {
     void activate(unsigned int instIdx){
       assert(instIdx < numInstances);
       if(threadIdx.x==instIdx){//one writer
-        printf("called activate on %u where there are %u instances\n", instIdx, numInstances);
         activeFlag[instIdx] = 1;
       }
     }    
@@ -333,34 +332,6 @@ namespace Mercator  {
     }
 
 
-    //called single threaded
-    __device__
-    bool canStillFire(unsigned int instIdx){
-      for(unsigned int c=0; c<numChannels; c++){
-        class ChannelBase* outgoingEdge = this->getChannel(c);
-        ModuleTypeBase* dsModule = outgoingEdge->getDSModule(instIdx);
-        unsigned int dsInstId = (unsigned int)outgoingEdge->getDSInstance(instIdx);
-        QueueBase* dsQueue = dsModule->getUntypedQueue();
-        unsigned int queueCap = dsQueue->getCapacity(dsInstId);
-        unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
-        unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
-        //if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-        if(dsQueue_rem < (maxRunSize*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-    //      printf("activated DS");
-          dsModule->activate(dsInstId);
-          return false;
-        } 
-      }  
-
-      //if(this->numInputsPending(instIdx) < WARP_SIZE ){
-      if(this->numInputsPending(instIdx) < maxRunSize ){
-      //  printf("deactivating self: ");
-        this->deactivate(instIdx);
-        return false; 
-      }
-      lastFireableCount[instIdx] = computeNumFireable(instIdx); //update last fireable
-      return true;
-    } 
 
     ///////////////////////////////////////////////////////////////////
     // FIREABLE COUNTS FOR SCHEDULING

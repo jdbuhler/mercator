@@ -83,6 +83,7 @@ namespace Mercator  {
       // main scheduling loop
       while (true){
         //force source active at all times that arnt tail
+        if(tid==0)printf("forceing source active: ");
         sourceModule->activate(0); 
         //Tail check
         if (sourceModule->isInTail()){
