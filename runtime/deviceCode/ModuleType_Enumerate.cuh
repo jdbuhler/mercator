@@ -69,7 +69,7 @@ namespace Mercator  {
     
     __device__
     ModuleType_Enumerate(const unsigned int *queueSizes)
-      : BaseType(queueSizes)
+      : BaseType(queueSizes), parentBuffer(numInstances, queueSizes)
     {
 	for(unsigned int i = 0; i < numInstances; ++i)
 	{
@@ -93,6 +93,9 @@ namespace Mercator  {
     using BaseType::getNumActiveThreads;
     using BaseType::getThreadGroupSize;
     using BaseType::isThreadGroupLeader;
+
+    //stimcheck: Add base type for numInputsPending to call "super" equivalent
+    using BaseType::numInputsPending;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
@@ -112,17 +115,110 @@ namespace Mercator  {
     //removing the head data item.
     unsigned int dataCount[numInstances];
     unsigned int currentCount[numInstances];
-    //Queue<T> *parentBuffer[numInstances]; 
+    Queue<T> parentBuffer; 
+
+    //
+    // @brief Sets the currentCount and dataCount as necessary when calling
+    // computeNumFireable from the Scheduler.  Returns the minimum of the input
+    // numFireable calculated as normal (using dsCapacicties) and the
+    // (re)-calculated dataCount - currentCount.
+    //
+    // The function is only to be called by a SINGLE-THREADED function, and
+    // should be called for all instances of a module concurrently.
+    //
+    // @param instIdx instance for which to evaluate the dataCount for
+    // @param numFireable the current number of fireable elements calculated from dsCapacities
+    //
+    // @return unsigned int the minimum of numFireable and the calculated dataCount
+    //
+    __device__
+    unsigned int
+    setCounts(unsigned int instIdx, unsigned int numFireable)
+    {
+	if(currentCount[instIdx] == dataCount[instIdx]) {
+		currentCount[instIdx] = 0;
+		dataCount[instIdx] = this->findCount(instIdx);
+	}
+	return min(numFireable, dataCount[instIdx] - currentCount[instIdx]);
+    }
+
+
+    __device__
+    unsigned int 
+    computeNumFireable(unsigned int instIdx, bool numPendingSignals)
+    {
+      assert(instIdx < numInstances);
+      
+      // start at max fireable, then discover bottleneck
+      unsigned int numFireable = numInputsPending(instIdx);
+
+      
+      if (numFireable > 0)
+	{
+	/*
+	  // for each channel
+	  for (unsigned int c = 0; c < numChannels; ++c)
+	    {
+	      unsigned int dsCapacity = 
+		getChannel(c)->dsCapacity(instIdx);
+	      unsigned int dsSignalCapacity =
+		getChannel(c)->dsSignalCapacity(instIdx);
+	      
+	      //Check the setting of the credit for the total number of fireable items
+		//assert(numFireable >= this->currentCredit[instIdx]);
+		//TODO
+		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
+		if(dsSignalCapacity == 1) {
+		  numFireable = 0;
+		  break;
+		}
+	     	numFireable = min(numFireable, dsCapacity);
+	    }
+
+
+	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
+	//for correct signal handling.
+	if(numPendingSignals) {
+		numFireable = min(numFireable, this->currentCredit[instIdx]);
+	}
+	*/
+	//stimcheck: Compute numFirable normally, then perform findCount as needed.
+	numFireable = BaseType::computeNumFireable(instIdx, numPendingSignals);
+
+	//DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+	//if(currentCount[instIdx] == dataCount[instIdx]) {
+		//stimcheck: TODO set parent HERE
+		//currentCount[instIdx] = 0;
+		//this->findCount(instIdx);
+		//dataCount[instIdx] = this->findCount(instIdx);
+	//}
+
+	numFireable = setCounts(instIdx, numFireable);
+      }
+      return numFireable;
+    }
+
+    __device__
+    virtual
+    unsigned int findCount(InstTagT nodeIdx) {
+	assert(false && "FindCount base called.");
+	return 0;
+    }
+
+
     //
     //
     //
     __device__
     void run(T inputItem, InstTagT nodeIdx)
     {
-	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+	  //DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
 	  //if (runWithAllThreads || idx < totalFireable)
-	    mod->findCount(nodeIdx);
+	    //mod->findCount(nodeIdx);
+
+	  //stimcheck: Push the the current set of indices that we can downstream.
+	  //push(currentCount[nodeIdx] + threadIdx.x, nodeIdx);
     }
 
     //
@@ -154,17 +250,6 @@ namespace Mercator  {
       
       MOD_OCC_COUNT(totalFireable);
 
-      //stimcheck: Get the dataCount for the current input if not already taken
-      //if(tid < numInstances) {
-      //	if(currentCount[tid] == dataCount[tid]) {
-	//  	DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-	//	dataCount[tid] = mod->findCount(tid);
-	//	currentCount[tid] = 0;
-      	//}
-      //}
-
-      //__syncthreads(); //All threads need to see new dataCount, and reset currentCount
-      
       Queue<T> &queue = this->queue; 
 
       // Iterate over inputs to be run in block-sized chunks.
@@ -174,6 +259,10 @@ namespace Mercator  {
 	//   base < totalFireable; 
 	//   base += maxRunSize)
 	//{
+	for(unsigned int inst = 0;
+		inst < numInstances;
+		++inst)
+	{
 	
 	  unsigned int base = 0;	//Dummy var to replace old loop	
 	  //this->signalHandler();
@@ -203,14 +292,27 @@ namespace Mercator  {
 	  MOD_TIMER_STOP(gather);
 	  MOD_TIMER_START(run);
 	  
+	  __syncthreads();
 	  DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 	  
 	  //if (runWithAllThreads || idx < totalFireable)
 	  //if(idx < dataCount[instIdx])
-	    mod->run(myData, instIdx);
+	  //for(unsigned int c = 0; c < numChannels; ++c) {
+	  //	if(currentCount[inst] + threadIdx.x < dataCount[inst] && currentCount[inst] + idx < totalFireable)
+	    	  mod->run(myData, inst);
+	  	//stimcheck: We work on 1 instance at a time, so increment currentCount with single thread
+	  //	if(IS_BOSS()) {
+	//		currentCount[inst] += getChannel(c)->dsCapacity(instIdx);
+	  //	}
+	  //}
 	  
 	  __syncthreads(); // all threads must see active channel state
-	  
+
+	  //stimcheck: We work on 1 instance at a time, so increment currentCount with single thread
+	  //if(IS_BOSS()) {
+		//currentCount[inst] += 
+	  //}
+
 	  MOD_TIMER_STOP(run);
 	  MOD_TIMER_START(scatter);
 	  
@@ -231,15 +333,26 @@ namespace Mercator  {
 		//			     isHead,	
 		//			     isThreadGroupLeader());
 	    }
+
+	  //stimcheck: Add the amount of indices we just pushed to the currentCount
+	//  if(tid < numInstances) {
+	//	currentCount[inst] += 
+	//  }
 	  
 	  __syncthreads(); // all threads must see reset channel state
 	  
 	  MOD_TIMER_STOP(scatter);
 	  MOD_TIMER_START(gather);
-	//} //end for
+	} //end for
       
       // protect use of queue->getElt() from changes to head pointer due
       // to release.
+      __syncthreads();
+
+      if(tid < numInstances) {
+	currentCount[tid] += fireableCount;
+      }
+
       __syncthreads();
       
       // release any items that we consumed in this firing
@@ -247,7 +360,14 @@ namespace Mercator  {
 	{
 	  COUNT_ITEMS(fireableCount);
 	  //queue.release(tid, fireableCount);
-	  queue.release(tid, 1);
+	  //if(currentCount[tid] == dataCount[tid]) {
+	  //	queue.release(tid, 1);
+	//	currentCount[tid] = 0;
+	 // }
+	  if(currentCount[tid] == dataCount[tid]) {
+		printf("MADE IT\n");
+	  	queue.release(tid, 1);
+	  }
 	}
 
 

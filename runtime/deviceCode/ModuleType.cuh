@@ -241,9 +241,12 @@ namespace Mercator  {
     //
     // @param instIdx instance for which to compute fireable count.
     //
+    //stimcheck: Changed to virtual so we can add in a check for findCount in Enumerate Modules.
+    //stimcheck: Removed const, so we can change dataCount and currentCount for Enumerate Modules.
     __device__
+    virtual
     unsigned int 
-    computeNumFireable(unsigned int instIdx, bool numPendingSignals) const
+    computeNumFireable(unsigned int instIdx, bool numPendingSignals)
     {
       assert(instIdx < numInstances);
       
@@ -870,7 +873,7 @@ namespace Mercator  {
 						}
 						pushSignal(s, instIdx, channel);
 					}
-					printf("Tail Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
+					//printf("Tail Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
 					break;
 				}
 				default:
