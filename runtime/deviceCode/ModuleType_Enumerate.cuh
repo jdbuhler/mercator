@@ -189,7 +189,7 @@ namespace Mercator  {
 		//stimcheck: We do not want the credit to hold back execution while there is at least 1
 		//data element queued up.  We execute all the sub-elements of the current parent, so
 		//checking the credit is only applicable when there are no data elements on the queue.
-		if(this->currentCredit == 0) {
+		if(this->currentCredit[instIdx] == 0) {
 			printf("HERE\n");
 			numFireable = min(numFireable, this->currentCredit[instIdx]);
 		}
