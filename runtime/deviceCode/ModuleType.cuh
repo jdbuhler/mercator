@@ -329,6 +329,8 @@ namespace Mercator  {
       	  unsigned int numFireable = 0;
 	  if (tid < numInstances)
 	    numFireable = computeNumFireable(tid, hasPendingSignal);
+	  //if(numFireable > 0)
+	    printf("NUM FIREABLE[blockIdx %d]\t\t%d\n", blockIdx.x, numFireable);
 	  unsigned int totalFireable;
 	  
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
@@ -388,6 +390,17 @@ namespace Mercator  {
 	return c;
     }
     
+    //stimcheck: Function for getting the total credit currently present in this ModuleType.
+    __device__
+    unsigned int
+    getTotalCreditSingle() {
+	unsigned int c = 0;
+	for(unsigned int i = 0; i < numInstances; ++i) {
+		c += currentCredit[i];
+	}
+	return c;
+    }
+
     //stimcheck:  Compute the number of fireable signals, used for clearing queues that still have signals
     //
     // @brief Compute the number of inputs that can safely be consumed
@@ -416,9 +429,18 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; ++c)
 	    {
 	      unsigned int dsCapacity = 
+		channels[c]->dsCapacity(instIdx);
+	      unsigned int dsSignalCapacity = 
 		channels[c]->dsSignalCapacity(instIdx);
-	      
-	      numFireable = min(numFireable, dsCapacity);
+
+		//stimcheck: Add this check here to see if there is any space downstream,
+		//if there exists no space, then report that there are no signals fireable.
+	      if(dsCapacity == 0) {
+		numFireable = 0;
+		break;
+	      }	      
+
+	      numFireable = min(numFireable, dsSignalCapacity);
 	    }
 	}
       
@@ -767,6 +789,7 @@ namespace Mercator  {
 
 			//Must have a positive credit always
 			assert(currentCredit[instIdx] >= 0);
+			//printf("CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\n", i, instIdx, currentCredit[instIdx], i, s.getCredit());
 
 			//Signal has Credit
 			// AND
@@ -779,6 +802,9 @@ namespace Mercator  {
 			//Base case: we have credit to wait on
 			//If the current credit has reached 0, then we can consume signal
 			if(currentCredit[instIdx] > 0) {
+				assert(queue.getOccupancy(instIdx) > 0);
+				if(s.getTag() == Signal::SignalTag::Tail)
+				printf("CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
 				break;
 			}
 			else {
@@ -818,7 +844,7 @@ namespace Mercator  {
 							pushSignal(s, instIdx, channel);
 						}
 					}
-					//printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
+					printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
 					break;
 				}
 

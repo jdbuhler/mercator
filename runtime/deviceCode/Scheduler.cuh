@@ -162,7 +162,10 @@ namespace Mercator  {
 	  __syncthreads();
 
 	  if(IS_BOSS()) {
-		////printf("[%d] Calling next module %d\n", blockIdx.x, nextModuleIdx);
+		for(unsigned int h = 0; h < numModules; ++h) {
+			printf("[%d] moduleIdx %d\t\tfireableCounts = %d\t\tfireableSignalCounts = %d\t\ttotalCredit = %d\t\tnumInputsPending[0] = %d\n", blockIdx.x, h, fireableCounts[h], fireableSignalCounts[h], modules[h]->getTotalCreditSingle(), modules[h]->numInputsPending(0));
+		}
+		printf("[%d] Calling next module %d\t\tfireableCount = %d\t\tfireableSignalCount = %d\n", blockIdx.x, nextModuleIdx, fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx]);
 		//assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
 	  }
 
@@ -193,9 +196,9 @@ namespace Mercator  {
 	  bool nc = modules[j]->hasCredit();
 	  bool nt = modules[j]->isInTailInit();
 	  hasPending |= (n > 0);
-	  //if(n > 0) {
-		//printf("HASPENDING FAILED [blockIdx %d, threadIdx %d]:\t%d REMAINING\n", blockIdx.x, threadIdx.x, n);
-	  //}
+	  if(n > 0) {
+		printf("HASPENDING FAILED [blockIdx %d, threadIdx %d, module %d]:\t%d REMAINING\n", blockIdx.x, threadIdx.x, j, n);
+	  }
 	  hasPendingS |= (ns > 0);
 	  hasPendingC |= (nc);
 	  if(modules[j] != sourceModule && modules[j]->isEnum()) {
@@ -206,7 +209,7 @@ namespace Mercator  {
       assert(hasAllInTail);
       assert(!hasPendingS);
       assert(!hasPendingC);
-      assert(!hasPending);
+      //assert(!hasPending);
 #endif
     }
 

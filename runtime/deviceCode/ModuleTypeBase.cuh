@@ -53,6 +53,16 @@ namespace Mercator  {
     unsigned int
     getTotalCredit() = 0;
 
+    __device__
+    virtual
+    unsigned int
+    getTotalCreditSingle() = 0;
+
+    //stimcheck: ONLY HERE FOR DEBUGGING, REMOVE LATER
+    __device__
+    virtual
+    unsigned int numInputsPending(unsigned int instIdx) const { assert(false); return 0; }
+
     //
     // @brief Indicate whether the module is in the tail of execution.
     //
