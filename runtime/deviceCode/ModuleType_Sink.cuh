@@ -128,6 +128,7 @@ namespace Mercator  {
     //
 
   #ifdef SCHEDULER_MINSWITCHES
+  //TODO::Simplify
     __device__
     virtual
     void fire()
@@ -215,7 +216,7 @@ namespace Mercator  {
       
       MOD_TIMER_STOP(gather);
       //MOD_TIMER_START(activate);
-      this->postRunActivation(tid);
+      this->sourceResolution(tid);
       //MOD_TIMER_STOP(activate);
       //make sure all threads see the new active/inactive status flags
       __syncthreads();

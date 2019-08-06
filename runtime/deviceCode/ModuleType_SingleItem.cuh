@@ -126,13 +126,13 @@ namespace Mercator  {
         for(unsigned int node=0; node<numInstances; node++){
           //run only those that are actually fireable per the mask 
           if(checkFiringMask(node)){
+            //only consume one ensamble at a time. be done the temp stuff and the inner loop
             unsigned int temp= getFireableCount(node);
             bool isDSSpace = true;
             bool suffInput = true;
+            if(temp==0) suffInput=false;
             while(isDSSpace && suffInput){
               unsigned int nodeFireableCount=temp;
-              if(tid==0){
-              } 
               for (unsigned int base = 0; base < nodeFireableCount; base += maxRunSize){
                 unsigned int maxTID = min(maxRunSize, nodeFireableCount); 
                 const T &myData = 
@@ -157,7 +157,7 @@ namespace Mercator  {
                     // mark first thread writing to each instance
                     bool isHead = (tid == 0);
                     //update if we should fire again also flips active flag on ds node
-                    isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader(),maxRunSize);
+                    isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader() );
                     
                 }
                 

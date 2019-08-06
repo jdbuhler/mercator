@@ -183,8 +183,9 @@ namespace Mercator  {
     // @param isWriter true iff thread is the writer for its group
     //
     #ifdef SCHEDULER_MINSWITCHES
+    //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
     __device__
-      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter, unsigned int ensembleWidth)
+      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
@@ -220,7 +221,7 @@ namespace Mercator  {
 	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
 	  COUNT_ITEMS(instTotal);  // instrumentation
-          printf("tid:%u istIdx:%u instTotal:%u\n", tid, instIdx, instTotal); 
+          //printf("tid:%u istIdx:%u instTotal:%u\n", tid, instIdx, instTotal); 
 	  dsBase[instIdx] = directReserve(instIdx, instTotal);
 	}
       
@@ -259,25 +260,26 @@ namespace Mercator  {
     
       __syncthreads();
 
+      //TODO:: check this more agressivly 
       //check if there is enough space for a full warp to be fired again
       unsigned int dsInstId = dsInstances[instIdx];
       unsigned int queueCap = dsQueues[instIdx]->getCapacity(dsInstId);
       unsigned int queueOcc = dsQueues[instIdx]->getOccupancy(dsInstId);
       unsigned int dsQueue_rem = queueCap - queueOcc;
 
-      if(dsQueue_rem > (ensembleWidth*outputsPerInput-1)){//it is safe to fire again 
+
+      //return if i am allowed to fire again
+      if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
         //printf("there is %u slots in ds queue\n", dsQueue_rem);
         return true;
       }
       
-      //not enough space, so lets go ahead and activate this guy
+      //not enough space, so lets go ahead and activate the ds node
       //only one thread activates the ds modules
-      if(tid==0){
-        ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
-        dsModule->activate(dsInstId);
-      }
+  
+      ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
+      dsModule->activate(dsInstId);
       return false;
-
     }
     #else
 

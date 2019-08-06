@@ -87,23 +87,23 @@ namespace Mercator  {
 
         //Tail check
         if (sourceModule->isInTail()){          
-            //force source inactive
-            sourceModule->deactivate(0);
             for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
               int idx = base + tid;
               if (idx < numModules){
                 modules[idx]->setInTail(true);
-                modules[idx]->activateAll();
+                modules[idx]->activateAll();//only one thread calls this 
               }
             }
         __syncthreads(); // make sure everyone can see tail status
+        //force source inactive
+        sourceModule->deactivate(0);
         }
    
         // find first module that is fireable (active followed by inactive)
-        unsigned int nextFire=NULL;
+        int nextFire=-1;
         for (unsigned int i = 0; i < numModules; ++i){
           if (modules[i]->computeIsFireable()){
-            nextFire = i+1; //set the node to fire +1, we will subtract this off whenwe call fire, but apparently 0==NULL is true and was trigging the break bellow 
+            nextFire = i;
             break;
           }
         }
@@ -111,14 +111,15 @@ namespace Mercator  {
         // If no module can be fired, either all have zero items pending
         // (we are done), or no module with pending inputs can fire
         // (we are deadlocked -- should not happen!).
-        if (nextFire==NULL){
+        if (nextFire<0){
+          //verify that all threads see the same valaue of nextFire and that some dont break early
           break;
         }
 
         __syncthreads(); 
         
         TIMER_STOP(scheduler);
-        modules[nextFire-1]->fire(); //remove the added +1 from before
+        modules[nextFire]->fire(); 
         
         TIMER_START(scheduler);
         if(tid==0){

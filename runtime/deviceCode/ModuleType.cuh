@@ -134,8 +134,8 @@ namespace Mercator  {
         firingMask[j] = 0;
       }
 
-      //tell our queue who we are
-      queue.setModuleAssocation((void*)this);
+      //tell our queue who we are 
+      queue.setModuleAssocation((ModuleTypeBase*)this);
     }
     
     
@@ -251,11 +251,13 @@ namespace Mercator  {
       assert(instIdx < numInstances);
       activeFlag[instIdx] = 1;
     }   
+
+
+    // call single threaded
     __device__
     void activateAll(){
-      int tid = threadIdx.x;
-      if(tid<numInstances){
-        activeFlag[tid] = 1;
+      for(unsigned int i=0;i<numInstances;i++){
+        activeFlag[i] = 1;
       }
     }
 
@@ -294,6 +296,8 @@ namespace Mercator  {
       return isFireable;
     }
 
+
+    //called single threaded
     __device__
     unsigned int NODEIsFireable(unsigned int instIdx){
       assert(instIdx < numInstances);
@@ -320,13 +324,18 @@ namespace Mercator  {
         ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
         unsigned int dsInstIdx = (unsigned int)channels[c]->getDSInstance(instIdx);      
 
-
         isFireable = isFireable && !dsMod->getActiveFlag(dsInstIdx);
+        if(!isFireable){ //break once we go false
+          lastFireableCount[instIdx] = 0;
+          break;
+        }
       }
-      //update firingMask[instIdx], if this module is not selected, then this is irrelivent
       firingMask[instIdx]=isFireable; 
-      //updatee fireable cache 
-      lastFireableCount[instIdx] = computeNumFireable(instIdx); //for the first fire, use as much as possible
+      
+      //update if fireable
+      if(isFireable){
+        lastFireableCount[instIdx] = computeNumFireable(instIdx); //for the first fire, use as much as possible
+      }
 
       return isFireable; //cast bool to int 1 is node is fireable 0 is not fireable
     }
@@ -640,19 +649,10 @@ namespace Mercator  {
     }
 
     
-    //only called by source and sink, single threaded
+    //called single threaded
     __device__
-    void postRunActivation(unsigned int tid){
-      //update active/ inactive status here
-      //is we are in range and just fired
-      if(tid<numInstances && checkFiringMask(tid)){ //this should be fine cause if it fails the first it wouldnt do the second?
-        //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
-        //  active -> inactive when input queue  has fewer than v_i inputs remaining.
-        unsigned int remainingItems =  this->numInputsPending(tid);
-        if(remainingItems < maxRunSize){ //if there is not enough stuff and we are not in tail
-          this->deactivate(tid);
-        }//else leave active
-        
+    void sourceResolution(unsigned int tid){
+      if(tid<numInstances && checkFiringMask(tid)){ 
         //2. we may have just activated the DS node
         //  inactive DSnode becomes active when its input queue  has fewer than (vigi)−1 spaces remaining.
         for(unsigned int c=0; c<numChannels; c++){
@@ -668,9 +668,21 @@ namespace Mercator  {
           if(dsQueue_rem < (maxRunSize*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
            // printf("activated DS");
             dsModule->activate(dsInstId);
-      
           } 
         }  
+      }
+    }
+    
+    //called single threaded
+    __device__
+    void sinkResolution(unsigned int tid){
+      if(tid<numInstances && checkFiringMask(tid)){ 
+        //1. node just fired, so is clearly active,so lets check if it should stay active by looking at 
+        //  active -> inactive when input queue  has fewer than v_i inputs remaining.
+        unsigned int remainingItems =  this->numInputsPending(tid);
+        if(remainingItems < maxRunSize){ //if there is not enough stuff and we are not in tail
+          this->deactivate(tid);
+        }//else leave active
       }
     }
 
