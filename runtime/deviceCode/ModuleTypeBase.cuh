@@ -15,6 +15,8 @@
 
 #include "Signal.cuh"
 
+#define PF_DEBUG 0
+
 namespace Mercator  {
   
   //
@@ -62,6 +64,30 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int numInputsPending(unsigned int instIdx) const { assert(false); return 0; }
+
+    //stimcheck: ONLY HERE FOR DEBUGGING, REMOVE LATER
+    __device__
+    virtual
+    unsigned int
+    getDSCap() = 0;
+
+    //stimcheck: ONLY HERE FOR DEBUGGING, REMOVE LATER
+    __device__
+    virtual
+    unsigned int
+    getDSSCap() = 0;
+
+    //stimcheck: ONLY HERE FOR DEBUGGING, REMOVE LATER
+    __device__
+    virtual
+    unsigned int
+    getFC() = 0;
+
+    //stimcheck: ONLY HERE FOR DEBUGGING, REMOVE LATER
+    __device__
+    virtual
+    unsigned int
+    getDC() = 0;
 
     //
     // @brief Indicate whether the module is in the tail of execution.

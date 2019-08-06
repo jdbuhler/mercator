@@ -139,9 +139,19 @@ namespace Mercator  {
 		currentCount[instIdx] = 0;
 		dataCount[instIdx] = this->findCount(instIdx);
 	}
+	//assert(dataCount[instIdx] == 3);
+	//if(dataCount[instIdx] != 3) {
+	//	printf("[%d] DC NOT SET CORRECTLY\n", blockIdx.x);
+	//}
+	//printf("[%d] CD\n", blockIdx.x);
 	return min(numFireable, dataCount[instIdx] - currentCount[instIdx]);
     }
 
+    __device__
+    unsigned int
+    getDC() {
+	return dataCount[0];
+    }
 
     __device__
     unsigned int 
@@ -155,7 +165,7 @@ namespace Mercator  {
       unsigned int numFireable = UINT_MAX;
 
       
-	printf("NUM INPUTS PENDING = %d\n", nf);
+	printf("[%d] NUM INPUTS PENDING = %d\n", blockIdx.x, nf);
       if (nf > 0)
 	{
 	
@@ -173,14 +183,14 @@ namespace Mercator  {
 		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
 		if(dsSignalCapacity == 1) {
 		  numFireable = 0;
-		  printf("SNO SPACE DOWNSTREAM\n");
+		  printf("[%d] SNO SPACE DOWNSTREAM\n", blockIdx.x);
 		  break;
 		}
 	     	numFireable = min(numFireable, dsCapacity);
 	    }
 
 	if(nf > 0 && numFireable == 0) {
-		printf("NO SPACE DOWNSTREAM\n");
+		printf("[%d] NO SPACE DOWNSTREAM\n", blockIdx.x);
 	}
 
 	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
@@ -190,7 +200,7 @@ namespace Mercator  {
 		//data element queued up.  We execute all the sub-elements of the current parent, so
 		//checking the credit is only applicable when there are no data elements on the queue.
 		if(this->currentCredit[instIdx] == 0) {
-			printf("HERE\n");
+			printf("[%d] HERE\n", blockIdx.x);
 			numFireable = min(numFireable, this->currentCredit[instIdx]);
 		}
 	}
@@ -210,7 +220,7 @@ namespace Mercator  {
 	numFireable = setCounts(instIdx, numFireable);
 	//printf("AFTER SET COUNTS: %d, numFireable %d, currentCount %d, dataCount %d\n", instIdx, numFireable, currentCount[instIdx], dataCount[instIdx]);
 	if(numFireable > 0) {
-		printf("NM FIREABLE = %d\n", numFireable);
+		printf("[%d] NM FIREABLE = %d\n", blockIdx.x, numFireable);
 	}
         return numFireable;
       }
@@ -270,8 +280,10 @@ namespace Mercator  {
 
       assert(totalFireable > 0);
       
+	#if PF_DEBUG
 	if(fireableCount > 0 && tid < numInstances)
 	printf("FIREABLE COUNT = %d, CURRENT COUNT = %d, DATA COUNT = %d, MAX RUN SIZE = %d, TOTAL FIREABLE = %d\n", fireableCount, currentCount[tid], dataCount[tid], maxRunSize, totalFireable);
+	#endif
 
       MOD_OCC_COUNT(totalFireable);
 
@@ -396,7 +408,9 @@ namespace Mercator  {
 	//	currentCount[tid] = 0;
 	 // }
 	  if(currentCount[tid] == dataCount[tid]) {
+		#if PF_DEBUG
 		printf("MADE IT\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
+		#endif
 		sendEnumSignal = true;
 	  	queue.release(tid, 1);
 	  }
@@ -417,7 +431,9 @@ namespace Mercator  {
 	
 	if(threadIdx.x < numInstances) {
 	if(sendEnumSignal) {
+	#if PF_DEBUG
 	printf("PUSHING ENUMERATE SIGNAL . . .\n");
+	#endif
 	unsigned int instIdx = threadIdx.x;
 	//Create a new enum signal to send downstream
 	Signal s;

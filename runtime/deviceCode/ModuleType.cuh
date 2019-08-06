@@ -228,6 +228,23 @@ namespace Mercator  {
     // FIREABLE COUNTS FOR SCHEDULING
     ///////////////////////////////////////////////////////////////////
     
+    __device__
+    virtual
+    unsigned int
+    getDSCap() {
+	if(numChannels > 0 && numInstances > 0)
+		return channels[0]->dsCapacity(0);
+	return UINT_MAX;
+    }
+
+    __device__
+    virtual
+    unsigned int
+    getDSSCap() {
+	if(numChannels > 0 && numInstances > 0)
+		return channels[0]->dsSignalCapacity(0);
+	return UINT_MAX;
+    }
     
     //
     // @brief Compute the number of inputs that can safely be consumed
@@ -329,7 +346,7 @@ namespace Mercator  {
       	  unsigned int numFireable = 0;
 	  if (tid < numInstances)
 	    numFireable = computeNumFireable(tid, hasPendingSignal);
-	  //if(numFireable > 0)
+	  if(numFireable > 0)
 	    printf("NUM FIREABLE[blockIdx %d]\t\t%d\n", blockIdx.x, numFireable);
 	  unsigned int totalFireable;
 	  
@@ -337,7 +354,8 @@ namespace Mercator  {
 	  unsigned int sf = Scan::exclusiveSum(numFireable, totalFireable);
 	  
 	    //stimcheck: Only enforce full ensembles if there are no signals pending.
-	    if (enforceFullEnsembles && !hasPendingSignal)
+	    //stimcheck: Only enforce full ensembles if the module is not an enumerate module.
+	    if (enforceFullEnsembles && !hasPendingSignal && !isEnum())
 	    {
 	      // round total fireable count down to a full multiple of # of
 	      // elements that can be consumed by one call to run()
@@ -755,6 +773,20 @@ namespace Mercator  {
       return (lastFireableCount[instIdx]);
     }
 
+    __device__
+    virtual
+    unsigned int getFC()
+    { 
+      return (lastFireableCount[0]);
+    }
+
+    __device__
+    virtual
+    unsigned int getDC()
+    { 
+      return UINT_MAX;
+    }
+
     //stimcheck: signal equivalent to get the last computed fireable count
     //
     // @brief get last cached count of number of inputs fireable for
@@ -804,7 +836,7 @@ namespace Mercator  {
 			if(currentCredit[instIdx] > 0) {
 				//assert(queue.getOccupancy(instIdx) > 0);
 				if(s.getTag() == Signal::SignalTag::Tail)
-				printf("CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
+				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
 				break;
 			}
 			else {
@@ -899,7 +931,7 @@ namespace Mercator  {
 						}
 						pushSignal(s, instIdx, channel);
 					}
-					//printf("Tail Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
+					printf("[%d] Tail Signal Processed\t%d\t%d\n", blockIdx.x, sigQueueOcc, s.getCredit());
 					break;
 				}
 				default:

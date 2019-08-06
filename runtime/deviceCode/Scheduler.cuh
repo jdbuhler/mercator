@@ -161,6 +161,7 @@ namespace Mercator  {
 
 	  __syncthreads();
 
+	#if PF_DEBUG
 	  if(IS_BOSS()) {
 		for(unsigned int h = 0; h < numModules; ++h) {
 			printf("[%d] moduleIdx %d\t\tfireableCounts = %d\t\tfireableSignalCounts = %d\t\ttotalCredit = %d\t\tnumInputsPending[0] = %d\n", blockIdx.x, h, fireableCounts[h], fireableSignalCounts[h], modules[h]->getTotalCreditSingle(), modules[h]->numInputsPending(0));
@@ -168,7 +169,7 @@ namespace Mercator  {
 		printf("[%d] Calling next module %d\t\tfireableCount = %d\t\tfireableSignalCount = %d\n", blockIdx.x, nextModuleIdx, fireableCounts[nextModuleIdx], fireableSignalCounts[nextModuleIdx]);
 		//assert(!(fireableCounts[nextModuleIdx] == 0 && fireableSignalCounts[nextModuleIdx] > 0 && modules[nextModuleIdx]->hasCredit() > 0));
 	  }
-
+	#endif
 	  __syncthreads(); ///
 
 	  TIMER_STOP(scheduler);
@@ -183,6 +184,7 @@ namespace Mercator  {
       TIMER_STOP(scheduler);
       
 #ifndef NDEBUG
+
       // deadlock check -- make sure no module still has pending inputs
       // stimcheck:  Add the check for signal queue
       bool hasPending = false;
@@ -197,7 +199,7 @@ namespace Mercator  {
 	  bool nt = modules[j]->isInTailInit();
 	  hasPending |= (n > 0);
 	  if(n > 0) {
-		printf("HASPENDING FAILED [blockIdx %d, threadIdx %d, module %d]:\t%d REMAINING\n", blockIdx.x, threadIdx.x, j, n);
+		printf("HASPENDING FAILED [blockIdx %d, threadIdx %d, module %d]: %d D, %d S REMAINING\t\t%d DS_CAP\t\t%d DSS_CAP\t\t%d LFC\t\t%d DC\n", blockIdx.x, threadIdx.x, j, n, ns, modules[j]->getDSCap(), modules[j]->getDSSCap(), modules[j]->getFC(), modules[j]->getDC());
 	  }
 	  hasPendingS |= (ns > 0);
 	  hasPendingC |= (nc);
@@ -205,7 +207,20 @@ namespace Mercator  {
 	  	hasAllInTail &= nt;
 	  }
 	}
-      
+
+	/*
+	clock_t start = clock();
+	clock_t now;
+	for(;;) {
+		now = clock();
+		clock_t cycles = now > start ? now - start : now + (0xffffffff - start);
+		if(cycles >= 10000) {
+			break;
+		}
+	}
+	clock_t global_now = now;
+	*/
+
       assert(hasAllInTail);
       assert(!hasPendingS);
       assert(!hasPendingC);
