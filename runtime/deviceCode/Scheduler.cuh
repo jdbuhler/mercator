@@ -80,10 +80,12 @@ namespace Mercator  {
         modules[idx]->setInTail(false);
       }
 
+      //force source active
+      sourceModule->activate(0); 
+
+
       // main scheduling loop
       while (true){
-        //force source active
-        sourceModule->activate(0); 
 
         //Tail check
         if (sourceModule->isInTail()){          
@@ -91,10 +93,11 @@ namespace Mercator  {
               int idx = base + tid;
               if (idx < numModules){
                 modules[idx]->setInTail(true);
-                modules[idx]->activateAll();//only one thread calls this 
+                modules[idx]->activateAll();
               }
             }
-        __syncthreads(); // make sure everyone can see tail status
+        // make sure everyone can see tail status
+        __syncthreads();         
         //force source inactive
         sourceModule->deactivate(0);
         }
@@ -112,7 +115,6 @@ namespace Mercator  {
         // (we are done), or no module with pending inputs can fire
         // (we are deadlocked -- should not happen!).
         if (nextFire<0){
-          //verify that all threads see the same valaue of nextFire and that some dont break early
           break;
         }
 
@@ -126,9 +128,10 @@ namespace Mercator  {
           sched_count++;
         }
       }
-        
-      __syncthreads(); // make sure final state is visible to all threads
-        
+
+      // make sure final state is visible to all threads
+      __syncthreads();
+
       TIMER_STOP(scheduler);
        
       #ifndef NDEBUG
