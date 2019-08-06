@@ -195,102 +195,97 @@ namespace Mercator  {
       int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
+      bool dsSpace=true;
       
-      // obtain number of inputs that can be consumed by each instance, potentially taking into account the firing mask, set durring sched 
-      unsigned int totalFireable = getFireableCount(0);
-      
-      assert(totalFireable > 0);
-      assert(totalFireable <= numPending);
-      
-      MOD_OCC_COUNT(totalFireable);
-      
-      if (tid == 0)
-	COUNT_ITEMS(totalFireable);
+      while(dsSpace){
+        //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
+        unsigned int totalFireable = this->ensembleWidth();
 
-      MOD_TIMER_STOP(gather);
-      MOD_TIMER_START(scatter);
-      
-      // Reserve space on all channels' downstream queues
-      // for the data we are about to write, and get the
-      // base pointer at which to write it for each queue.
-      
-      __shared__ unsigned int dsBase[numChannels];
-      if (tid < numChannels)
-	{
-	  const Channel *channel = 
-	    static_cast<Channel *>(getChannel(tid));
-	  
-	  dsBase[tid] = channel->directReserve(0, totalFireable);
-	}
-      __syncthreads(); // all threads must see dsBase[] values
-      
-      MOD_TIMER_STOP(scatter);
-      MOD_TIMER_START(gather);
-      
-      //
-      // move the data from the source to the downstream queues,
-      // using all available threads.
-      //
-      
-      for (unsigned int base = 0; 
-	   base < totalFireable;
-	   base += THREADS_PER_BLOCK)
-	{
-	  unsigned int idx = base + tid;
-	  	  
-	  // access input buffer only if we need an element, to avoid
-	  // non-copy construction of a T.
-	  T myData;
-	  if (idx < totalFireable)
-	    myData = source->get(pendingOffset + idx);
-	  
-	  MOD_TIMER_STOP(gather);
-	  MOD_TIMER_START(scatter);
+        MOD_OCC_COUNT(totalFireable);
+        
+        if (tid == 0)
+          COUNT_ITEMS(totalFireable);
 
-	  if (idx < totalFireable)
-	    {
-	      // data needs no compaction, so transfer it directly to
-	      // the output queue for each channel, bypassing the
-	      // channel buffer
-	      for (unsigned int c = 0; c < numChannels; c++)
-		{
-		  const Channel *channel = 
-		    static_cast<Channel *>(getChannel(c));
-		  
-		  channel->directWrite(0, myData, dsBase[c], idx); 
-		}
-	    }
-	  
-	  MOD_TIMER_STOP(scatter);
-	  MOD_TIMER_START(gather);
-	}
-      
-      __syncthreads(); // protect run from later changes to pending
-      
-      //
-      // Decrement the available data from our current reservation.
-      // If we've exhausted it, try to get more.
-      //
-      if (IS_BOSS())
-	{
-	  numPending    -= totalFireable;
-	  pendingOffset += totalFireable;
-	
-	  if (!this->isInTail() && numPending == 0)
-	    {
-	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
-	      if (numPending == 0) // no more input left to request!
-		this->setInTail(true);
-	    }
-	}
+        MOD_TIMER_STOP(gather);
+        MOD_TIMER_START(scatter);
+        
+        // Reserve space on all channels' downstream queues
+        // for the data we are about to write, and get the
+        // base pointer at which to write it for each queue.
+        
+        __shared__ unsigned int dsBase[numChannels];
+        if (tid < numChannels){
+          const Channel *channel = static_cast<Channel *>(getChannel(tid));
+          dsBase[tid] = channel->directReserve(0, totalFireable);
+        }
+        __syncthreads(); // all threads must see dsBase[] values
+        
+        MOD_TIMER_STOP(scatter);
+        MOD_TIMER_START(gather);
+        
+        //
+        // move maxRunSize data items from the source to the downstream queues,
+        // using all available threads.
+        //
+                
+        // access input buffer only if we need an element, to avoid
+        // non-copy construction of a T.
+        T myData;
+        if (tid < totalFireable)
+          myData = source->get(pendingOffset + tid);
+        
+        MOD_TIMER_STOP(gather);
+        MOD_TIMER_START(scatter);
+
+        if (tid < totalFireable){
+          // data needs no compaction, so transfer it directly to
+          // the output queue for each channel, bypassing the
+          // channel buffer
+          for (unsigned int c = 0; c < numChannels; c++){
+            const Channel *channel = static_cast<Channel *>(getChannel(c));
+            channel->directWrite(0, myData, dsBase[c], tid); 
+
+            //while we have this convient channel pointer, may as well check what the occupancy is like
+            ModuleTypeBase* dsModule = channel->getDSModule(tid);
+            unsigned int dsInstId = (unsigned int)channel->getDSInstance(tid);
+            QueueBase* dsQueue = dsModule->getUntypedQueue();
+            unsigned int queueCap = dsQueue->getCapacity(dsInstId);
+            unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
+            unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
+            //if there is not enough space to fire us again, activate DS 
+            if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
+              dsModule->activate(dsInstId);
+              dsSpace=false;
+            } 
+          }
+        }
+        
+        MOD_TIMER_STOP(scatter);
+        MOD_TIMER_START(gather);
     
-      __syncthreads(); // make sure all can see tail status
-    
-      MOD_TIMER_STOP(gather);
-      //MOD_TIMER_START(activate);
-      this->sourceResolution(tid);
-      //MOD_TIMER_STOP(activate);
-      //make sure all threads see the new active/inactive status flags
+        __syncthreads(); // protect run from later changes to pending
+        
+        //
+        // Decrement the available data from our current reservation.
+        // If we've exhausted it, try to get more.
+        //
+        if (IS_BOSS())
+          {
+            numPending    -= totalFireable;
+            pendingOffset += totalFireable;
+          
+            if (!this->isInTail() && numPending == 0)
+              {
+                numPending = source->reserve(REQ_SIZE, &pendingOffset);
+                if (numPending == 0) // no more input left to request!
+                  this->setInTail(true);
+              }
+          }
+      
+        __syncthreads(); // make sure all can see tail status
+      
+        MOD_TIMER_STOP(gather);
+      }
       __syncthreads();
     }
 

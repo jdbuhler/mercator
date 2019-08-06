@@ -230,6 +230,12 @@ namespace Mercator  {
     //NEW INTERFACE FOR SCHEDULER_MINSWITCHES
     ///////////////////////////////////////////////////////////////////
 
+    __device__ 
+    unsigned int ensembleWidth() const {
+      return maxRunSize;
+    }
+
+
     __device__
     unsigned int getActiveFlag(unsigned int instIdx) const
     {
@@ -649,29 +655,6 @@ namespace Mercator  {
     }
 
     
-    //called single threaded
-    __device__
-    void sourceResolution(unsigned int tid){
-      if(tid<numInstances && checkFiringMask(tid)){ 
-        //2. we may have just activated the DS node
-        //  inactive DSnode becomes active when its input queue  has fewer than (vigi)−1 spaces remaining.
-        for(unsigned int c=0; c<numChannels; c++){
-          class ChannelBase* outgoingEdge = this->getChannel(c);
-          ModuleTypeBase* dsModule = outgoingEdge->getDSModule(tid);
-          unsigned int dsInstId = (unsigned int)outgoingEdge->getDSInstance(tid);
-          QueueBase* dsQueue = dsModule->getUntypedQueue();
-          unsigned int queueCap = dsQueue->getCapacity(dsInstId);
-          unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
-          unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
-
-          //if(dsQueue_rem < (WARP_SIZE*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-          if(dsQueue_rem < (maxRunSize*outgoingEdge->getGain())-1){ //if there is not enough space to fire us again, activate DS 
-           // printf("activated DS");
-            dsModule->activate(dsInstId);
-          } 
-        }  
-      }
-    }
     
     //called single threaded
     __device__

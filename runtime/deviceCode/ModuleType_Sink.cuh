@@ -216,7 +216,7 @@ namespace Mercator  {
       
       MOD_TIMER_STOP(gather);
       //MOD_TIMER_START(activate);
-      this->sourceResolution(tid);
+      this->sinkResolution(tid);
       //MOD_TIMER_STOP(activate);
       //make sure all threads see the new active/inactive status flags
       __syncthreads();
