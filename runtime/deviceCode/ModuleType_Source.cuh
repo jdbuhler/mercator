@@ -296,8 +296,7 @@ namespace Mercator  {
                 if (numPending == 0){ // no more input left to request!
                   this->setInTail(true);
                   //leave while loop
-                  if(tid==0) printf("setting tail and breaking\n");
-                  //TODO:: this is bad, and will deadlock. this needs to be set in all threads
+                  //if(tid==0) printf("setting tail and breaking\n");
                   loopCont =false;
                 }
               }
@@ -308,9 +307,8 @@ namespace Mercator  {
         MOD_TIMER_STOP(gather);
       }
       __syncthreads();
-      if(tid==0){
-        printf("source done --\n");
-      }
+      // if(tid==0) printf("source done --\n");
+      
     }
 
   #else

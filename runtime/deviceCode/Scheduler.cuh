@@ -120,9 +120,9 @@ namespace Mercator  {
         __syncthreads(); 
         
         TIMER_STOP(scheduler);
-        if(tid==0) printf("firing module # %u\n", nextFire);
+      //  if(tid==0) printf("firing module # %u\n", nextFire);
         modules[nextFire]->fire(); 
-        if(tid==0) printf("module # %u done\n", nextFire);
+      //  if(tid==0) printf("module # %u done\n", nextFire);
         TIMER_START(scheduler);
       }
 

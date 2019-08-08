@@ -84,6 +84,10 @@ namespace Mercator  {
     using BaseType::checkFiringMask;
     using BaseType::maxRunSize; 
     
+    using BaseType::ensembleWidth;
+    using BaseType::numInputsPending;
+    using BaseType::isInTail;
+    
     // make these downwardly available to the user
     using BaseType::getNumInstances;
     using BaseType::getNumActiveThreads;
@@ -114,85 +118,80 @@ namespace Mercator  {
       void fire()
       {
         unsigned int tid = threadIdx.x;
-        
         MOD_TIMER_START(gather);
-        
-        bool tailFlag = this->isInTail(); 
-      
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 
-        //itterate over all nodes in this module
-        for(unsigned int node=0; node<numInstances; node++){
-          //run only those that are actually fireable per the mask 
+        //for each sink iin the app
+        for(unsigned int node=0; node<numInstances;node++){
+          //if it was suppose to fire
           if(checkFiringMask(node)){
-            //only consume one ensamble at a time. be done the temp stuff and the inner loop
-            unsigned int temp= getFireableCount(node);
-            bool isDSSpace = true;
-            bool suffInput = true;
-            if(temp==0) suffInput=false;
-            while(isDSSpace && suffInput){
-              unsigned int nodeFireableCount=temp;
-              for (unsigned int base = 0; base < nodeFireableCount; base += maxRunSize){
-                unsigned int maxTID = min(maxRunSize, nodeFireableCount); 
-                const T &myData = 
-                  base+tid < maxTID
-                   ? queue.getElt(node, base+tid)
-                   : queue.getDummy(); // don't create a null reference
+            // set up shared var for the while loop
+            __shared__ bool loopCont;
+            __shared__ bool isDSSpace;
+            if(IS_BOSS()){
+              loopCont = true;
+              isDSSpace = true;
+            }
 
+            __syncthreads();
 
-                MOD_TIMER_START(run);
-                
-                //run with only maxRunSize threads
-                if (base+tid < maxTID)
-                  mod->run(myData, tid);
-
-                __syncthreads(); // all threads must see active channel state
-                
-                MOD_TIMER_STOP(run);
-                MOD_TIMER_START(scatter);
-                
-
-                for (unsigned int c = 0; c < numChannels; c++){
-                    // mark first thread writing to each instance
-                    bool isHead = (tid == 0);
-                    //update if we should fire again also flips active flag on ds node
-                    isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader() );
-                    
-                }
-                
-                __syncthreads(); // all threads must see reset channel state
-                
-                MOD_TIMER_STOP(scatter);
-              }
-              // protect use of queue->getElt() from changes to head pointer due
-              // to release.
-              __syncthreads();
-              
-              // release any items that we consumed in this firing
-              COUNT_ITEMS(nodeFireableCount);
-              if(tid==0){ //call single threaded
-                queue.release(node, nodeFireableCount);
-              }
-            
-              // make sure caller sees updated queue state
-              __syncthreads();
-
-              //set up to maybe fire again or not
-              if(mod->numInputsPending(node) <maxRunSize){
-                suffInput=false;//everyone sets false
-                if(!tailFlag){
-                  mod->deactivate(node);
-                }
-                
+            while(loopCont && isDSSpace && numInputsPending(node)>0){
+              //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
+              unsigned int totalFireable;
+              if(isInTail()){
+                totalFireable = min(ensembleWidth(), numInputsPending(node)); 
               }
               else{
-                temp=maxRunSize;
+                totalFireable = ensembleWidth();
               }
+
+              assert(totalFireable > 0);
+              //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
+
+              const T &myData = 
+                (tid < totalFireable
+                 ? queue.getElt(node, tid)
+                 : queue.getDummy()); // don't create a null reference
+
+              __syncthreads(); // protect getElt
+  
+              MOD_TIMER_START(run);
+              
+              //run with only maxRunSize threads
+              if (tid < totalFireable)
+                mod->run(myData, tid);
+
+              __syncthreads(); // all threads must see active channel state
+              
+              MOD_TIMER_STOP(run);
+              MOD_TIMER_START(scatter);
+              for (unsigned int c = 0; c < numChannels; c++){
+                  // mark first thread writing to each instance
+                  bool isHead = IS_BOSS();
+                  //update if we should fire again also flips active flag on ds node
+                  isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader() );
+                  
+              }
+              __syncthreads(); // all threads must see reset channel state
+              MOD_TIMER_STOP(scatter);
+
+              // release any items that we consumed in this firing
+              COUNT_ITEMS(totalFireable);
+              if(IS_BOSS()){ //call single threaded
+                queue.release(node, totalFireable);
+                // continue?? decide here
+                if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
+                  loopCont = false;
+                  //deactivate this node since its out of input
+                  this->deactivate(node);
+                }
+              }
+            __syncthreads(); // protect the release
             }
           }
-        }     
-    }
+        }
+      }
     #else
 
       __device__
