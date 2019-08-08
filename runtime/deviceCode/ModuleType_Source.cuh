@@ -191,9 +191,8 @@ namespace Mercator  {
     void fire()
     {
       int tid = threadIdx.x;
-      if(tid==0){
-        printf("source fireing --\n");
-      }
+      //if(tid==0) printf("source fireing --\n");
+      
       // type of our downstream channels matchses our input type,
       // since the source module just copies its inputs downstream
       using Channel = typename BaseType::Channel<T>;
@@ -212,9 +211,8 @@ namespace Mercator  {
         //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
         unsigned int totalFireable = min(this->ensembleWidth(), (unsigned int)numPending);
 
-        if(tid==0){
-          printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), (unsigned int)numPending, totalFireable);
-        }
+        //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), (unsigned int)numPending, totalFireable);
+        
   
         MOD_OCC_COUNT(totalFireable);
         
@@ -247,7 +245,7 @@ namespace Mercator  {
         // non-copy construction of a T.
         T myData;
         if (tid < totalFireable)
-          myData = source->get(pendingOffset + tid);
+          myData = source->get(tid);
         
         MOD_TIMER_STOP(gather);
         MOD_TIMER_START(scatter);
@@ -270,7 +268,7 @@ namespace Mercator  {
               //if there is not enough space to fire us again, activate DS 
               if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
                 dsModule->activate(dsInstId);
-                if(tid==0) printf("activating ds and breaking\n");
+                //if(tid==0) printf("activating ds and breaking\n");
                 loopCont =false;
                 //maybe do this section in paraallel for all channels, then use 
               }

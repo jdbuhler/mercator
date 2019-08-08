@@ -103,6 +103,12 @@ namespace Mercator  {
     using BaseType::getFireableCount;
     using BaseType::maxRunSize;
     
+    using BaseType::ensembleWidth;
+    using BaseType::numInputsPending;
+    using BaseType::isInTail;
+    using BaseType::checkFiringMask;
+
+
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
     using BaseType::runTimer;
@@ -136,91 +142,88 @@ namespace Mercator  {
       unsigned int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
-      
-      // obtain number of inputs that can be consumed by each instance
-      unsigned int fireableCount = 
-          (tid < numInstances ? getFireableCount(tid) : 0);
+        
+      //for each sink iin the app
+      for(unsigned int node=0; node<numInstances;node++){
+        //if it was suppose to fire
+        if(checkFiringMask(node)){
 
-      // compute progressive sums of items to be consumed in each instance,
-      // and replicate these sums in each WARP as Ai.
-      using Gather = QueueGather<numInstances>;
-      
-      unsigned int totalFireable;
-      unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
-      
-      assert(totalFireable > 0);
-      
-      MOD_OCC_COUNT(totalFireable);
-      
-      // reserve enough room to hold the fireable data in each output sink
-      __shared__ unsigned int basePtrs[numInstances];
-      if (tid < numInstances)
-	basePtrs[tid] = sinks[tid]->reserve(fireableCount);
-      
-      __syncthreads(); // make sure all threads see base values
-      
-      Queue<T> &queue = this->queue; 
-      
-      // Iterate over inputs to be run in block-sized chunks.
-      // Transfer data directly from input queues for each instance
-      // to output sinks.
-      for (unsigned int base = 0;
-	   base < totalFireable; 
-	   base += maxRunSize)
-	{
-	  unsigned int idx = base + tid;
-	  InstTagT instIdx = NULLTAG;
-	  unsigned int instOffset;
-	  
-	  // activeWarps = ceil( max run size / WARP_SIZE )
-	  unsigned int activeWarps = 
-	    (maxRunSize + WARP_SIZE - 1)/WARP_SIZE;
-	  
-	  // only execute warps that need to pull at least one input value
-	  if (tid / WARP_SIZE < activeWarps)
-	    {
-	      // Compute queue and offset values for each thread's input 
-	      Gather::BlockComputeQueues(Ai, idx, instIdx, instOffset);
-	    }
-	  
-	  const T &myData =
-	    (idx < totalFireable
-	     ? queue.getElt(instIdx, instOffset)
-	     : queue.getDummy()); // don't create a null reference
+          // set up shared var for the while loop
+          __shared__ bool loopCont;
+          if(IS_BOSS()){
+            loopCont=true;
+          }
 
-	  MOD_TIMER_STOP(gather);
-	  MOD_TIMER_START(scatter);
-	  
-	  if (idx < totalFireable)
-	    {
-	      sinks[instIdx]->put(basePtrs[instIdx],
-				  instOffset,
-				  myData);
-	    }
-	  
-	  MOD_TIMER_STOP(scatter);
-	  MOD_TIMER_START(gather);
-	}
-      
-      // protect use of queue->getElt() from changes to head pointer due
-      // to release.
-      __syncthreads();
-      
-      // release any items that we consumed in this firing
-      if (tid < numInstances)
-	{
-	  COUNT_ITEMS(fireableCount);
-          //printf("sink releasing %u\n", fireableCount);
-	  queue.release(tid, fireableCount);
-	}
-      
-      MOD_TIMER_STOP(gather);
-      //MOD_TIMER_START(activate);
-      this->sinkResolution(tid);
-      //MOD_TIMER_STOP(activate);
-      //make sure all threads see the new active/inactive status flags
-      __syncthreads();
+          ///sync so all threads can see if we run again
+          __syncthreads();
 
+
+          //while there is still stuff to process
+          while(loopCont && numInputsPending(node)>0){
+            //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
+            unsigned int totalFireable;
+            if(isInTail()){
+              totalFireable = min(ensembleWidth(), numInputsPending(node)); 
+            }
+            else{
+              totalFireable = ensembleWidth();
+            }
+
+            assert(totalFireable > 0);
+            if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
+
+
+            MOD_OCC_COUNT(totalFireable);
+            
+            __shared__ unsigned int basePtr;
+
+            if(IS_BOSS()){
+	      basePtr = sinks[node]->reserve(totalFireable);
+            }  
+            __syncthreads(); // make sure all threads see base values
+            
+            Queue<T> &queue = this->queue; 
+
+            //get dataa elements 
+            const T &myData =
+              (tid < totalFireable
+               ? queue.getElt(node, tid)
+               : queue.getDummy()); // don't create a null reference
+
+            MOD_TIMER_STOP(gather);
+            MOD_TIMER_START(scatter);
+
+            if(tid<totalFireable){
+              //dump that data
+	      sinks[node]->put(basePtr,tid,myData);
+            }
+
+            MOD_TIMER_STOP(scatter);
+            MOD_TIMER_START(gather);
+
+            // protect use of queue->getElt() from changes to head pointer due
+            // to release.
+            __syncthreads();
+            
+            // release any items that we consumed in this firing
+            if (IS_BOSS())
+            {
+              COUNT_ITEMS(totalFireable);
+              queue.release(node, totalFireable);
+      
+              //fire again??
+              if (numInputsPending(node)<ensembleWidth() && !isInTail()){
+                loopCont = false;
+                //deactivate this node since its out of input
+                this->deactivate(node);
+              }
+            }
+            
+            MOD_TIMER_STOP(gather);
+            __syncthreads();
+          }
+        }
+      }
     }
   #else
     __device__
