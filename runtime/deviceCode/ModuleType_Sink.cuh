@@ -170,7 +170,7 @@ namespace Mercator  {
             }
 
             assert(totalFireable > 0);
-            if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
+            //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
 
 
             MOD_OCC_COUNT(totalFireable);

@@ -240,7 +240,7 @@ namespace Mercator  {
     {
       assert(instIdx < numInstances);
       if (!(getOccupancy(instIdx) > offset)){
-        printf("getElt may crash, instIdx:%u, offset:%u, occ:%u\n", instIdx, offset, getOccupancy(instIdx)); 
+        printf("getElt may crash, node:%u, tid:%u, occ of node:%u\n", instIdx, offset, getOccupancy(instIdx)); 
         assert(getOccupancy(instIdx) > offset);
       }
       
