@@ -70,7 +70,6 @@ namespace Mercator  {
     {
       int tid = threadIdx.x;
       TIMER_START(scheduler);
-      int sched_count=0; 
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
       for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
@@ -121,12 +120,10 @@ namespace Mercator  {
         __syncthreads(); 
         
         TIMER_STOP(scheduler);
+        if(tid==0) printf("firing module # %u\n", nextFire);
         modules[nextFire]->fire(); 
-        
+        if(tid==0) printf("module # %u done\n", nextFire);
         TIMER_START(scheduler);
-        if(tid==0){
-          sched_count++;
-        }
       }
 
       // make sure final state is visible to all threads

@@ -72,7 +72,9 @@ namespace Mercator  {
 	source(nullptr),
 	numPending(0),
 	tailPtr(itailPtr)
-    {}
+    {
+      numPending=UINT_MAX;
+    }
     
     //
     // @brief construct a Source object from the raw data passed down
@@ -188,19 +190,32 @@ namespace Mercator  {
     virtual
     void fire()
     {
+      int tid = threadIdx.x;
+      if(tid==0){
+        printf("source fireing --\n");
+      }
       // type of our downstream channels matchses our input type,
       // since the source module just copies its inputs downstream
       using Channel = typename BaseType::Channel<T>;
       
-      int tid = threadIdx.x;
       
       MOD_TIMER_START(gather);
-      bool dsSpace=true;
+      __shared__ bool loopCont;     
+  
+      if(IS_BOSS()){
+        loopCont=true;
+      }
       
-      while(dsSpace){
-        //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
-        unsigned int totalFireable = this->ensembleWidth();
+      __syncthreads(); // make sure all can see loop status
 
+      while(loopCont){
+        //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
+        unsigned int totalFireable = min(this->ensembleWidth(), (unsigned int)numPending);
+
+        if(tid==0){
+          printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), (unsigned int)numPending, totalFireable);
+        }
+  
         MOD_OCC_COUNT(totalFireable);
         
         if (tid == 0)
@@ -244,18 +259,21 @@ namespace Mercator  {
           for (unsigned int c = 0; c < numChannels; c++){
             const Channel *channel = static_cast<Channel *>(getChannel(c));
             channel->directWrite(0, myData, dsBase[c], tid); 
-
-            //while we have this convient channel pointer, may as well check what the occupancy is like
-            ModuleTypeBase* dsModule = channel->getDSModule(tid);
-            unsigned int dsInstId = (unsigned int)channel->getDSInstance(tid);
-            QueueBase* dsQueue = dsModule->getUntypedQueue();
-            unsigned int queueCap = dsQueue->getCapacity(dsInstId);
-            unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
-            unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
-            //if there is not enough space to fire us again, activate DS 
-            if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
-              dsModule->activate(dsInstId);
-              dsSpace=false;
+            if(IS_BOSS()){
+              //while we have this convient channel pointer, may as well check what the occupancy is like
+              ModuleTypeBase* dsModule = channel->getDSModule(0);
+              unsigned int dsInstId = (unsigned int)channel->getDSInstance(0);
+              QueueBase* dsQueue = dsModule->getUntypedQueue();
+              unsigned int queueCap = dsQueue->getCapacity(dsInstId);
+              unsigned int queueOcc = dsQueue->getOccupancy(dsInstId);
+              unsigned int dsQueue_rem = queueCap - queueOcc; //space left down stream
+              //if there is not enough space to fire us again, activate DS 
+              if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
+                dsModule->activate(dsInstId);
+                if(tid==0) printf("activating ds and breaking\n");
+                loopCont =false;
+                //maybe do this section in paraallel for all channels, then use 
+              }
             } 
           }
         }
@@ -263,7 +281,7 @@ namespace Mercator  {
         MOD_TIMER_STOP(scatter);
         MOD_TIMER_START(gather);
     
-        __syncthreads(); // protect run from later changes to pending
+        __syncthreads(); // protect run from later changes to pending and all see loop status
         
         //
         // Decrement the available data from our current reservation.
@@ -277,8 +295,13 @@ namespace Mercator  {
             if (!this->isInTail() && numPending == 0)
               {
                 numPending = source->reserve(REQ_SIZE, &pendingOffset);
-                if (numPending == 0) // no more input left to request!
+                if (numPending == 0){ // no more input left to request!
                   this->setInTail(true);
+                  //leave while loop
+                  if(tid==0) printf("setting tail and breaking\n");
+                  //TODO:: this is bad, and will deadlock. this needs to be set in all threads
+                  loopCont =false;
+                }
               }
           }
       
@@ -287,6 +310,9 @@ namespace Mercator  {
         MOD_TIMER_STOP(gather);
       }
       __syncthreads();
+      if(tid==0){
+        printf("source done --\n");
+      }
     }
 
   #else
