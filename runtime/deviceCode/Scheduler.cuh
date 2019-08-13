@@ -224,7 +224,7 @@ namespace Mercator  {
       assert(hasAllInTail);
       assert(!hasPendingS);
       assert(!hasPendingC);
-      //assert(!hasPending);
+      assert(!hasPending);
 #endif
     }
 

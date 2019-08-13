@@ -75,6 +75,9 @@ namespace Mercator  {
 	{
 		dataCount[i] = 0;
 		currentCount[i] = 0;
+		//noFireFlag[i] = false;
+    		allChannelOutCapacity[numInstances] = UINT_MAX;
+    		allChannelOutSignalCapacity[numInstances] = UINT_MAX;
 	}
     }
     
@@ -96,6 +99,7 @@ namespace Mercator  {
 
     //stimcheck: Add base type for numInputsPending to call "super" equivalent
     using BaseType::numInputsPending;
+    using BaseType::numInputsPendingSignal;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
@@ -115,6 +119,9 @@ namespace Mercator  {
     //removing the head data item.
     unsigned int dataCount[numInstances];
     unsigned int currentCount[numInstances];
+    unsigned int allChannelOutCapacity[numInstances];
+    unsigned int allChannelOutSignalCapacity[numInstances];
+    //bool noFireFlag[numInstances];
     Queue<T> parentBuffer; 
 
     //
@@ -132,11 +139,14 @@ namespace Mercator  {
     // @return unsigned int the minimum of numFireable and the calculated dataCount
     //
     __device__
-    unsigned int
-    setCounts(unsigned int instIdx, unsigned int numFireable)
+    //unsigned int
+    void
+    //setCounts(unsigned int instIdx, unsigned int numFireable)
+    setCounts(unsigned int instIdx)
     {
 	if(currentCount[instIdx] == dataCount[instIdx]) {
 		currentCount[instIdx] = 0;
+		//noFireFlag[instIdx] = false;
 		dataCount[instIdx] = this->findCount(instIdx);
 	}
 	//assert(dataCount[instIdx] == 3);
@@ -144,7 +154,15 @@ namespace Mercator  {
 	//	printf("[%d] DC NOT SET CORRECTLY\n", blockIdx.x);
 	//}
 	//printf("[%d] CD\n", blockIdx.x);
-	return min(numFireable, dataCount[instIdx] - currentCount[instIdx]);
+
+	//stimcheck: Set the noFireFlag for the spcial case where we need to fire off an element that has 0 data items
+	//if(dataCount[instIdx] == 0)
+	//{
+	//	noFireFlag[instIdx] = true;
+	//	return 1;
+	//}
+
+	//return min(numFireable, dataCount[instIdx] - currentCount[instIdx]);
     }
 
     __device__
@@ -162,13 +180,15 @@ namespace Mercator  {
       // start at max fireable, then discover bottleneck
       //unsigned int numFireable = numInputsPending(instIdx);
       unsigned int nf = numInputsPending(instIdx);
-      unsigned int numFireable = UINT_MAX;
-
+      //unsigned int numFireable = UINT_MAX;
+      unsigned int numFireable = numInputsPending(instIdx);
+      //bool blockOnSigQueue = false;
+      allChannelOutCapacity[instIdx] = UINT_MAX;
+      allChannelOutSignalCapacity[instIdx] = UINT_MAX;
       
 	printf("[%d] NUM INPUTS PENDING = %d\n", blockIdx.x, nf);
       if (nf > 0)
 	{
-	
 	  // for each channel
 	  for (unsigned int c = 0; c < numChannels; ++c)
 	    {
@@ -177,12 +197,18 @@ namespace Mercator  {
 	      unsigned int dsSignalCapacity =
 		getChannel(c)->dsSignalCapacity(instIdx);
 	      
+		allChannelOutCapacity[instIdx] = min(allChannelOutCapacity[instIdx], dsCapacity);
+		allChannelOutSignalCapacity[instIdx] = min(allChannelOutSignalCapacity[instIdx], dsSignalCapacity);
+
 	      //Check the setting of the credit for the total number of fireable items
 		//assert(numFireable >= this->currentCredit[instIdx]);
 		//TODO
 		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
 		if(dsSignalCapacity == 1) {
 		  numFireable = 0;
+		  allChannelOutCapacity[instIdx] = 0;
+		  allChannelOutSignalCapacity[instIdx] = 0;
+		  //blockOnSigQueue = true;
 		  printf("[%d] SNO SPACE DOWNSTREAM\n", blockIdx.x);
 		  break;
 		}
@@ -195,6 +221,7 @@ namespace Mercator  {
 
 	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
 	//for correct signal handling.
+	/*
 	if(numPendingSignals) {
 		//stimcheck: We do not want the credit to hold back execution while there is at least 1
 		//data element queued up.  We execute all the sub-elements of the current parent, so
@@ -202,29 +229,42 @@ namespace Mercator  {
 		if(this->currentCredit[instIdx] == 0) {
 			printf("[%d] HERE\n", blockIdx.x);
 			numFireable = min(numFireable, this->currentCredit[instIdx]);
+			//noFireFlag[instIdx] = false;
 		}
 	}
-	
+	*/
 	//stimcheck: Compute numFirable normally, then perform findCount as needed.
 	//numFireable = BaseType::computeNumFireable(instIdx, numPendingSignals);
 
-	//DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-	//if(currentCount[instIdx] == dataCount[instIdx]) {
-		//stimcheck: TODO set parent HERE
-		//currentCount[instIdx] = 0;
-		//this->findCount(instIdx);
-		//dataCount[instIdx] = this->findCount(instIdx);
-	//}
-
 	//printf("BEFORE SET COUNTS: %d, numFireable %d, currentCount %d, dataCount %d\n", instIdx, numFireable, currentCount[instIdx], dataCount[instIdx]);
-	numFireable = setCounts(instIdx, numFireable);
+	if(nf > 0) {
+		//numFireable = setCounts(instIdx, numFireable);
+		setCounts(instIdx);
+	}
 	//printf("AFTER SET COUNTS: %d, numFireable %d, currentCount %d, dataCount %d\n", instIdx, numFireable, currentCount[instIdx], dataCount[instIdx]);
 	if(numFireable > 0) {
-		printf("[%d] NM FIREABLE = %d\n", blockIdx.x, numFireable);
+		printf("[%d] NM FIREABLE = %d\t\tDC = %d\t\tCC = %d\t\tCREDIT = %d\t\tnumPending = %d\n", blockIdx.x, numFireable, dataCount[instIdx], currentCount[instIdx], this->currentCredit[instIdx], nf);
+	}
+
+	//stimcheck: Set numFireable to 0 again if the dataCount is 0 but there is no space downstream for signals.
+	//This allows the scheduler to then schedule firing of downstream signals rather than crashing on no space being left
+	//from after this module.
+
+
+	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
+	//for correct signal handling.
+	if(numPendingSignals) {
+		//stimcheck: We do not want the credit to hold back execution while there is at least 1
+		//data element queued up.  We execute all the sub-elements of the current parent, so
+		//checking the credit is only applicable when there are no data elements on the queue.
+		//if(this->currentCredit[instIdx] == 0) {
+		//	printf("[%d] HERE\n", blockIdx.x);
+			numFireable = min(numFireable, this->currentCredit[instIdx]);
+			//noFireFlag[instIdx] = false;
+		//}
 	}
         return numFireable;
       }
-	//printf("OUTSIDE\n");
       return 0;
     }
 
@@ -264,7 +304,26 @@ namespace Mercator  {
       
       // obtain number of inputs that can be consumed by each instance
       unsigned int fireableCount = 
-	(tid < numInstances ? getFireableCount(tid) : 0);
+	//(tid < numInstances && (this->hasSignal[tid] && this->currentCredit[tid] > 0) ? min(dataCount[tid] - currentCount[tid], allChannelOutCapacity[tid]) : 0);
+	(tid < numInstances ? min(dataCount[tid] - currentCount[tid], allChannelOutCapacity[tid]) : 0);
+
+	if(tid < numInstances) {
+		if(this->hasSignal[tid]) {
+			if(this->currentCredit[tid] == 0) {
+				fireableCount = 0;
+			}
+		}
+		else if(numInputsPendingSignal(tid) > 0) {
+			fireableCount = 0;
+		}
+	}
+	//(tid < numInstances ? getFireableCount(tid) : 0);
+
+	__syncthreads();
+      //if(tid < numInstances) {
+	//if(noFireFlag[tid])
+	//	fireableCount = 0;
+      //}
       
       // compute progressive sums of items to be consumed in each instance,
       // and replicate these sums in each WARP as Ai.
@@ -274,6 +333,23 @@ namespace Mercator  {
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
 
       bool sendEnumSignal = false;
+
+      // release any items from 
+	/*
+      if (tid < numInstances)
+	{
+	  COUNT_ITEMS(fireableCount);
+      	  Queue<T> &queue = this->queue; 
+	  if(noFireFlag[tid]) {
+		assert(queue.getOccupancy(tid) > 0);
+		#if PF_DEBUG
+		printf("MADE IT2\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
+		#endif
+		sendEnumSignal = true;
+	  	queue.release(tid, 1);
+	  }
+	}
+	*/
 
       //stimcheck:  If the scheduler determined that there were fireable data elements, fire them, otherwise fire no data, syncthreads, and process signals.
       if(totalFireable > 0) {
@@ -416,11 +492,36 @@ namespace Mercator  {
 	  }
 	}
 
-
       } //end main if
-
+      else if(tid < numInstances) {
+	if(getFireableCount(tid) > 0) {
+        Queue<T> &queue = this->queue; 
+      	// release any items that we consumed in this firing
+      	//if (tid < numInstances)
+	//{
+	  COUNT_ITEMS(fireableCount);
+	  //queue.release(tid, fireableCount);
+	  //if(currentCount[tid] == dataCount[tid]) {
+	  //	queue.release(tid, 1);
+	//	currentCount[tid] = 0;
+	 // }
+	  if(dataCount[tid] == 0) {
+		printf("RELEASED HERE\n");
+		#if PF_DEBUG
+		printf("MADE IT\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
+		#endif
+		sendEnumSignal = true;
+	  	queue.release(tid, 1);
+	  }
+	//}
+	}
+      }
 
       // make sure caller sees updated queue state
+      __syncthreads();
+
+      //stimcheck: Set any loose sendEnumSignals that may have been missed in execution (if totalFireable == 0)
+
       __syncthreads();
       
       MOD_TIMER_STOP(gather);
@@ -461,6 +562,7 @@ namespace Mercator  {
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
 		if(!(channel->isAggregate())) {
+			assert(channel->dsSignalCapacity(instIdx) > 0);
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);
 
 			//Write enum signal to downstream node

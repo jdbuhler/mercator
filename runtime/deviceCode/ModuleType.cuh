@@ -834,7 +834,7 @@ namespace Mercator  {
 			//Base case: we have credit to wait on
 			//If the current credit has reached 0, then we can consume signal
 			if(currentCredit[instIdx] > 0) {
-				//assert(queue.getOccupancy(instIdx) > 0);
+				assert(queue.getOccupancy(instIdx) > 0);
 				if(s.getTag() == Signal::SignalTag::Tail)
 				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
 				break;
