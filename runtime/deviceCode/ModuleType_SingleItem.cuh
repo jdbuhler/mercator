@@ -122,7 +122,7 @@ namespace Mercator  {
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
 
-        //for each sink iin the app
+        //for each node in the module
         for(unsigned int node=0; node<numInstances;node++){
           //if it was suppose to fire
           if(checkFiringMask(node)){
@@ -137,6 +137,8 @@ namespace Mercator  {
             __syncthreads();
 
             while(loopCont && isDSSpace && numInputsPending(node)>0){
+
+              MOD_TIMER_START(gather);
               //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
               unsigned int totalFireable;
               if(isInTail()){
@@ -155,16 +157,15 @@ namespace Mercator  {
                  : queue.getDummy()); // don't create a null reference
 
               __syncthreads(); // protect getElt
-  
+              MOD_TIMER_STOP(gather);
+
               MOD_TIMER_START(run);
-              
               //run with only maxRunSize threads
               if (tid < totalFireable)
                 mod->run(myData, tid);
-
               __syncthreads(); // all threads must see active channel state
-              
               MOD_TIMER_STOP(run);
+
               MOD_TIMER_START(scatter);
               for (unsigned int c = 0; c < numChannels; c++){
                   // mark first thread writing to each instance
@@ -176,6 +177,7 @@ namespace Mercator  {
               __syncthreads(); // all threads must see reset channel state
               MOD_TIMER_STOP(scatter);
 
+              MOD_TIMER_START(gather);
               // release any items that we consumed in this firing
               COUNT_ITEMS(totalFireable);
               if(IS_BOSS()){ //call single threaded
@@ -187,7 +189,8 @@ namespace Mercator  {
                   this->deactivate(node);
                 }
               }
-            __syncthreads(); // protect the release
+              __syncthreads();
+              MOD_TIMER_STOP(gather);
             }
           }
         }
