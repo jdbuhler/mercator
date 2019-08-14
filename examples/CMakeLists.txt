@@ -32,18 +32,18 @@ set (CMAKE_CXX_FLAGS_DEBUG
      "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall")
 
 set (CMAKE_CUDA_FLAGS_DEBUG   
-     "${CMAKE_CUDA_FLAGS_DEBUG} -UNDEBUG")
+     "${CMAKE_CUDA_FLAGS_DEBUG} -G -UNDEBUG")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
      "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
 
 set (CMAKE_CUDA_FLAGS_RELEASE
-     "${CMAKE_CUDA_FLAGS_RELEASE} -DNDEBUG")
+     "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -DNDEBUG")
 
 set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
 
-string(JOIN " " NVCCFLAGS ${ARCHFLAGS} ${WARNFLAGS} -lineinfo)
+string(JOIN " " NVCCFLAGS ${ARCHFLAGS} ${WARNFLAGS})
 
 string(APPEND CMAKE_CUDA_FLAGS ${NVCCFLAGS})
 
