@@ -16,8 +16,7 @@ using namespace std;
 int main()
 {
   const unsigned int NVALUES = 1000000000; // one BEEEELLION values
-  //const unsigned int NVALUES = 10000; // test with less values
-  
+
   srand(0);
   
   unsigned int *inputValues = new unsigned int [NVALUES];
@@ -48,7 +47,12 @@ int main()
   // end MERCATOR usage
   
   cout << "# outputs = " << outSize << endl;
-  
+
+/*
+  for(unsigned int i=0;i<outSize; i++){
+  cout  << outputValues[i]<< endl;
+  }
+*/
   delete [] inputValues;
   delete [] outputValues;
   

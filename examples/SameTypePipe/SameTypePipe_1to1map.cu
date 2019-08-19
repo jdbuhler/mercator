@@ -51,7 +51,9 @@ A::run(const PipeEltT &inputItem, InstTagT nodeIdx)
   float putResult  = 1.0f;
   
   // item's state for PRNG -- cache it for efficiency
-  curandState_t randState = getState()->randState[nodeIdx][threadIdx.x];
+  //curandState_t randState = getState()->randState[nodeIdx][threadIdx.x];
+  State* temp= getState();
+  curandState_t randState = temp->randState[nodeIdx][threadIdx.x];
   
   // call BlackScholes fcn
   doBlackScholes_fast(callResult, putResult, num_opts, randState);

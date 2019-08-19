@@ -170,7 +170,9 @@ namespace Mercator  {
             }
 
             assert(totalFireable > 0);
-            //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
+            #ifdef PRINTDBG
+              if(IS_BOSS()) printf("\tSink %u pulling %u from %u (num pending)\n",node,  totalFireable,  numInputsPending(node));
+            #endif
 
 
             MOD_OCC_COUNT(totalFireable);
@@ -222,6 +224,9 @@ namespace Mercator  {
             MOD_TIMER_STOP(gather);
             __syncthreads();
           }
+          #ifdef PRINTDBG
+            if(IS_BOSS()) printf("\tSink %u fired, has %u remaining in-queue\n",node, numInputsPending(node));
+          #endif
         }
       }
     }

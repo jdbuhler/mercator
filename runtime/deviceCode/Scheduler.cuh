@@ -88,17 +88,17 @@ namespace Mercator  {
 
         //Tail check
         if (sourceModule->isInTail()){          
-            for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
-              int idx = base + tid;
-              if (idx < numModules){
-                modules[idx]->setInTail(true);
-                modules[idx]->activateAll();
-              }
+          for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
+            int idx = base + tid;
+            if (idx < numModules){
+              modules[idx]->setInTail(true);
+              modules[idx]->activateAll();
             }
-        // make sure everyone can see tail status
-        __syncthreads();         
-        //force source inactive
-        sourceModule->deactivate(0);
+          }
+          // make sure everyone can see tail status
+          __syncthreads();         
+          //force source inactive
+          sourceModule->deactivate(0);
         }
    
         // find first module that is fireable (active followed by inactive)
@@ -117,17 +117,21 @@ namespace Mercator  {
           break;
         }
 
-        __syncthreads(); 
         
         TIMER_STOP(scheduler);
-      //  if(tid==0) printf("firing module # %u\n", nextFire);
+        #ifdef PRINTDBG
+          if(tid==0) printf("firing module # %u\n", nextFire);
+        #endif
         modules[nextFire]->fire(); 
-      //  if(tid==0) printf("module # %u done\n", nextFire);
+        #ifdef PRINTDBG
+          if(tid==0) printf("module # %u done\n\n", nextFire);
+        #endif
         TIMER_START(scheduler);
+
+        // make sure final state is visible to all threads
+        __syncthreads();         
       }
 
-      // make sure final state is visible to all threads
-      __syncthreads();
 
       TIMER_STOP(scheduler);
        

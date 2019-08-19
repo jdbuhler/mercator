@@ -245,8 +245,21 @@ namespace Mercator  {
         // non-copy construction of a T.
         T myData;
         if (tid < totalFireable)
-          myData = source->get(tid);
-        
+          myData = source->get(pendingOffset + tid);
+
+        #ifdef PRINTDBG
+        if(tid==0)printf("\tSource writing %u items downstream\n", totalFireable);
+        if(tid==0)printf("\t");
+        __syncthreads();
+        for(unsigned int i=0;i<totalFireable;i++){
+          if(tid==i){
+            printf("%u ", myData);
+          }
+        }
+        __syncthreads();
+        if(tid==0)printf("\n");
+        #endif
+
         MOD_TIMER_STOP(gather);
         MOD_TIMER_START(scatter);
 
@@ -296,7 +309,9 @@ namespace Mercator  {
                 if (numPending == 0){ // no more input left to request!
                   this->setInTail(true);
                   //leave while loop
-                  //if(tid==0) printf("setting tail and breaking\n");
+                  #ifdef PRINTDBG
+                    if(tid==0) printf("-----------------ENTERTING TAIL-----------------\n");
+                  #endif
                   loopCont =false;
                 }
               }

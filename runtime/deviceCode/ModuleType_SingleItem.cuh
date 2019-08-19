@@ -113,6 +113,7 @@ namespace Mercator  {
       //
     #ifdef SCHEDULER_MINSWITCHES
 
+      //called with all threads
       __device__
       virtual
       void fire()
@@ -149,7 +150,11 @@ namespace Mercator  {
               }
 
               assert(totalFireable > 0);
-              //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), numInputsPending(node), totalFireable);
+
+              #ifdef PRINTDBG
+                if(IS_BOSS()) printf("\tNode %u pulling %u from %u (num pending)\n",node,  totalFireable,  numInputsPending(node));
+              #endif
+
 
               const T &myData = 
                 (tid < totalFireable
@@ -162,7 +167,7 @@ namespace Mercator  {
               MOD_TIMER_START(run);
               //run with only maxRunSize threads
               if (tid < totalFireable)
-                mod->run(myData, tid);
+                mod->run(myData, node);
               __syncthreads(); // all threads must see active channel state
               MOD_TIMER_STOP(run);
 
@@ -192,6 +197,9 @@ namespace Mercator  {
               __syncthreads();
               MOD_TIMER_STOP(gather);
             }
+              #ifdef PRINTDBG
+                if(IS_BOSS()) printf("\tNode %u fired, has %u remaining in-queue\n",node, numInputsPending(node));
+              #endif
           }
         }
       }

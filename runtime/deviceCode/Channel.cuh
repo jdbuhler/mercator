@@ -221,7 +221,9 @@ namespace Mercator  {
 	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
 	  COUNT_ITEMS(instTotal);  // instrumentation
-          //printf("tid:%u istIdx:%u instTotal:%u\n", tid, instIdx, instTotal); 
+          #ifdef PRINTDBG
+            printf("\t\tChannel total dumping:%u\n", instTotal); 
+          #endif
 	  dsBase[instIdx] = directReserve(instIdx, instTotal);
 	}
       
