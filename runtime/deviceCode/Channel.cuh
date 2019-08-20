@@ -203,7 +203,7 @@ namespace Mercator  {
 	{
 	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
-	  COUNT_ITEMS(instTotal);  // instrumentation
+	  COUNT_ITEMS_INST(instIdx, instTotal);  // instrumentation
 	      
 	  dsBase[instIdx] = directReserve(instIdx, instTotal);
 	}

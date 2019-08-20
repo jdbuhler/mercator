@@ -25,9 +25,15 @@ struct ItemCounter {
   __device__
   void incr(unsigned long long count)
   {
-    assert(threadIdx.x < NUM_INSTS);
+    incrByInst(threadIdx.x, count);
+  }
+  
+  __device__
+  void incrByInst(int instIdx, unsigned long long count)
+  {
+    assert(instIdx < NUM_INSTS);
     
-    counts[threadIdx.x] += count;
+    counts[instIdx] += count;
   }
   
   // multithreaded increment of a single value.
@@ -46,10 +52,12 @@ struct ItemCounter {
 #endif
 
 #ifdef INSTRUMENT_COUNTS
-#define COUNT_ITEMS(n)    { itemCounter.incr(n); }
+#define COUNT_ITEMS(n)         { itemCounter.incr(n); }
+#define COUNT_ITEMS_INST(n, i) { itemCounter.incrByInst(i, n); }
 #define COUNT_SINGLE(i,b) { itemCounter.incrSingle(i,b); }
 #else
 #define COUNT_ITEMS(n)    { }
+#define COUNT_ITEMS_INST(n, i) { }
 #define COUNT_SINGLE(i,b) { }
 #endif
 
