@@ -175,13 +175,28 @@ namespace Mercator  {
               MOD_TIMER_STOP(run);
 
               MOD_TIMER_START(scatter);
+
+              int local_isDSSpace=0;
               for (unsigned int c = 0; c < numChannels; c++){
-                  // mark first thread writing to each instance
-                  bool isHead = IS_BOSS();
                   //update if we should fire again also flips active flag on ds node
-                  isDSSpace = isDSSpace && getChannel(c)->scatterToQueues(node,isHead,isThreadGroupLeader() );
-                  
+                  //returns 0 if we can fire again, -1 if we cannot
+                  local_isDSSpace = local_isDSSpace + getChannel(c)->scatterToQueues(node,IS_BOSS(),isThreadGroupLeader() );
               }
+
+              using br = BlockReduce<int, THREADS_PER_BLOCK>;
+              int temp = br::sum(local_isDSSpace, THREADS_PER_BLOCK);
+
+              if (IS_BOSS()){
+                if(temp==0){ //at least one node of this module is fireable or we are in tail
+                  isDSSpace = true;
+                }
+                else{
+                  isDSSpace = false;
+                }
+              }
+
+
+
               __syncthreads(); // all threads must see reset channel state
               MOD_TIMER_STOP(scatter);
 

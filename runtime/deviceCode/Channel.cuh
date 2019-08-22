@@ -185,7 +185,7 @@ namespace Mercator  {
     #ifdef SCHEDULER_MINSWITCHES
     //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
     __device__
-      bool  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
+      int  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
     {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
@@ -270,10 +270,11 @@ namespace Mercator  {
       unsigned int dsQueue_rem = queueCap - queueOcc;
 
 
+      //returns 0 if we can fire again, -1 if we cannot
       //return if i am allowed to fire again
       if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
         //printf("there is %u slots in ds queue\n", dsQueue_rem);
-        return true;
+        return 0;
       }
       
       //not enough space, so lets go ahead and activate the ds node
@@ -281,7 +282,7 @@ namespace Mercator  {
   
       ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
       dsModule->activate(dsInstId);
-      return false;
+      return -1;
     }
     #else
 
