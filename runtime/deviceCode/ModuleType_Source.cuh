@@ -191,6 +191,9 @@ namespace Mercator  {
     void fire()
     {
       int tid = threadIdx.x;
+        #ifdef PRINTDBG
+      int bid = blockIdx.x;
+        #endif
       //if(tid==0) printf("source fireing --\n");
       
       // type of our downstream channels matchses our input type,
@@ -211,13 +214,10 @@ namespace Mercator  {
         //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
         unsigned int totalFireable = min(this->ensembleWidth(), (unsigned int)numPending);
 
-        //if(tid==0) printf("ensamble width: %u, num pending: %u, total fireable: %u\n", this->ensembleWidth(), (unsigned int)numPending, totalFireable);
-        
-  
         MOD_OCC_COUNT(totalFireable);
         
-        if (tid == 0)
-          COUNT_ITEMS(totalFireable);
+        //count here DOES NOT matche the next next module... its greater
+	//COUNT_ITEMS_INST(0, totalFireable);  // instrumentation
 
         MOD_TIMER_STOP(gather);
         MOD_TIMER_START(scatter);
@@ -243,30 +243,26 @@ namespace Mercator  {
                 
         // access input buffer only if we need an element, to avoid
         // non-copy construction of a T.
+        //get no more tthen one ensamble width of daata
         T myData;
         if (tid < totalFireable)
           myData = source->get(pendingOffset + tid);
 
         #ifdef PRINTDBG
-        if(tid==0)printf("\tSource writing %u items downstream\n", totalFireable);
-        if(tid==0)printf("\t");
-        __syncthreads();
-        for(unsigned int i=0;i<totalFireable;i++){
-          if(tid==i){
-            printf("%u ", myData);
-          }
-        }
-        __syncthreads();
-        if(tid==0)printf("\n");
+        if(tid==0)printf("\t%i: Source writing %u items downstream\n", bid, totalFireable);
         #endif
 
         MOD_TIMER_STOP(gather);
         MOD_TIMER_START(scatter);
+        
 
         if (tid < totalFireable){
           // data needs no compaction, so transfer it directly to
           // the output queue for each channel, bypassing the
           // channel buffer
+          if(IS_BOSS()){
+	    COUNT_ITEMS_INST(0, totalFireable);  // instrumentation
+          }
           for (unsigned int c = 0; c < numChannels; c++){
             const Channel *channel = static_cast<Channel *>(getChannel(c));
             channel->directWrite(0, myData, dsBase[c], tid); 
@@ -298,24 +294,22 @@ namespace Mercator  {
         // Decrement the available data from our current reservation.
         // If we've exhausted it, try to get more.
         //
-        if (IS_BOSS())
-          {
-            numPending    -= totalFireable;
-            pendingOffset += totalFireable;
-          
-            if (!this->isInTail() && numPending == 0)
-              {
-                numPending = source->reserve(REQ_SIZE, &pendingOffset);
-                if (numPending == 0){ // no more input left to request!
-                  this->setInTail(true);
-                  //leave while loop
-                  #ifdef PRINTDBG
-                    if(tid==0) printf("-----------------ENTERTING TAIL-----------------\n");
-                  #endif
-                  loopCont =false;
-                }
-              }
+        if (IS_BOSS()){
+          numPending    -= totalFireable;
+          pendingOffset += totalFireable;
+
+          if (!this->isInTail() && numPending == 0){
+            numPending = source->reserve(REQ_SIZE, &pendingOffset);
+            if (numPending == 0){ // no more input left to request!
+              this->setInTail(true);
+              //leave while loop
+              #ifdef PRINTDBG
+                if(tid==0) printf("%i: -----------------ENTERTING TAIL-----------------\n", bid);
+              #endif
+              loopCont =false;
+            }
           }
+        }
       
         __syncthreads(); // make sure all can see tail status
       
@@ -431,11 +425,13 @@ namespace Mercator  {
       __syncthreads(); // make sure all can see tail status
     
       MOD_TIMER_STOP(gather);
+
     }
   #endif
     
   private:
-    
+       
+ 
     size_t numPending;    // number of inputs left from last request
     size_t pendingOffset; // offset into source of next input to get
     

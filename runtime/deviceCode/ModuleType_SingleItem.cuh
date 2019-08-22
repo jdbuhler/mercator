@@ -119,22 +119,25 @@ namespace Mercator  {
       void fire()
       {
         unsigned int tid = threadIdx.x;
+      
+              #ifdef PRINTDBG
+        int bid = blockIdx.x;
+              #endif
+
         MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-
+        __shared__ bool loopCont;
+        __shared__ bool isDSSpace;
         //for each node in the module
         for(unsigned int node=0; node<numInstances;node++){
           //if it was suppose to fire
           if(checkFiringMask(node)){
             // set up shared var for the while loop
-            __shared__ bool loopCont;
-            __shared__ bool isDSSpace;
             if(IS_BOSS()){
               loopCont = true;
               isDSSpace = true;
             }
-
             __syncthreads();
 
             while(loopCont && isDSSpace && numInputsPending(node)>0){
@@ -152,7 +155,7 @@ namespace Mercator  {
               assert(totalFireable > 0);
 
               #ifdef PRINTDBG
-                if(IS_BOSS()) printf("\tNode %u pulling %u from %u (num pending)\n",node,  totalFireable,  numInputsPending(node));
+                if(IS_BOSS()) printf("%i: \tNode %u pulling %u from %u (num pending)\n",bid, node,  totalFireable,  numInputsPending(node));
               #endif
 
 
@@ -184,8 +187,8 @@ namespace Mercator  {
 
               MOD_TIMER_START(gather);
               // release any items that we consumed in this firing
-              COUNT_ITEMS(totalFireable);
               if(IS_BOSS()){ //call single threaded
+	        COUNT_ITEMS_INST(node, totalFireable);  // instrumentation
                 queue.release(node, totalFireable);
                 // continue?? decide here
                 if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
@@ -197,9 +200,12 @@ namespace Mercator  {
               __syncthreads();
               MOD_TIMER_STOP(gather);
             }
+
               #ifdef PRINTDBG
-                if(IS_BOSS()) printf("\tNode %u fired, has %u remaining in-queue\n",node, numInputsPending(node));
+                if(IS_BOSS()) printf("%i: \tNode %u fired, has %u remaining in-queue\n", bid ,node, numInputsPending(node));
               #endif
+            //is this required 
+            __syncthreads();
           }
         }
       }

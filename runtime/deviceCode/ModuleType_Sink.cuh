@@ -140,6 +140,9 @@ namespace Mercator  {
     void fire()
     {
       unsigned int tid = threadIdx.x;
+        #ifdef PRINTDBG
+      int bid = blockIdx.x;
+        #endif
       
       MOD_TIMER_START(gather);
         
@@ -171,7 +174,7 @@ namespace Mercator  {
 
             assert(totalFireable > 0);
             #ifdef PRINTDBG
-              if(IS_BOSS()) printf("\tSink %u pulling %u from %u (num pending)\n",node,  totalFireable,  numInputsPending(node));
+              if(IS_BOSS()) printf("%i: \tSink %u pulling %u from %u (num pending)\n",bid ,node,  totalFireable,  numInputsPending(node));
             #endif
 
 
@@ -210,7 +213,7 @@ namespace Mercator  {
             // release any items that we consumed in this firing
             if (IS_BOSS())
             {
-              COUNT_ITEMS(totalFireable);
+              COUNT_ITEMS_INST(node, totalFireable);
               queue.release(node, totalFireable);
       
               //fire again??
@@ -225,7 +228,7 @@ namespace Mercator  {
             __syncthreads();
           }
           #ifdef PRINTDBG
-            if(IS_BOSS()) printf("\tSink %u fired, has %u remaining in-queue\n",node, numInputsPending(node));
+            if(IS_BOSS()) printf("%i: \tSink %u fired, has %u remaining in-queue\n",bid ,node, numInputsPending(node));
           #endif
         }
       }

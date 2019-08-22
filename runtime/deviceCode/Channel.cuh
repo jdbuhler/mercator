@@ -220,7 +220,7 @@ namespace Mercator  {
 	{
 	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
-	  COUNT_ITEMS(instTotal);  // instrumentation
+	  COUNT_ITEMS_INST(instIdx, instTotal);  // instrumentation
           #ifdef PRINTDBG
             printf("\t\tChannel total dumping:%u\n", instTotal); 
           #endif

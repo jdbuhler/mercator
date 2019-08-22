@@ -69,6 +69,9 @@ namespace Mercator  {
     void run(ModuleTypeBase * const *modules, ModuleTypeBase *sourceModule)
     {
       int tid = threadIdx.x;
+        #ifdef PRINTDBG
+      int bid = blockIdx.x;
+        #endif
       TIMER_START(scheduler);
       // reset the tail state for all modules except the source
       // (which figures out its own tail state)
@@ -120,11 +123,11 @@ namespace Mercator  {
         
         TIMER_STOP(scheduler);
         #ifdef PRINTDBG
-          if(tid==0) printf("firing module # %u\n", nextFire);
+          if(tid==0) printf("%i: firing module # %u\n",bid,  nextFire);
         #endif
         modules[nextFire]->fire(); 
         #ifdef PRINTDBG
-          if(tid==0) printf("module # %u done\n\n", nextFire);
+          if(tid==0) printf("%i: module # %u done\n", bid, nextFire);
         #endif
         TIMER_START(scheduler);
 
