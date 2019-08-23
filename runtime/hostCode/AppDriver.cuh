@@ -142,7 +142,7 @@ namespace Mercator  {
     #ifdef USE_MAX_BLOCKS
       nBlocks = nBlocksPerSM_suggested * numSMs;
     #else
-      nBlocks=32;
+      nBlocks=1;
     #endif
       
       // allocate space on device for passing host parameter struct
