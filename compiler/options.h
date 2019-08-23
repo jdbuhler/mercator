@@ -42,7 +42,7 @@ struct CommandOptions {
     
     threadsPerBlock = 128;
     deviceStackSize = (1024 * 8);          // 8 KB
-    deviceHeapSize  = (1024 * 1024 * 100); // 100 MB
+    deviceHeapSize  = (1024 * 1024 * 200); // 100 MB
     
     queueScaler = 4;
     
