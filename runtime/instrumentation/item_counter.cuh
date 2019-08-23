@@ -53,7 +53,7 @@ struct ItemCounter {
 
 #ifdef INSTRUMENT_COUNTS
 #define COUNT_ITEMS(n)         { itemCounter.incr(n); }
-#define COUNT_ITEMS_INST(n, i) { itemCounter.incrByInst(i, n); }
+#define COUNT_ITEMS_INST(i,n)  { itemCounter.incrByInst(i, n); }
 #define COUNT_SINGLE(i,b) { itemCounter.incrSingle(i,b); }
 #else
 #define COUNT_ITEMS(n)    { }
