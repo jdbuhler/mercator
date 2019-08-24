@@ -210,6 +210,9 @@ namespace Mercator  {
 	{
 	  COUNT_ITEMS(fireableCount);
 	  queue.release(tid, fireableCount);
+	  #if PF_DEBUG
+	  printf("[%d] FIREABLE COUNT RELEASED = %d\n", blockIdx.x, fireableCount);
+	  #endif
 	}
 
 

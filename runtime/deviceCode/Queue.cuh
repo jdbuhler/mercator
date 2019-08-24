@@ -231,6 +231,27 @@ namespace Mercator  {
       
       return data[instIdx][myIdx]; 
     }
+
+    //
+    // @brief read the tail element of the queue
+    //        
+    // May be called multithreaded; does NOT release space
+    //
+    // @param instIdx instance to queue
+    // @return tail value read
+    //
+    __device__
+    void* getVoidTail(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      assert(getOccupancy(instIdx) > 0);
+      
+      unsigned int head = heads[instIdx];
+      unsigned int myIdx = addModulo(head, getOccupancy(instIdx) - 1, dataSizes[instIdx]);
+      
+      return &(data[instIdx][myIdx]); 
+    }
     
     //
     // @brief read an element from a queue's head that can be modified

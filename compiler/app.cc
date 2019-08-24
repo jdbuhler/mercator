@@ -21,10 +21,14 @@ DataType::DataType(const input::DataType *ti)
 {
   name = ti->name;
   
-  if (ti->from)
+  if (ti->from) {
     from = new DataType(ti->from);
+	cout << "FOUND FROM TYPE TO COPY" << endl;
+	}
   else
+	{
     from = nullptr;
+	}
 }
 
 DataType::DataType(const string &iname)

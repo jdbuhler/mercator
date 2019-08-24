@@ -90,7 +90,22 @@ namespace Mercator  {
     // max # of active threads assumes we only run full groups
     static const unsigned int numActiveThreads =
       numThreadGroups * threadGroupSize;
-    
+
+  //stimcheck: The currentParent needs to be public (could possibly be protected as well?)
+  //since it is accessed by derived classes.  The derived classes have codegen'd accessors
+  //which cast cast the void* here to a pointer to the appropriate type so the user never
+  //sees the unsafe type stuff.
+  public:
+	void* currentParent[numInstances];
+
+	__device__
+	virtual
+	void setParent(void* v, unsigned int instIdx) { currentParent[instIdx] = v; }
+
+	//__device__
+	//virtual
+	//T* getParent(InstTagT nodeIdx) {}
+
   protected:
     
     // maximum number of inputs that can be processed in a single 
@@ -109,6 +124,10 @@ namespace Mercator  {
 
     typedef uint8_t InstTagT;                  // instance tag type for run
     static const InstTagT NULLTAG = UCHAR_MAX; // null tag type
+
+	//__device__
+	//virtual
+	//T* getParent(InstTagT nodeIdx) { printf("NOT SUPPOSED TO BE HERE\n"); }
     
     //
     // @brief Constructor
@@ -346,8 +365,10 @@ namespace Mercator  {
       	  unsigned int numFireable = 0;
 	  if (tid < numInstances)
 	    numFireable = computeNumFireable(tid, hasPendingSignal);
+	  #if PF_DEBUG
 	  if(numFireable > 0)
 	    printf("NUM FIREABLE[blockIdx %d]\t\t%d\n", blockIdx.x, numFireable);
+	  #endif
 	  unsigned int totalFireable;
 	  
 	  using Scan = WarpScan<unsigned int, WARP_SIZE>;
@@ -356,6 +377,7 @@ namespace Mercator  {
 	    //stimcheck: Only enforce full ensembles if there are no signals pending.
 	    //stimcheck: Only enforce full ensembles if the module is not an enumerate module.
 	    if (enforceFullEnsembles && !hasPendingSignal && !isEnum())
+	    //if (enforceFullEnsembles && !hasPendingSignal)
 	    {
 	      // round total fireable count down to a full multiple of # of
 	      // elements that can be consumed by one call to run()
@@ -835,8 +857,10 @@ namespace Mercator  {
 			//If the current credit has reached 0, then we can consume signal
 			if(currentCredit[instIdx] > 0) {
 				assert(queue.getOccupancy(instIdx) > 0);
+				#if PF_DEBUG
 				if(s.getTag() == Signal::SignalTag::Tail)
 				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
+				#endif
 				break;
 			}
 			else {
@@ -876,7 +900,9 @@ namespace Mercator  {
 							pushSignal(s, instIdx, channel);
 						}
 					}
+					#if PF_DEBUG
 					printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
+					#endif
 					break;
 				}
 
@@ -931,7 +957,9 @@ namespace Mercator  {
 						}
 						pushSignal(s, instIdx, channel);
 					}
+					#if PF_DEBUG
 					printf("[%d] Tail Signal Processed\t%d\t%d\n", blockIdx.x, sigQueueOcc, s.getCredit());
+					#endif
 					break;
 				}
 				default:

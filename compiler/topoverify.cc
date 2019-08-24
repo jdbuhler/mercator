@@ -265,7 +265,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	}
       
       // Set whther or not the module index needs begin/end stubs
-      if(node->get_enumerateId() > 0 && !(node->get_moduleType()->get_isEnumerate()))
+      if((node->get_enumerateId() > 0 && !(node->get_moduleType()->get_isEnumerate())) || (node->get_moduleType()->get_isUserEnumerate()))
 	{
 	  app->isPropagate.at(mod->get_idx()) = true;
 	}

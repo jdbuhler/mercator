@@ -336,6 +336,11 @@ namespace input {
 	printf("\t%s\tchannels: %d\n", module->name.c_str(), (unsigned int)(module->channels.size()));
 	for(ChannelSpec* channel : module->channels)
 		printf("\t\t%s\n", channel->name.c_str());
+	printf("\t\tInput type: %s\t", module->inputType->name.c_str());
+	if(module->inputType->from)
+		printf("from type: %s\n", module->inputType->from->name.c_str());
+	else
+		printf("\n");
 	}
 
 	printf("NODES:\n");

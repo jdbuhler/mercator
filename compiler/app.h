@@ -246,6 +246,9 @@ public:
   bool get_isSink() const
   { return (flags & F_isSink); }
 
+  bool get_isUserEnumerate() const
+  { return (flags & 0x20); }
+
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
 

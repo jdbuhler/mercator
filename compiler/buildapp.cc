@@ -88,6 +88,15 @@ App *buildApp(const input::AppSpec *appSpec)
 					  new DataType(mts->inputType),
 					  mts->channels.size(),
 					  mts->flags);
+	const DataType* d = module->get_inputType();
+	cout << endl;
+	int count = 0;
+	while(d) {
+		cout << "INPUT TYPE[" << count << "]: " << d->name << endl;
+		d = d->from;
+		count++;
+	}
+
       
       int cId = 0;
 	cout << "AT CHANNELS. . . " << endl;
@@ -410,7 +419,7 @@ App *buildApp(const input::AppSpec *appSpec)
       //
       if (!validateCompatibleTypes(usChannel->type,
 				   dsNode->get_moduleType()->get_inputType(),
-				   appSpec->typeInfo))
+				   appSpec->typeInfo) && !(dsNode->get_moduleType()->get_isUserEnumerate()))
 	{
 	  const DataType *usType = usChannel->type;
 	  const DataType *dsType = dsNode->get_moduleType()->get_inputType();
@@ -634,6 +643,7 @@ App *buildApp(const input::AppSpec *appSpec)
 static
 bool validateType(const input::DataType *t, ASTContainer *typeInfo)
 {
+  int count = 0;
   // verify that each type in the hierarchy of a from type is valid
   while (t != nullptr)
     {
@@ -641,6 +651,9 @@ bool validateType(const input::DataType *t, ASTContainer *typeInfo)
 	return false;
       
       t = t->from;
+      if(count > 0)
+	cout << "FROM TYPE SET" << endl;
+      ++count;
     }
   
   return true;

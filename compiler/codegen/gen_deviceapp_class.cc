@@ -407,6 +407,19 @@ void genDeviceModuleClass(const App *app,
 			      "end", 
 			      genDeviceModuleBeginEndFcnParams()) + ";");
            f.add("");
+   	   f.add("__device__");
+		//printf("FROM NAME: %s\n", mod->get_inputType()->from->name.c_str());
+		cout << "BEFORE PRINT" << endl;
+		if(mod->get_inputType()->from == nullptr)
+			cout << "NULL FROM" << endl;
+		if(mod->get_inputType()->from->name.empty())
+			cout << "EMPTY FROM TYPE" << endl;
+		cout << "FROM NAME: " << mod->get_inputType()->from->name << endl;
+           f.add(genFcnHeader(mod->get_inputType()->from->name + "*",
+			      "getParent", 
+			      genDeviceModuleBeginEndFcnParams()));
+	   f.add("{ return static_cast< " + mod->get_inputType()->from->name + "* >(currentParent[nodeIdx]); }");
+           f.add("");
 	}
       else
 	{
@@ -423,6 +436,7 @@ void genDeviceModuleClass(const App *app,
            f.add("");
 	}
     }
+	cout << "FINISHED ENUM STUB GEN. . ." << endl;
 
   // stimcheck: Add findCount function header to the codegened headers of
   // enumerate modules.

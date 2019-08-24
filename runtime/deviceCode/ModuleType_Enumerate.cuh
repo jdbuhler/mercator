@@ -69,7 +69,7 @@ namespace Mercator  {
     
     __device__
     ModuleType_Enumerate(const unsigned int *queueSizes)
-      : BaseType(queueSizes), parentBuffer(numInstances, queueSizes)
+      : BaseType(queueSizes), parentBuffer(numInstances, queueSizes), refCounts(numInstances, queueSizes)
     {
 	for(unsigned int i = 0; i < numInstances; ++i)
 	{
@@ -79,6 +79,7 @@ namespace Mercator  {
     		allChannelOutCapacity[numInstances] = UINT_MAX;
     		allChannelOutSignalCapacity[numInstances] = UINT_MAX;
 	}
+	refCount = 1;
     }
     
   protected:
@@ -100,6 +101,7 @@ namespace Mercator  {
     //stimcheck: Add base type for numInputsPending to call "super" equivalent
     using BaseType::numInputsPending;
     using BaseType::numInputsPendingSignal;
+    using BaseType::setParent;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
@@ -122,7 +124,13 @@ namespace Mercator  {
     unsigned int allChannelOutCapacity[numInstances];
     unsigned int allChannelOutSignalCapacity[numInstances];
     //bool noFireFlag[numInstances];
+
+    //stimcheck: TODO will be set in the codegen, not here, but for now only testing ref counts of 1.
+    unsigned int refCount;
+
     Queue<T> parentBuffer; 
+    Queue<unsigned int> refCounts;
+
 
     //
     // @brief Sets the currentCount and dataCount as necessary when calling
@@ -145,9 +153,31 @@ namespace Mercator  {
     setCounts(unsigned int instIdx)
     {
 	if(currentCount[instIdx] == dataCount[instIdx]) {
-		currentCount[instIdx] = 0;
-		//noFireFlag[instIdx] = false;
-		dataCount[instIdx] = this->findCount(instIdx);
+		if(parentBuffer.getCapacity(instIdx) - parentBuffer.getOccupancy(instIdx) > 0) {
+			//stimcheck: ADD TO PARENT BUFFER HERE
+      	  		Queue<T> &queue = this->queue; 
+			unsigned int base = parentBuffer.reserve(instIdx, 1);
+			unsigned int refbase = refCounts.reserve(instIdx, 1);
+			unsigned int offset = 0;
+	  		const T &elt = queue.getElt(instIdx, offset);
+	  		const unsigned int &refelt = refCount;
+			parentBuffer.putElt(instIdx, base, offset, elt);
+			refCounts.putElt(instIdx, refbase, offset, refelt);
+
+			//stimcheck: Set the current parent here once we have it in the parent buffer
+			//setParent(static_cast<void**>(parentBuffer.getTail(instIdx)));
+			void* s;
+			//s = static_cast<void*>(*elt);
+			//s = static_cast<void*>(parentBuffer.getTail(instIdx));
+			s = parentBuffer.getVoidTail(instIdx);
+			setParent(s, instIdx);
+			//currentParent = static_cast<void*>(parentBuffer.getTail(instIdx)));
+
+
+			currentCount[instIdx] = 0;
+			dataCount[instIdx] = this->findCount(instIdx);
+			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s);
+		}
 	}
 	//assert(dataCount[instIdx] == 3);
 	//if(dataCount[instIdx] != 3) {
@@ -186,7 +216,9 @@ namespace Mercator  {
       allChannelOutCapacity[instIdx] = UINT_MAX;
       allChannelOutSignalCapacity[instIdx] = UINT_MAX;
       
+	#if PF_DEBUG
 	printf("[%d] NUM INPUTS PENDING = %d\n", blockIdx.x, nf);
+	#endif
       if (nf > 0)
 	{
 	  // for each channel
@@ -209,15 +241,19 @@ namespace Mercator  {
 		  allChannelOutCapacity[instIdx] = 0;
 		  allChannelOutSignalCapacity[instIdx] = 0;
 		  //blockOnSigQueue = true;
+		  #if PF_DEBUG
 		  printf("[%d] SNO SPACE DOWNSTREAM\n", blockIdx.x);
+		  #endif
 		  break;
 		}
 	     	numFireable = min(numFireable, dsCapacity);
 	    }
 
+	#if PF_DEBUG
 	if(nf > 0 && numFireable == 0) {
 		printf("[%d] NO SPACE DOWNSTREAM\n", blockIdx.x);
 	}
+	#endif
 
 	//stimcheck: Special case for sinks, since they do not have downstream channels, but still need to keep track of credit
 	//for correct signal handling.
@@ -242,9 +278,11 @@ namespace Mercator  {
 		setCounts(instIdx);
 	}
 	//printf("AFTER SET COUNTS: %d, numFireable %d, currentCount %d, dataCount %d\n", instIdx, numFireable, currentCount[instIdx], dataCount[instIdx]);
+	#if PF_DEBUG
 	if(numFireable > 0) {
 		printf("[%d] NM FIREABLE = %d\t\tDC = %d\t\tCC = %d\t\tCREDIT = %d\t\tnumPending = %d\n", blockIdx.x, numFireable, dataCount[instIdx], currentCount[instIdx], this->currentCredit[instIdx], nf);
 	}
+	#endif
 
 	//stimcheck: Set numFireable to 0 again if the dataCount is 0 but there is no space downstream for signals.
 	//This allows the scheduler to then schedule firing of downstream signals rather than crashing on no space being left
@@ -559,6 +597,10 @@ namespace Mercator  {
 		else {
 			s.setCredit(channel->dsPendingOccupancy(instIdx));
 		}
+
+		printf("[%d] BEFORE SET PARENT\t%p\n", blockIdx.x, s.getParent());
+		s.setParent(&parentBuffer.getModifiableTail(instIdx));
+		printf("[%d] AFTER SET PARENT\t%p\n", blockIdx.x, s.getParent());
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
 		if(!(channel->isAggregate())) {

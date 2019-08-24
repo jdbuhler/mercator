@@ -135,6 +135,10 @@ namespace Mercator  {
     //virtual
     //unsigned int findCount() { return 0; }
 
+    __device__
+    virtual
+    void setParent(void* v, unsigned int instIdx) = 0;
+
     ///////////////////////////////////////////////////////////////////
     // SCHEDULING INTERFACE (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////
@@ -206,7 +210,7 @@ namespace Mercator  {
 
     bool enumerate;
     bool aggregate;
-    
+
   };    // end class ModuleTypeBase
 }   // end Mercator namespace
 
