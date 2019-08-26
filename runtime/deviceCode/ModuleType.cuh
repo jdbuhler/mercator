@@ -454,7 +454,9 @@ namespace Mercator  {
     //
     // @param instIdx instance for which to compute fireable count.
     //
+    //stimcheck:  Added virtual tag for changing the DS signal queue requirements for Enumerate modules
     __device__
+    virtual
     unsigned int 
     computeNumSignalFireable(unsigned int instIdx) const
     {
@@ -829,7 +831,7 @@ namespace Mercator  {
 	//Perform actions based on signals in each instance's signal queue
 	unsigned int instIdx = threadIdx.x;
 	unsigned int i = 0;
-	Signal s;
+	Signal ss;
 
 	if(instIdx < numInstances) {
 		//Get the number of signals currently in the signal queue
@@ -838,7 +840,7 @@ namespace Mercator  {
 		//Get the number of fireable signals calculated from the Scheduler
 		unsigned int cachedFireableSignals = getFireableSignalCount(instIdx);
 		while(sigQueueOcc > i && cachedFireableSignals > i) {
-			s = signalQueue.getElt(instIdx, i);
+			ss = signalQueue.getElt(instIdx, i);
 			//Base case: we have credit to wait on
 
 			//Must have a positive credit always
@@ -848,8 +850,8 @@ namespace Mercator  {
 			//Signal has Credit
 			// AND
 			//Signal credit has not already been taken
-			if(s.getCredit() > 0 && !(hasSignal[instIdx])) {
-				currentCredit[instIdx] = s.getCredit();
+			if(ss.getCredit() > 0 && !(hasSignal[instIdx])) {
+				currentCredit[instIdx] = ss.getCredit();
 				hasSignal[instIdx] = true;
 			}
 
@@ -858,7 +860,7 @@ namespace Mercator  {
 			if(currentCredit[instIdx] > 0) {
 				assert(queue.getOccupancy(instIdx) > 0);
 				#if PF_DEBUG
-				if(s.getTag() == Signal::SignalTag::Tail)
+				if(ss.getTag() == Signal::SignalTag::Tail)
 				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
 				#endif
 				break;
@@ -874,7 +876,7 @@ namespace Mercator  {
 			//Signal type cases
 			///////////////////
 
-			Signal::SignalTag t = s.getTag();
+			Signal::SignalTag t = ss.getTag();
 			switch(t) {
 
 				//Enumerate Signal
@@ -884,6 +886,8 @@ namespace Mercator  {
 					//Create a new enum signal to send downstream
 					Signal s;
 					s.setTag(Signal::SignalTag::Enum);
+					s.setParent(ss.getParent());
+					s.setRefCount(ss.getRefCount());
 
 					//Reserve space downstream for enum signal
 		        		for (unsigned int c = 0; c < numChannels; c++) {
@@ -913,6 +917,8 @@ namespace Mercator  {
 					//Create a new enum signal to send downstream
 					Signal s;
 					s.setTag(Signal::SignalTag::Agg);
+					s.setParent(ss.getParent());
+					s.setRefCount(ss.getRefCount());
 
 					//Reserve space downstream for enum signal
 		        		for (unsigned int c = 0; c < numChannels; c++) {
@@ -929,6 +935,9 @@ namespace Mercator  {
 							pushSignal(s, instIdx, channel);
 						}
 					}
+					#if PF_DEBUG
+					printf("Aggregate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
+					#endif
 					break;
 				}
 

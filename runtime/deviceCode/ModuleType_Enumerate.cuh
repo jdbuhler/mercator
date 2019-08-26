@@ -76,10 +76,12 @@ namespace Mercator  {
 		dataCount[i] = 0;
 		currentCount[i] = 0;
 		//noFireFlag[i] = false;
-    		allChannelOutCapacity[numInstances] = UINT_MAX;
-    		allChannelOutSignalCapacity[numInstances] = UINT_MAX;
+    		allChannelOutCapacity[i] = UINT_MAX;
+    		allChannelOutSignalCapacity[i] = UINT_MAX;
+		refCount[i] = 1;
+    		setCountFlag[i] = false;
 	}
-	refCount = 1;
+	//refCount = 1;
     }
     
   protected:
@@ -125,11 +127,25 @@ namespace Mercator  {
     unsigned int allChannelOutSignalCapacity[numInstances];
     //bool noFireFlag[numInstances];
 
+    //stimcheck: Stores whether or not setCount was just previously called
+    //Determines if 
+    bool setCountFlag[numInstances];
+
     //stimcheck: TODO will be set in the codegen, not here, but for now only testing ref counts of 1.
-    unsigned int refCount;
+    unsigned int refCount[numInstances];
 
     Queue<T> parentBuffer; 
     Queue<unsigned int> refCounts;
+
+    //stimcheck: Set pointer to current refCount here.  Used when creating new Enumerate and Aggregate signals.
+    unsigned int* currentRefCount[numInstances];
+
+    __device__
+    void
+    setCurrentRefCount(void* i, unsigned int instIdx)
+    {
+	currentRefCount[instIdx] =  static_cast<unsigned int*>(i);
+    }
 
 
     //
@@ -152,7 +168,20 @@ namespace Mercator  {
     //setCounts(unsigned int instIdx, unsigned int numFireable)
     setCounts(unsigned int instIdx)
     {
-	if(currentCount[instIdx] == dataCount[instIdx]) {
+	//stimcheck: TODO, set this part as a flag instead of running up currentCount to increase safety.
+	//Originally was ==, not >=
+	if(currentCount[instIdx] >= dataCount[instIdx] && !setCountFlag[instIdx]) {
+		//stimcheck: Only remove elements from the parentBuffer if elements even exist, and only from the head value
+		if(parentBuffer.getOccupancy(instIdx) > 0) {
+			if(refCounts.getElt(instIdx, 0) == 0) {
+				refCounts.release(instIdx, 1);
+				parentBuffer.release(instIdx, 1);
+				printf("[%d, %d] RELEASED PARENT\n", blockIdx.x, threadIdx.x);
+			}
+		}
+
+		//stimcheck: Only add to parent buffer if there is room, otherwise, make currentCount 1 greater, so we know
+		//to release once we have enough space, but not to produce more enumerate or aggregate signals.
 		if(parentBuffer.getCapacity(instIdx) - parentBuffer.getOccupancy(instIdx) > 0) {
 			//stimcheck: ADD TO PARENT BUFFER HERE
       	  		Queue<T> &queue = this->queue; 
@@ -160,23 +189,31 @@ namespace Mercator  {
 			unsigned int refbase = refCounts.reserve(instIdx, 1);
 			unsigned int offset = 0;
 	  		const T &elt = queue.getElt(instIdx, offset);
-	  		const unsigned int &refelt = refCount;
+	  		const unsigned int &refelt = refCount[instIdx];
 			parentBuffer.putElt(instIdx, base, offset, elt);
 			refCounts.putElt(instIdx, refbase, offset, refelt);
 
 			//stimcheck: Set the current parent here once we have it in the parent buffer
 			//setParent(static_cast<void**>(parentBuffer.getTail(instIdx)));
 			void* s;
+			void* rc;
 			//s = static_cast<void*>(*elt);
 			//s = static_cast<void*>(parentBuffer.getTail(instIdx));
 			s = parentBuffer.getVoidTail(instIdx);
+			rc = refCounts.getVoidTail(instIdx);
 			setParent(s, instIdx);
+			setCurrentRefCount(rc, instIdx);
 			//currentParent = static_cast<void*>(parentBuffer.getTail(instIdx)));
 
 
 			currentCount[instIdx] = 0;
 			dataCount[instIdx] = this->findCount(instIdx);
-			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s);
+			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\tcurrentRefCount = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s, rc);
+			setCountFlag[instIdx] = true;
+		}
+		else {
+			currentCount[instIdx] = UINT_MAX;
+			printf("[%d, %d] CURRENT COUNT INCREASED\n", blockIdx.x, threadIdx.x);
 		}
 	}
 	//assert(dataCount[instIdx] == 3);
@@ -199,6 +236,41 @@ namespace Mercator  {
     unsigned int
     getDC() {
 	return dataCount[0];
+    }
+
+    __device__
+    unsigned int 
+    computeNumSignalFireable(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      
+      // start at max fireable, then discover bottleneck
+      unsigned int numFireable = numInputsPendingSignal(instIdx);
+      
+      if (numFireable > 0)
+	{
+	  // for each channel
+	  for (unsigned int c = 0; c < numChannels; ++c)
+	    {
+	      unsigned int dsCapacity = 
+		getChannel(c)->dsCapacity(instIdx);
+	      unsigned int dsSignalCapacity = 
+		getChannel(c)->dsSignalCapacity(instIdx);
+
+		//stimcheck: Add this check here to see if there is any space downstream,
+		//if there exists no space, then report that there are no signals fireable.
+		//stimcheck: Extra note, changed the dsCapacity check to <=1 for Enumerate modules,
+		//since we can produce at least 2 signals from firing.
+	      if(dsCapacity <= 1) {
+		numFireable = 0;
+		break;
+	      }	      
+
+	      numFireable = min(numFireable, dsSignalCapacity);
+	    }
+	}
+      
+      return numFireable;
     }
 
     __device__
@@ -236,6 +308,8 @@ namespace Mercator  {
 		//assert(numFireable >= this->currentCredit[instIdx]);
 		//TODO
 		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
+		//stimcheck: Now needs to be ==2, since above message AND the module could produce an
+		//enumerate AND an aggregate signal in the same firing.
 		if(dsSignalCapacity == 1) {
 		  numFireable = 0;
 		  allChannelOutCapacity[instIdx] = 0;
@@ -370,7 +444,7 @@ namespace Mercator  {
       unsigned int totalFireable;
       unsigned int Ai = Gather::loadExclSums(fireableCount, totalFireable);  
 
-      bool sendEnumSignal = false;
+      bool sendAggSignal = false;
 
       // release any items from 
 	/*
@@ -383,11 +457,59 @@ namespace Mercator  {
 		#if PF_DEBUG
 		printf("MADE IT2\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
 		#endif
-		sendEnumSignal = true;
+		sendAggSignal = true;
 	  	queue.release(tid, 1);
 	  }
 	}
 	*/
+
+	if(tid < numInstances) {
+		if(setCountFlag[tid]) {
+			setCountFlag[tid] = false;
+			//stimcheck: Send enum signal
+			unsigned int instIdx = threadIdx.x;
+			//Create a new enumerate signal to send downstream
+			Signal s;
+			s.setTag(Signal::SignalTag::Enum);
+
+			//Reserve space downstream for enum signal
+			unsigned int dsSignalBase;
+		      	using Channel = typename BaseType::Channel<T>;
+	
+			//printf("\t\t\tNUM CHANNELS: %d\n", numChannels);
+			for (unsigned int c = 0; c < numChannels; c++) {
+				//const Channel *channel = static_cast<Channel *>(getChannel(c));
+				//dsSignalBase[c] = channel->directSignalReserve(0, 1);
+				//s.setCredit((channel->dsSignalQueueHasPending(tid)) ? channel->getNumItemsProduced(tid) : channel->dsPendingOccupancy(tid));
+
+				  Channel *channel = 
+				    static_cast<Channel *>(getChannel(c));
+				//Set the credit for our new signal depending on if there are already signals downstream.
+				if(channel->dsSignalQueueHasPending(instIdx)) {
+					s.setCredit(channel->getNumItemsProduced(instIdx));
+				}
+				else {
+					s.setCredit(channel->dsPendingOccupancy(instIdx));
+				}
+
+				printf("[%d] BEFORE ENUM SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
+				s.setParent(&parentBuffer.getModifiableTail(instIdx));
+				s.setRefCount(&refCounts.getModifiableTail(instIdx));
+				printf("[%d] AFTER ENUM SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
+
+				//If the channel is NOT an aggregate channel, send a new enum signal downstream
+				if(!(channel->isAggregate())) {
+					assert(channel->dsSignalCapacity(instIdx) > 0);
+					dsSignalBase = channel->directSignalReserve(instIdx, 1);
+
+					//Write enum signal to downstream node
+					channel->directSignalWrite(instIdx, s, dsSignalBase, 0);
+					channel->resetNumProduced(instIdx);
+				}
+			}
+			}
+	}
+	__syncthreads();  //Make sure everyone sees new enum signal downstream, if created.
 
       //stimcheck:  If the scheduler determined that there were fireable data elements, fire them, otherwise fire no data, syncthreads, and process signals.
       if(totalFireable > 0) {
@@ -525,7 +647,7 @@ namespace Mercator  {
 		#if PF_DEBUG
 		printf("MADE IT\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
 		#endif
-		sendEnumSignal = true;
+		sendAggSignal = true;
 	  	queue.release(tid, 1);
 	  }
 	}
@@ -548,7 +670,7 @@ namespace Mercator  {
 		#if PF_DEBUG
 		printf("MADE IT\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
 		#endif
-		sendEnumSignal = true;
+		sendAggSignal = true;
 	  	queue.release(tid, 1);
 	  }
 	//}
@@ -569,14 +691,14 @@ namespace Mercator  {
 	//stimcheck: Only the boss thread needs to make the enumerate and aggregate signals
 	
 	if(threadIdx.x < numInstances) {
-	if(sendEnumSignal) {
+	if(sendAggSignal) {
 	#if PF_DEBUG
-	printf("PUSHING ENUMERATE SIGNAL . . .\n");
+	printf("PUSHING AGGREGATE SIGNAL . . .\n");
 	#endif
 	unsigned int instIdx = threadIdx.x;
-	//Create a new enum signal to send downstream
+	//Create a new aggregate signal to send downstream
 	Signal s;
-	s.setTag(Signal::SignalTag::Enum);
+	s.setTag(Signal::SignalTag::Agg);
 
 	//Reserve space downstream for enum signal
 	unsigned int dsSignalBase;
@@ -598,9 +720,10 @@ namespace Mercator  {
 			s.setCredit(channel->dsPendingOccupancy(instIdx));
 		}
 
-		printf("[%d] BEFORE SET PARENT\t%p\n", blockIdx.x, s.getParent());
+		printf("[%d] BEFORE AGG SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
 		s.setParent(&parentBuffer.getModifiableTail(instIdx));
-		printf("[%d] AFTER SET PARENT\t%p\n", blockIdx.x, s.getParent());
+		s.setRefCount(&refCounts.getModifiableTail(instIdx));
+		printf("[%d] AFTER AGG SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
 		if(!(channel->isAggregate())) {
@@ -619,7 +742,7 @@ namespace Mercator  {
 
 	//stimcheck: Decrement credit for the module here (if needed)
 	if(tid < numInstances) {
-		if(this->hasSignal[tid] && sendEnumSignal) {
+		if(this->hasSignal[tid] && sendAggSignal) {
 			//this->currentCredit[tid] -= fireableCount;
 			this->currentCredit[tid] -= 1;
 		}

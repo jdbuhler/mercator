@@ -6,6 +6,7 @@ private:
 	int credit;
 
 	void* parent;
+	unsigned int* refCount;
 public:
 	enum SignalTag {Tail, Enum, Agg};
 	__device__ Signal() : credit(0) { }
@@ -23,6 +24,8 @@ public:
 	__device__ SignalTag getTag() { return tag; }
 	__device__ void setParent(void* p) { parent = p; }
 	__device__ void* getParent() { return parent; }
+	__device__ void setRefCount(void* rc) { refCount = static_cast<unsigned int*>(rc); }
+	__device__ unsigned int* getRefCount() { return refCount; }
 };
 
 #endif
