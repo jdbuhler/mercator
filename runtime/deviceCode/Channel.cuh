@@ -577,7 +577,7 @@ namespace Mercator  {
     __device__
     void setAggregate()
     {
-      propFlags &= 0x01;
+      propFlags |= 0x01;
     }
 
   private:

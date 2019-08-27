@@ -173,6 +173,7 @@ namespace Mercator  {
 	if(currentCount[instIdx] >= dataCount[instIdx] && !setCountFlag[instIdx]) {
 		//stimcheck: Only remove elements from the parentBuffer if elements even exist, and only from the head value
 		if(parentBuffer.getOccupancy(instIdx) > 0) {
+			printf("[%d, %d] OCCUPANCY: %d\t\tREF COUNT: %d\n", blockIdx.x, threadIdx.x, parentBuffer.getOccupancy(instIdx), refCounts.getElt(instIdx, 0));
 			if(refCounts.getElt(instIdx, 0) == 0) {
 				refCounts.release(instIdx, 1);
 				parentBuffer.release(instIdx, 1);

@@ -178,7 +178,8 @@ namespace Mercator  {
     __device__
     void initChannel(unsigned int c, 
 		     unsigned int outputsPerInput,
-		     const unsigned int *reservedSlots)
+		     const unsigned int *reservedSlots,
+		     bool isAgg = false)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
@@ -197,6 +198,8 @@ namespace Mercator  {
 	  
 	  crash();
 	}
+
+      channels[c]->setAggregate();
     }
     
     

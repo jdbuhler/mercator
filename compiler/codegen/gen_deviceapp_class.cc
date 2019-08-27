@@ -185,7 +185,8 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
 		+ to_string(channel->maxOutputs) + ", "
-		+ "reservedSlots);");
+		+ "reservedSlots"
+		+ (channel->isAggregate ? ", true);" : ");"));
 	  
 	  f.unindent();
 	  f.add("}");
