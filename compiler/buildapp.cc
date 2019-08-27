@@ -419,7 +419,7 @@ App *buildApp(const input::AppSpec *appSpec)
       //
       if (!validateCompatibleTypes(usChannel->type,
 				   dsNode->get_moduleType()->get_inputType(),
-				   appSpec->typeInfo) && !(dsNode->get_moduleType()->get_isUserEnumerate()))
+				   appSpec->typeInfo)) //&& !(dsNode->get_moduleType()->get_isUserEnumerate()))
 	{
 	  const DataType *usType = usChannel->type;
 	  const DataType *dsType = dsNode->get_moduleType()->get_inputType();

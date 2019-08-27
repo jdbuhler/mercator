@@ -79,6 +79,9 @@ void redefineEnum(input::AppSpec* appSpec)
 		{
 			cout << "IS AN ENUMERATE: " << mod->name << endl;
 			input::DataType* dt = new input::DataType("unsigned int");
+			input::DataType* dtt = new input::DataType(mod->inputType->name);
+			dt->from = dtt;
+			//stimcheck: TODO Set from type for __enumerateFor module here, so getParent can be codegen'd.
 			input::ChannelSpec* enumChanSpec = new input::ChannelSpec("out",
 									       dt,
 									       1,	//Max Outputs PER input
@@ -102,10 +105,10 @@ void redefineEnum(input::AppSpec* appSpec)
 
 			
 			dt = new input::DataType("unsigned int");
-			input::DataType* dtt = new input::DataType(mod->inputType->name);
+			dtt = new input::DataType(mod->inputType->name);
 			dt->from = dtt;
-			mod->flags = 0x00;	//Zero out this enumerat module's flags, not needed here anymore
-			mod->flags = 0x20;	//Set the ignore type checking flag
+			mod->flags = 0x00;	//Zero out this enumerate module's flags, not needed here anymore
+			enumFor->flags |= 0x20;	//Set the ignore type checking flag
 			mod->inputType = dt;	//Change the input type to the user defined enumerate module to unsigned int
 
 			cout << "HERE4" << endl;

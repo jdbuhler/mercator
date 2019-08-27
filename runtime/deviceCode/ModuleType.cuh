@@ -934,6 +934,10 @@ namespace Mercator  {
 							}
 							pushSignal(s, instIdx, channel);
 						}
+						else {
+							printf("SUBTRACTING\n");
+							s.getRefCount()[0] -= 1;
+						}
 					}
 					#if PF_DEBUG
 					printf("Aggregate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
