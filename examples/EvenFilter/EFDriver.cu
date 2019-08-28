@@ -16,6 +16,7 @@ using namespace std;
 int main()
 {
   const unsigned int NVALUES = 1000000000; // one BEEEELLION values
+  //const unsigned int NVALUES = 100000; // one BEEEELLION values
   
   srand(0);
   
