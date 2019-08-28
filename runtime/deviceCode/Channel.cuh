@@ -173,23 +173,25 @@ namespace Mercator  {
 	}
     }
     
-    //
-    // @brief After a call to run(), scatter its outputs
-    //  to the appropriate queues.
-    //  NB: must be called with all threads
-    //
-    // @param instIdx instance corresponding to current thread
-    // @param isHead is this the first thread for its instance?
-    // @param isWriter true iff thread is the writer for its group
-    //
-    #ifdef SCHEDULER_MINSWITCHES
-    //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
-    __device__
-      int  scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
-    {
+      //
+      // @brief After a call to run(), scatter its outputs
+      //  to the appropriate queues.
+      //  NB: must be called with all threads
+      //
+      // @param instIdx instance corresponding to current thread
+      // @param isHead is this the first thread for its instance?
+      // @param isWriter true iff thread is the writer for its group
+      //
+      //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
+      __device__
+      int  compressCopyToDSQueue(InstTagT node, bool isHead, bool isWriter)
+      {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
-  
+      unsigned int dsNode = dsInstances[node];
+      unsigned int queueCap = dsQueues[node]->getCapacity(dsNode);
+      unsigned int queueOcc = dsQueues[node]->getOccupancy(dsNode);
+      unsigned int dsQueue_rem = queueCap - queueOcc;
       //
       // Compute a segmented exclusive sum of the number of outputs to
       // be written back to queues by each thread group.  Only the
@@ -208,23 +210,30 @@ namespace Mercator  {
       
       BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
       
-      bool isTail = disc.flagTails(instIdx, NULLTAG);
+      bool isTail = disc.flagTails(node, NULLTAG);
         
       //
       // The last thread with a given instance can compute the total
       // number of outputs written for that instance.  That total
       // is used to reserve space in the instance's downstream queue. 
       //
+
+          #ifdef PRINTDBG
+      if(isTail)printf("%u:%u\t\tqueueCap: %u, queueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
+      #endif
+
+
+
       __shared__ unsigned int dsBase[numInstances];
-      if (isTail && instIdx < numInstances)
+      if (isTail  && node< numInstances)
 	{
 	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
 	  	  
-	  COUNT_ITEMS_INST(instIdx, instTotal);  // instrumentation
+	  COUNT_ITEMS_INST(node, instTotal);  // instrumentation
           #ifdef PRINTDBG
-            printf("\t\tChannel total dumping:%u\n", instTotal); 
+            printf("%u:\t\tChannel total dumping:%u\n",blockIdx.x, instTotal); 
           #endif
-	  dsBase[instIdx] = directReserve(instIdx, instTotal);
+	  dsBase[node] = directReserve(node, instTotal);
 	}
       
       __syncthreads(); // all threads must see updates to dsBase[]
@@ -247,29 +256,28 @@ namespace Mercator  {
 	      // where is the item going in the ds queue?
 	      unsigned int dstOffset = sum + j;
 	      
-	      if (instIdx < numInstances) // is this thread active?
+	      if (node < numInstances) // is this thread active?
 		{
 		  const T &myData = data[srcOffset];
 		  
-		  directWrite(instIdx, myData, dsBase[instIdx], dstOffset);
+		  directWrite(node, myData, dsBase[node], dstOffset);
 		}
 	    }
 	}
-      
+   
+
       // finally, reset the output counters per thread group
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
     
       __syncthreads();
 
-      //TODO:: check this more agressivly 
-      //check if there is enough space for a full warp to be fired again
-      unsigned int dsInstId = dsInstances[instIdx];
-      unsigned int queueCap = dsQueues[instIdx]->getCapacity(dsInstId);
-      unsigned int queueOcc = dsQueues[instIdx]->getOccupancy(dsInstId);
-      unsigned int dsQueue_rem = queueCap - queueOcc;
-
-
+      //update ds varables
+      queueOcc = dsQueues[node]->getOccupancy(dsNode);
+      dsQueue_rem = queueCap - queueOcc;
+         #ifdef PRINTDBG
+      if(isTail)printf("%u:%u\t\tqueueCap: %u, queueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
+      #endif
       //returns 0 if we can fire again, -1 if we cannot
       //return if i am allowed to fire again
       if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
@@ -280,11 +288,10 @@ namespace Mercator  {
       //not enough space, so lets go ahead and activate the ds node
       //only one thread activates the ds modules
   
-      ModuleTypeBase* dsModule = dsQueues[instIdx]->getAssocatedModule();
-      dsModule->activate(dsInstId);
+      ModuleTypeBase* dsModule = dsQueues[node]->getAssocatedModule();
+      dsModule->activate(dsNode);
       return -1;
     }
-    #else
 
     __device__
       void scatterToQueues(InstTagT instIdx, bool isHead, bool isWriter)
@@ -360,7 +367,6 @@ namespace Mercator  {
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
     }
-#endif
     
     //
     // @brief prepare for a direct write to the downstream queue(s)

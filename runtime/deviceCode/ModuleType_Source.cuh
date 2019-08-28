@@ -249,7 +249,7 @@ namespace Mercator  {
           myData = source->get(pendingOffset + tid);
 
         #ifdef PRINTDBG
-        if(tid==0)printf("\t%i: Source writing %u items downstream\n", bid, totalFireable);
+          if(tid==0)printf("\t%u: Source writing %u items downstream\n", bid, totalFireable);
         #endif
 
         MOD_TIMER_STOP(gather);
@@ -300,6 +300,9 @@ namespace Mercator  {
 
           if (!this->isInTail() && numPending == 0){
             numPending = source->reserve(REQ_SIZE, &pendingOffset);
+            #ifdef PRINTDBG
+              if(tid==0) printf("%u: source reserved %u\n", blockIdx.x, REQ_SIZE);
+            #endif
             if (numPending == 0){ // no more input left to request!
               this->setInTail(true);
               //leave while loop

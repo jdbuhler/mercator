@@ -35,7 +35,7 @@
 
 using namespace std;
 
-const int NTRIALS = 10;
+const int NTRIALS = 1;
 
 int main(int argc, char* argv[])
 {
@@ -83,11 +83,11 @@ int main(int argc, char* argv[])
   Mercator::Buffer<PipeEltT> inBuffer(NUM_INPUTS);
   Mercator::Buffer<PipeEltT> outBufferAccept(MAX_OUTPUTS);
   
+  
   // create app object
   APP_TYPE app;
   
   cout << "# GPU BLOCKS = " << app.getNBlocks() << endl; 
-  
   for (int trial = 0; trial < NTRIALS; trial++)
     {
       // generate input data
@@ -149,6 +149,7 @@ int main(int argc, char* argv[])
       app.sourceNode.setSource(inBuffer);
       app.sinkNodeAccept.setSink(outBufferAccept);
       
+      cout << "SAME-TYPE-PIPE APP LAUNCHING.\n" ;
       // run main function
       app.run();
       

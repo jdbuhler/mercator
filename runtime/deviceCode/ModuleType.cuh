@@ -324,7 +324,6 @@ namespace Mercator  {
         }
       }
 
-
       for (unsigned int c = 0; c < numChannels; ++c){
         //get dsModule for tid node
         ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
@@ -337,12 +336,7 @@ namespace Mercator  {
         }
       }
       firingMask[instIdx]=isFireable; 
-      
-      //update if fireable
-      if(isFireable){
-        lastFireableCount[instIdx] = computeNumFireable(instIdx); //for the first fire, use as much as possible
-      }
-
+  
       return isFireable; //cast bool to int 1 is node is fireable 0 is not fireable
     }
 

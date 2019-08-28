@@ -88,7 +88,6 @@ namespace Mercator  {
 
       // main scheduling loop
       while (true){
-
         //Tail check
         if (sourceModule->isInTail()){          
           for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
@@ -144,9 +143,11 @@ namespace Mercator  {
         for (unsigned int j = 0; j < numModules; j++){
           unsigned int n = modules[j]->computeNumPendingTotal();
           hasPending |= (n > 0);
+          #ifdef PRINTDBG
           if(tid==0){
-          //  printf("mod %u of %u has %u pending\n", j, numModules,  n);
+            printf("%u:mod %u of %u has %u pending\n",blockIdx.x, j, numModules,  n);
           }
+          #endif
         }
         assert(!hasPending);
       #endif

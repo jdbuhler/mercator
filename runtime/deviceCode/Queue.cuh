@@ -158,19 +158,22 @@ namespace Mercator  {
     unsigned int reserve(unsigned int instIdx, unsigned int nElts)
     {
       assert(instIdx < numInstances);
-      //if(instIdx==0){
-      //  printf("reserve may crash, instIdx:%u, trying to reserve%u\n", instIdx, nElts); 
-      //}
+        unsigned int a= blockIdx.x;
+        unsigned int b= threadIdx.x;
+        unsigned int c= instIdx;
+        unsigned int d= getOccupancy(instIdx);
+        unsigned int e= getCapacity(instIdx);
+        unsigned int f= nElts;
+
+      if(!(getOccupancy(instIdx) <= (getCapacity(instIdx) - nElts)) ){
+        printf("%u: threadIdx.x:%u, instIdx:%u, Occ:%u, Cap: %u, nElts:%u\n", a,b,c,d,e,f); 
+      }
       assert(getOccupancy(instIdx) <= getCapacity(instIdx) - nElts);
-      
       unsigned int oldTail = tails[instIdx];
       
       tails[instIdx] = 
 	addModulo(tails[instIdx], nElts, dataSizes[instIdx]);
-      //if(instIdx==0){
-      //  printf("reserve didnt crash\n"); 
-      //}
-      
+
       return oldTail;
     }
     

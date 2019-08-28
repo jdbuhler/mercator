@@ -68,15 +68,13 @@ namespace Mercator  {
     //  to the appropriate queues.
     //  NB: must be called with all threads
     //
-  #ifdef SCHEDULER_MINSWITCHES
     __device__
     virtual
-    int  scatterToQueues(InstTagT, bool, bool) = 0;
-  #else 
+    int  compressCopyToDSQueue(InstTagT, bool, bool) = 0;
+
     __device__
     virtual
     void scatterToQueues(InstTagT, bool, bool) = 0;
-  #endif
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel, accessed by ModuleType
     ItemCounter<numInstances> itemCounter;
