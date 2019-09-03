@@ -80,6 +80,7 @@ namespace Mercator  {
     		allChannelOutSignalCapacity[i] = UINT_MAX;
 		refCount[i] = 1;
     		setCountFlag[i] = false;
+    		bufferFullFlag[i] = false;
 	}
 	//refCount = 1;
     }
@@ -134,6 +135,8 @@ namespace Mercator  {
     //stimcheck: TODO will be set in the codegen, not here, but for now only testing ref counts of 1.
     unsigned int refCount[numInstances];
 
+    bool bufferFullFlag[numInstances];
+
     Queue<T> parentBuffer; 
     Queue<unsigned int> refCounts;
 
@@ -170,14 +173,19 @@ namespace Mercator  {
     {
 	//stimcheck: TODO, set this part as a flag instead of running up currentCount to increase safety.
 	//Originally was ==, not >=
-	if(currentCount[instIdx] >= dataCount[instIdx] && !setCountFlag[instIdx]) {
+	//if(currentCount[instIdx] == dataCount[instIdx] && !setCountFlag[instIdx]) {
+	if(currentCount[instIdx] == dataCount[instIdx]) {
 		//stimcheck: Only remove elements from the parentBuffer if elements even exist, and only from the head value
-		if(parentBuffer.getOccupancy(instIdx) > 0) {
-			printf("[%d, %d] OCCUPANCY: %d\t\tREF COUNT: %d\n", blockIdx.x, threadIdx.x, parentBuffer.getOccupancy(instIdx), refCounts.getElt(instIdx, 0));
-			if(refCounts.getElt(instIdx, 0) == 0) {
+		while(parentBuffer.getOccupancy(instIdx) > 0) {
+			printf("[%d, %d] OCCUPANCY: %d\t\tREF COUNT: 0th: %d, Occth: %d\n", blockIdx.x, threadIdx.x, parentBuffer.getOccupancy(instIdx), refCounts.getElt(instIdx, 0), refCounts.getElt(instIdx, refCounts.getOccupancy(instIdx) - 1));
+			if(refCounts.getElt(instIdx, refCounts.getOccupancy(instIdx) - 1) == 0) {
+			//if(refCounts.getElt(instIdx, 0) == 0) {
 				refCounts.release(instIdx, 1);
 				parentBuffer.release(instIdx, 1);
 				printf("[%d, %d] RELEASED PARENT\n", blockIdx.x, threadIdx.x);
+			}
+			else {
+				break;
 			}
 		}
 
@@ -210,12 +218,16 @@ namespace Mercator  {
 			currentCount[instIdx] = 0;
 			dataCount[instIdx] = this->findCount(instIdx);
 			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\tcurrentRefCount = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s, rc);
-			setCountFlag[instIdx] = true;
+			//setCountFlag[instIdx] = true;
+			bufferFullFlag[instIdx] = false;
 		}
 		else {
-			currentCount[instIdx] = UINT_MAX;
-			printf("[%d, %d] CURRENT COUNT INCREASED\n", blockIdx.x, threadIdx.x);
+			bufferFullFlag[instIdx] = true;
 		}
+		//else {
+		//	currentCount[instIdx] = UINT_MAX;
+		//	printf("[%d, %d] CURRENT COUNT INCREASED\n", blockIdx.x, threadIdx.x);
+		//}
 	}
 	//assert(dataCount[instIdx] == 3);
 	//if(dataCount[instIdx] != 3) {
@@ -376,6 +388,12 @@ namespace Mercator  {
 			//noFireFlag[instIdx] = false;
 		//}
 	}
+
+	//Parent buffer is full, and we have enumerated the current object fully.
+	if(bufferFullFlag[instIdx]) {
+		numFireable = 0;
+	}
+	
         return numFireable;
       }
       return 0;
@@ -426,7 +444,7 @@ namespace Mercator  {
 				fireableCount = 0;
 			}
 		}
-		else if(numInputsPendingSignal(tid) > 0) {
+		else if(numInputsPendingSignal(tid) > 0 && !this->hasSignal[tid]) {
 			fireableCount = 0;
 		}
 	}
@@ -464,6 +482,7 @@ namespace Mercator  {
 	}
 	*/
 
+	/*
 	if(tid < numInstances) {
 		if(setCountFlag[tid]) {
 			setCountFlag[tid] = false;
@@ -511,16 +530,24 @@ namespace Mercator  {
 			}
 	}
 	__syncthreads();  //Make sure everyone sees new enum signal downstream, if created.
+	*/
+
+	#if PF_DEBUG
+	//if(fireableCount > 0 && tid < numInstances)
+	if(tid < numInstances)
+	printf("FIREABLE COUNT = %d, CURRENT COUNT = %d, DATA COUNT = %d, MAX RUN SIZE = %d, TOTAL FIREABLE = %d, CURRENT CREDIT = %d\n", fireableCount, currentCount[tid], dataCount[tid], maxRunSize, totalFireable, this->currentCredit[tid]);
+	#endif
 
       //stimcheck:  If the scheduler determined that there were fireable data elements, fire them, otherwise fire no data, syncthreads, and process signals.
       if(totalFireable > 0) {
 
       assert(totalFireable > 0);
       
-	#if PF_DEBUG
-	if(fireableCount > 0 && tid < numInstances)
-	printf("FIREABLE COUNT = %d, CURRENT COUNT = %d, DATA COUNT = %d, MAX RUN SIZE = %d, TOTAL FIREABLE = %d\n", fireableCount, currentCount[tid], dataCount[tid], maxRunSize, totalFireable);
-	#endif
+	//#if PF_DEBUG
+	//if(fireableCount > 0 && tid < numInstances)
+	//if(tid < numInstances)
+	//printf("FIREABLE COUNT = %d, CURRENT COUNT = %d, DATA COUNT = %d, MAX RUN SIZE = %d, TOTAL FIREABLE = %d\n", fireableCount, currentCount[tid], dataCount[tid], maxRunSize, totalFireable);
+	//#endif
 
       MOD_OCC_COUNT(totalFireable);
 
@@ -727,6 +754,7 @@ namespace Mercator  {
 		printf("[%d] AFTER AGG SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
 
 		//If the channel is NOT an aggregate channel, send a new enum signal downstream
+		printf("[%d] IS CHANNEL AGGREGATE?: %d\n", (channel->isAggregate() ? 1 : 0));
 		if(!(channel->isAggregate())) {
 			assert(channel->dsSignalCapacity(instIdx) > 0);
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);

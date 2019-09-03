@@ -568,7 +568,7 @@ namespace Mercator  {
     __device__
     bool isAggregate() const
     {
-      return (propFlags & 0x01);
+      return (propFlags & 0x01 ? true : false);
     }
 
     // 

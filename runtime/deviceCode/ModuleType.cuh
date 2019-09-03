@@ -199,7 +199,8 @@ namespace Mercator  {
 	  crash();
 	}
 
-      channels[c]->setAggregate();
+	if(isAgg)
+      		channels[c]->setAggregate();
     }
     
     
@@ -842,6 +843,9 @@ namespace Mercator  {
 
 		//Get the number of fireable signals calculated from the Scheduler
 		unsigned int cachedFireableSignals = getFireableSignalCount(instIdx);
+		#if PF_DEBUG
+		printf("[%d][%d] sigQueueOcc = %d\t\tcachedFireableSignals = %d\n", blockIdx.x, threadIdx.x, sigQueueOcc, cachedFireableSignals);
+		#endif
 		while(sigQueueOcc > i && cachedFireableSignals > i) {
 			ss = signalQueue.getElt(instIdx, i);
 			//Base case: we have credit to wait on
@@ -864,7 +868,7 @@ namespace Mercator  {
 				assert(queue.getOccupancy(instIdx) > 0);
 				#if PF_DEBUG
 				if(ss.getTag() == Signal::SignalTag::Tail)
-				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, s.getCredit(), instIdx, queue.getOccupancy(instIdx));
+				printf("[%d] CURRENT SIGNAL [%d]\t\tcurrentCredit[instIdx %d] = %d\t\tsignalCredit[%d] = %d\t\tqueue.getOccupancy[%d] = %d\n", blockIdx.x, i, instIdx, currentCredit[instIdx], i, ss.getCredit(), instIdx, queue.getOccupancy(instIdx));
 				#endif
 				break;
 			}
@@ -906,10 +910,13 @@ namespace Mercator  {
 							}
 							pushSignal(s, instIdx, channel);
 						}
+						else {
+							printf("AGGREGATE CHANNEL FOUND\n");
+						}
 					}
-					#if PF_DEBUG
+					//#if PF_DEBUG
 					printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
-					#endif
+					//#endif
 					break;
 				}
 
@@ -938,8 +945,9 @@ namespace Mercator  {
 							pushSignal(s, instIdx, channel);
 						}
 						else {
-							printf("SUBTRACTING\n");
+							printf("SUBTRACTING BEFORE %d\n", s.getRefCount()[0]);
 							s.getRefCount()[0] -= 1;
+							printf("SUBTRACTING AFTER %d\n", s.getRefCount()[0]);
 						}
 					}
 					#if PF_DEBUG

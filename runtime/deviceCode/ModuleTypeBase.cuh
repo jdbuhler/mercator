@@ -15,7 +15,7 @@
 
 #include "Signal.cuh"
 
-#define PF_DEBUG 0
+#define PF_DEBUG 1
 
 namespace Mercator  {
   
