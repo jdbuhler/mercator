@@ -894,7 +894,8 @@ namespace Mercator  {
 					Signal s;
 					s.setTag(Signal::SignalTag::Enum);
 					s.setParent(ss.getParent());
-					s.setRefCount(ss.getRefCount());
+					setParent(ss.getParent(), instIdx);
+					//s.setRefCount(ss.getRefCount());
 
 					//Reserve space downstream for enum signal
 		        		for (unsigned int c = 0; c < numChannels; c++) {
@@ -927,7 +928,7 @@ namespace Mercator  {
 					//Create a new enum signal to send downstream
 					Signal s;
 					s.setTag(Signal::SignalTag::Agg);
-					s.setParent(ss.getParent());
+					//s.setParent(ss.getParent());
 					s.setRefCount(ss.getRefCount());
 
 					//Reserve space downstream for enum signal

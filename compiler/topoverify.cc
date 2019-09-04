@@ -230,23 +230,26 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  Edge *e = node->dsEdges[j];
 	  if (e == nullptr) // output channel is not connected
 	    continue;
-	  //cout << "IS CHANNEL AGGREGATE?: " << (e->usChannel->isAggregate) << endl;
+	  cout << "IS CHANNEL AGGREGATE?: " << (e->usChannel->isAggregate) << endl;
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
 	  
+	  bool resetEnumID = false;
 	  if(e->usChannel->isAggregate) {
 	    //cout << "UPSTREAM CHANNEL IS AGGREGATE" << endl;
 	    //node->get_mutableModuleType()->add_refCount(enumId);
 	    //add_refCount(enumId);
 	    app->refCounts.at(enumId) += 1;
-	    node->set_enumerateId(0);
+	    //node->set_enumerateId(0);
+	    resetEnumID = true;
+	    app->isPropagate.at(mod->get_idx()) = true;
 	    //cout << "MOD REF COUNT: " << mod->get_refCount(enumId) << endl;
 	  }
 
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
 				    multiplier * nextAmpFactor,
-				    node->get_enumerateId(),
+				    (resetEnumID ? 0 : node->get_enumerateId()),
 				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)

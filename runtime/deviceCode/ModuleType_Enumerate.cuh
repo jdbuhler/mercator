@@ -173,8 +173,8 @@ namespace Mercator  {
     {
 	//stimcheck: TODO, set this part as a flag instead of running up currentCount to increase safety.
 	//Originally was ==, not >=
-	//if(currentCount[instIdx] == dataCount[instIdx] && !setCountFlag[instIdx]) {
-	if(currentCount[instIdx] == dataCount[instIdx]) {
+	if(currentCount[instIdx] == dataCount[instIdx] && !setCountFlag[instIdx]) {
+	//if(currentCount[instIdx] == dataCount[instIdx]) {
 		//stimcheck: Only remove elements from the parentBuffer if elements even exist, and only from the head value
 		while(parentBuffer.getOccupancy(instIdx) > 0) {
 			printf("[%d, %d] OCCUPANCY: %d\t\tREF COUNT: 0th: %d, Occth: %d\n", blockIdx.x, threadIdx.x, parentBuffer.getOccupancy(instIdx), refCounts.getElt(instIdx, 0), refCounts.getElt(instIdx, refCounts.getOccupancy(instIdx) - 1));
@@ -218,7 +218,7 @@ namespace Mercator  {
 			currentCount[instIdx] = 0;
 			dataCount[instIdx] = this->findCount(instIdx);
 			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\tcurrentRefCount = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s, rc);
-			//setCountFlag[instIdx] = true;
+			setCountFlag[instIdx] = true;
 			bufferFullFlag[instIdx] = false;
 		}
 		else {
@@ -323,7 +323,8 @@ namespace Mercator  {
 		//stimcheck: THIS SHOULD BE ==0, BUT CAUSES FAILURE IN SIGNAL QUEUE RESERVATION CURRENTLY.
 		//stimcheck: Now needs to be ==2, since above message AND the module could produce an
 		//enumerate AND an aggregate signal in the same firing.
-		if(dsSignalCapacity == 1) {
+		//if(dsSignalCapacity == 1) {
+		if(dsSignalCapacity == 2) {
 		  numFireable = 0;
 		  allChannelOutCapacity[instIdx] = 0;
 		  allChannelOutSignalCapacity[instIdx] = 0;
@@ -482,7 +483,6 @@ namespace Mercator  {
 	}
 	*/
 
-	/*
 	if(tid < numInstances) {
 		if(setCountFlag[tid]) {
 			setCountFlag[tid] = false;
@@ -530,7 +530,6 @@ namespace Mercator  {
 			}
 	}
 	__syncthreads();  //Make sure everyone sees new enum signal downstream, if created.
-	*/
 
 	#if PF_DEBUG
 	//if(fireableCount > 0 && tid < numInstances)
