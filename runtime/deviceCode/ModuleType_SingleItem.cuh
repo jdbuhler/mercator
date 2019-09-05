@@ -124,6 +124,7 @@ namespace Mercator  {
         int bid = blockIdx.x;
               #endif
 
+        MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
         __shared__ bool loopCont;
@@ -141,7 +142,6 @@ namespace Mercator  {
 
             while(loopCont && isDSSpace && numInputsPending(node)>0){
 
-              MOD_TIMER_START(gather);
               //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
               unsigned int totalFireable;
               if(isInTail()){
@@ -211,8 +211,8 @@ namespace Mercator  {
                 }
               }
               __syncthreads();
-              MOD_TIMER_STOP(gather);
             }
+            MOD_TIMER_STOP(gather);
 
               #ifdef PRINTDBG
                 if(IS_BOSS()) printf("%i: \tNode %u fired, has %u remaining in-queue\n", bid ,node, numInputsPending(node));
