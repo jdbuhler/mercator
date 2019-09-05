@@ -124,7 +124,6 @@ namespace Mercator  {
         int bid = blockIdx.x;
               #endif
 
-        MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
         __shared__ bool loopCont;

@@ -266,6 +266,13 @@ namespace Mercator  {
         activeFlag[i] = 1;
       }
     }
+    // call single threaded
+    __device__
+    void deactivateAll(){
+      for(unsigned int i=0;i<numInstances;i++){
+        activeFlag[i] = 0;
+      }
+    }
 
     //called with all threads
     __device__

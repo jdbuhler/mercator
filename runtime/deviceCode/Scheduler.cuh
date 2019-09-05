@@ -78,8 +78,10 @@ namespace Mercator  {
       for (int base = 0; base < numModules; base += THREADS_PER_BLOCK)
       {
         int idx = base + tid;
-        if (idx < numModules && modules[idx] != sourceModule)
-        modules[idx]->setInTail(false);
+        if (idx < numModules && modules[idx] != sourceModule){
+          modules[idx]->setInTail(false);
+          modules[idx]->deactivateAll();
+        }
       }
 
       //force source active

@@ -72,6 +72,10 @@ namespace Mercator  {
     void activateAll()=0;
 
 
+    __device__
+    virtual
+    void deactivateAll()=0;
+
     //called with all threads
     __device__
     virtual
