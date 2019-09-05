@@ -274,7 +274,7 @@ namespace Mercator  {
 		//if there exists no space, then report that there are no signals fireable.
 		//stimcheck: Extra note, changed the dsCapacity check to <=1 for Enumerate modules,
 		//since we can produce at least 2 signals from firing.
-	      if(dsCapacity <= 1) {
+	      if(dsCapacity <= 2) {
 		numFireable = 0;
 		break;
 	      }	      
@@ -324,7 +324,7 @@ namespace Mercator  {
 		//stimcheck: Now needs to be ==2, since above message AND the module could produce an
 		//enumerate AND an aggregate signal in the same firing.
 		//if(dsSignalCapacity == 1) {
-		if(dsSignalCapacity == 2) {
+		if(dsSignalCapacity <= 2) {
 		  numFireable = 0;
 		  allChannelOutCapacity[instIdx] = 0;
 		  allChannelOutSignalCapacity[instIdx] = 0;
