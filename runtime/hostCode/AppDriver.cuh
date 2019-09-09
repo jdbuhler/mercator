@@ -141,10 +141,17 @@ namespace Mercator  {
       
     #ifdef USE_MAX_BLOCKS
       nBlocks = nBlocksPerSM_suggested * numSMs;
-    #else
-      nBlocks=1;
     #endif
       
+    #ifdef USE_ONE_BLOCKS
+      nBlocks=1;
+    #endif
+
+    #ifdef USE_SM_BLOCKS
+      nBlocks=numSMs;
+    #endif
+    
+
       // allocate space on device for passing host parameter struct
       cudaMalloc(&hostParams, sizeof(HostParamsT));
       gpuErrchk( cudaPeekAtLastError() );

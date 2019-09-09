@@ -140,6 +140,9 @@ namespace Mercator  {
             }
             __syncthreads();
 
+
+            //TODO:: call numInputsPending(node) once, hold on to it and use an offset to keep track of where we are  
+            //TODO:: is this numInputsPending(node) really needed
             while(loopCont && isDSSpace && numInputsPending(node)>0){
 
               //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
@@ -164,6 +167,7 @@ namespace Mercator  {
                  : queue.getDummy()); // don't create a null reference
 
               __syncthreads(); // protect getElt
+              //TODO:: dont think i need this sync
               MOD_TIMER_STOP(gather);
 
               MOD_TIMER_START(run);
@@ -183,6 +187,8 @@ namespace Mercator  {
               }
 
               __syncthreads();
+
+              //TODO:: is this really necessarry, or will it always be the same for all threads.(should be the same because output queue is fixed after run then sink)
               using br = BlockReduce<int, THREADS_PER_BLOCK>;
               int temp = br::sum(local_isDSSpace, THREADS_PER_BLOCK);
 
@@ -196,14 +202,17 @@ namespace Mercator  {
               }
 
               __syncthreads(); // all threads must see reset channel state
+              
               MOD_TIMER_STOP(scatter);
 
               MOD_TIMER_START(gather);
               // release any items that we consumed in this firing
               if(IS_BOSS()){ //call single threaded
 	        COUNT_ITEMS_INST(node, totalFireable);  // instrumentation
+                //TODO:: lets try to release only once, so add an offset and then increment everytime for a node. only release when a node is done
                 queue.release(node, totalFireable);
                 // continue?? decide here
+                //TODO:: maybe ask the queue directly as opposed to asking the mod
                 if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
                   loopCont = false;
                   //deactivate this node since its out of input
