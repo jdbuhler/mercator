@@ -184,7 +184,7 @@ namespace Mercator  {
       //
       //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
       __device__
-      int  compressCopyToDSQueue(InstTagT node, bool isHead, bool isWriter)
+      bool  compressCopyToDSQueue(InstTagT node, bool isHead, bool isWriter)
       {
       int tid = threadIdx.x;
       int groupId = tid / threadGroupSize;
@@ -219,7 +219,7 @@ namespace Mercator  {
       //
 
           #ifdef PRINTDBG
-      if(isTail)printf("%u:%u\t\tqueueCap: %u, queueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
+      if(isTail)printf("%u:%u\t\tdsqueueCap: %u, dsqueueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
       #endif
 
 
@@ -276,13 +276,13 @@ namespace Mercator  {
       queueOcc = dsQueues[node]->getOccupancy(dsNode);
       dsQueue_rem = queueCap - queueOcc;
          #ifdef PRINTDBG
-      if(isTail)printf("%u:%u\t\tqueueCap: %u, queueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
+      if(isTail)printf("%u:%u\t\tdsqueueCap: %u, dsqueueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
       #endif
       //returns 0 if we can fire again, -1 if we cannot
       //return if i am allowed to fire again
       if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
         //printf("there is %u slots in ds queue\n", dsQueue_rem);
-        return 0;
+        return true;
       }
       
       //not enough space, so lets go ahead and activate the ds node
@@ -290,7 +290,7 @@ namespace Mercator  {
   
       ModuleTypeBase* dsModule = dsQueues[node]->getAssocatedModule();
       dsModule->activate(dsNode);
-      return -1;
+      return false;
     }
 
     __device__

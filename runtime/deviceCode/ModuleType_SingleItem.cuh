@@ -124,106 +124,84 @@ namespace Mercator  {
         int bid = blockIdx.x;
               #endif
 
+        unsigned int ew = ensembleWidth();
+        bool inTail = isInTail();
+ 
         MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
         DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-        __shared__ bool loopCont;
-        __shared__ bool isDSSpace;
         //for each node in the module
         for(unsigned int node=0; node<numInstances;node++){
           //if it was suppose to fire
           if(checkFiringMask(node)){
-            // set up shared var for the while loop
-            if(IS_BOSS()){
-              loopCont = true;
-              isDSSpace = true;
-            }
-            __syncthreads();
 
+            bool isDSSpace = true;
+            unsigned int preFireNumPending=numInputsPending(node);
+            unsigned int numFired = 0;
+            while( isDSSpace ){
 
-            //TODO:: call numInputsPending(node) once, hold on to it and use an offset to keep track of where we are  
-            //TODO:: is this numInputsPending(node) really needed
-            while(loopCont && isDSSpace && numInputsPending(node)>0){
+              //break when there is not enough stuff left
+              unsigned int remainingInQueue = preFireNumPending - numFired;
+              if ( (remainingInQueue <ew && !inTail) ||  remainingInQueue<=0){
+                break;
+              }
+
               //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
               unsigned int totalFireable;
               if(isInTail()){
-                totalFireable = min(ensembleWidth(), min(getFireableCount(node),numInputsPending(node) )); 
+                totalFireable = min(ew, min(getFireableCount(node), remainingInQueue )); 
               }
               else{
-                totalFireable = ensembleWidth();
+                totalFireable = ew;
               }
 
               assert(totalFireable > 0);
 
               #ifdef PRINTDBG
-                if(IS_BOSS()) printf("%i: \tNode %u pulling %u from %u (num pending)\n",bid, node,  totalFireable,  numInputsPending(node));
+              if(IS_BOSS()){
+                printf("%i: \tNode %u pulling %u from %u (num pending)\n",bid, node,  totalFireable,  numInputsPending(node));
+              }
               #endif
-
 
               const T &myData = 
                 (tid < totalFireable
-                 ? queue.getElt(node, tid)
+                 ? queue.getElt(node, tid+numFired)
                  : queue.getDummy()); // don't create a null reference
 
               MOD_TIMER_STOP(gather);
 
               MOD_TIMER_START(run);
-              //run with only maxRunSize threads
               if (tid < totalFireable)
                 mod->run(myData, node);
               __syncthreads(); // all threads must see active channel state
               MOD_TIMER_STOP(run);
 
               MOD_TIMER_START(scatter);
-
-              int local_isDSSpace=0;
               for (unsigned int c = 0; c < numChannels; c++){
                   //update if we should fire again also flips active flag on ds node
-                  //returns 0 if we can fire again, -1 if we cannot
-                  local_isDSSpace = local_isDSSpace + getChannel(c)->compressCopyToDSQueue(node,IS_BOSS(),isThreadGroupLeader() );
+                  isDSSpace = isDSSpace & getChannel(c)->compressCopyToDSQueue(node,IS_BOSS(),isThreadGroupLeader() );
               }
-
-              __syncthreads();
-
-              //TODO:: is this really necessarry, or will it always be the same for all threads.(should be the same because output queue is fixed after run then sink)
-              using br = BlockReduce<int, THREADS_PER_BLOCK>;
-              int temp = br::sum(local_isDSSpace, THREADS_PER_BLOCK);
-
-              if (IS_BOSS()){
-                if(temp==0){ //at least one node of this module is fireable or we are in tail
-                  isDSSpace = true;
-                }
-                else{
-                  isDSSpace = false;
-                }
-              }
-
               __syncthreads(); // all threads must see reset channel state
-              
               MOD_TIMER_STOP(scatter);
-
               MOD_TIMER_START(gather);
-              // release any items that we consumed in this firing
-              if(IS_BOSS()){ //call single threaded
-	        COUNT_ITEMS_INST(node, totalFireable);  // instrumentation
-                //TODO:: lets try to release only once, so add an offset and then increment everytime for a node. only release when a node is done
-                queue.release(node, totalFireable);
-                // continue?? decide here
-                //TODO:: maybe ask the queue directly as opposed to asking the mod
-                //if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
-                if (queue.getOccupancy(node) < ensembleWidth() && !isInTail()){
-                  loopCont = false;
-                  //deactivate this node since its out of input
-                  this->deactivate(node);
-                }
-              }
-              __syncthreads();
+              //increment offset
+              numFired+=totalFireable;
+
+              //go around again
             }
+
+            // release ALL items that were consumed during node firing 
+            if(IS_BOSS()){ //call single threaded
+              COUNT_ITEMS_INST(node, numFired);  // instrumentation
+              queue.release(node, numFired);
+              this->deactivate(node);
+            }
+
             MOD_TIMER_STOP(gather);
 
-              #ifdef PRINTDBG
-                if(IS_BOSS()) printf("%i: \tNode %u fired, has %u remaining in-queue\n", bid ,node, numInputsPending(node));
-              #endif
+            #ifdef PRINTDBG
+              if(IS_BOSS()) printf("%i: \tNode %u fired, has %u remaining in-queue\n", bid ,node, numInputsPending(node));
+            #endif
             //is this required 
             __syncthreads();
           }
