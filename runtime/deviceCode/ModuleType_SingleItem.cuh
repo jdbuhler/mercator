@@ -144,7 +144,6 @@ namespace Mercator  {
             //TODO:: call numInputsPending(node) once, hold on to it and use an offset to keep track of where we are  
             //TODO:: is this numInputsPending(node) really needed
             while(loopCont && isDSSpace && numInputsPending(node)>0){
-
               //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
               unsigned int totalFireable;
               if(isInTail()){
@@ -211,7 +210,8 @@ namespace Mercator  {
                 queue.release(node, totalFireable);
                 // continue?? decide here
                 //TODO:: maybe ask the queue directly as opposed to asking the mod
-                if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
+                //if (mod->numInputsPending(node) < ensembleWidth() && !isInTail()){
+                if (queue.getOccupancy(node) < ensembleWidth() && !isInTail()){
                   loopCont = false;
                   //deactivate this node since its out of input
                   this->deactivate(node);
