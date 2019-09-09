@@ -166,8 +166,6 @@ namespace Mercator  {
                  ? queue.getElt(node, tid)
                  : queue.getDummy()); // don't create a null reference
 
-              __syncthreads(); // protect getElt
-              //TODO:: dont think i need this sync
               MOD_TIMER_STOP(gather);
 
               MOD_TIMER_START(run);
