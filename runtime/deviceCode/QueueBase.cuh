@@ -32,7 +32,9 @@ namespace Mercator  {
   __device__
   virtual
   unsigned int getOccupancy(unsigned int instIdx) const =0;
-    
+  __device__
+  virtual
+  unsigned int getUtilization(unsigned int instIdx) const=0;
   };  // end class Queue
 
 }   // end Mercator namespace

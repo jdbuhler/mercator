@@ -179,7 +179,7 @@ namespace Mercator  {
               MOD_TIMER_START(scatter);
               for (unsigned int c = 0; c < numChannels; c++){
                   //update if we should fire again also flips active flag on ds node
-                  isDSSpace = isDSSpace & getChannel(c)->compressCopyToDSQueue(node,IS_BOSS(),isThreadGroupLeader() );
+                  isDSSpace = isDSSpace & getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader());
               }
               __syncthreads(); // all threads must see reset channel state
               MOD_TIMER_STOP(scatter);

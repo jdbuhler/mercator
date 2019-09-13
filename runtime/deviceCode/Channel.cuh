@@ -174,114 +174,51 @@ namespace Mercator  {
     }
     
       //
-      // @brief After a call to run(), scatter its outputs
-      //  to the appropriate queues.
+      // @brief After a call to run(), compress and wqrite to the ds queue
       //  NB: must be called with all threads
       //
-      // @param instIdx instance corresponding to current thread
-      // @param isHead is this the first thread for its instance?
-      // @param isWriter true iff thread is the writer for its group
+      // @param node , specific node in the module we are fireing
+      // @param isLeader true iff thread is threadGroupLeader
       //
-      //TODO:: simplfy this a lot cause we arnt pulling from multiple queue
       __device__
-      bool  compressCopyToDSQueue(InstTagT node, bool isHead, bool isWriter)
+      bool  compressCopyToDSQueue(InstTagT node, bool isLeader)
       {
+      assert(node< numInstances);
       int tid = threadIdx.x;
-      int groupId = tid / threadGroupSize;
-      unsigned int dsNode = dsInstances[node];
-      unsigned int queueCap = dsQueues[node]->getCapacity(dsNode);
-      unsigned int queueOcc = dsQueues[node]->getOccupancy(dsNode);
-      unsigned int dsQueue_rem = queueCap - queueOcc;
-      //
-      // Compute a segmented exclusive sum of the number of outputs to
-      // be written back to queues by each thread group.  Only the
-      // writer threads contribute to the sums.
-      //
-      
-      BlockSegScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
-      
-      unsigned int count = (isWriter ? nextSlot[groupId] : 0);
-      unsigned int sum = scanner.exclusiveSumSeg(count, isHead);
-      
-      //
-      // Find the first and last thread for each instance.  Inputs
-      // to one node are assigned to a contiguous set of threads.
-      //
-      
-      BlockDiscontinuity<InstTagT, Props::THREADS_PER_BLOCK> disc;
-      
-      bool isTail = disc.flagTails(node, NULLTAG);
-        
-      //
-      // The last thread with a given instance can compute the total
-      // number of outputs written for that instance.  That total
-      // is used to reserve space in the instance's downstream queue. 
-      //
+      int threadGroup = tid / threadGroupSize; //input item really
 
-          #ifdef PRINTDBG
-      if(isTail)printf("%u:%u\t\tdsqueueCap: %u, dsqueueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
-      #endif
-
-
-
-      __shared__ unsigned int dsBase[numInstances];
-      if (isTail  && node< numInstances)
+      BlockScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
+      unsigned int instTotal;
+      unsigned int sum = scanner. exclusiveSum(nextSlot[threadGroup], instTotal);
+      unsigned int count = nextSlot[threadGroup];
+      __shared__ unsigned int dsBase;
+      if ( IS_BOSS() )
 	{
-	  unsigned int instTotal = sum + count; // exclusive -> inclusive sum
-	  	  
 	  COUNT_ITEMS_INST(node, instTotal);  // instrumentation
-          #ifdef PRINTDBG
-            printf("%u:\t\tChannel total dumping:%u\n",blockIdx.x, instTotal); 
-          #endif
-	  dsBase[node] = directReserve(node, instTotal);
+	  dsBase= directReserve(node, instTotal);
 	}
-      
-      __syncthreads(); // all threads must see updates to dsBase[]
-      
-      //
-      // Finally, writer threads move the data to its queue.  We
-      // take some loss of occupancy by looping over the outputs, 
-      // but it saves us from having to tag each output with its
-      // instance number (which would be needed if we tried to do
-      // the writes using contiguous threads.)
-      //
-      
-      if (isWriter)
-	{
-	  for (unsigned int j = 0; j < count; j++)
-	    {
-	      // where is the item in the ouput buffer?
-	      unsigned int srcOffset = tid * outputsPerInput + j;
-	      
-	      // where is the item going in the ds queue?
-	      unsigned int dstOffset = sum + j;
-	      
-	      if (node < numInstances) // is this thread active?
-		{
-		  const T &myData = data[srcOffset];
-		  
-		  directWrite(node, myData, dsBase[node], dstOffset);
-		}
-	    }
-	}
-   
-
-      // finally, reset the output counters per thread group
+      __syncthreads(); // all threads must see updates to dsBase
+  
+      //each threadgroups leader copies all output from that input down stream
+      if(isLeader){
+        for (unsigned int j = 0; j <count; j++){
+          unsigned int srcOffset = threadGroup * outputsPerInput + j;
+          unsigned int dstOffset = sum + j;
+          const T &myData = data[srcOffset];
+          directWrite(node, myData, dsBase, dstOffset);
+        }
+      }
+      //clear nextSlot for this threadgroup
       if (tid < numThreadGroups)
-	nextSlot[tid] = 0;
-    
-      __syncthreads();
+        nextSlot[tid] = 0;
 
       //update ds varables
-      queueOcc = dsQueues[node]->getOccupancy(dsNode);
-      dsQueue_rem = queueCap - queueOcc;
-         #ifdef PRINTDBG
-      if(isTail)printf("%u:%u\t\tdsqueueCap: %u, dsqueueOcc: %u, dsQueue_rem:%u\n",blockIdx.x,threadIdx.x, queueCap, queueOcc, dsQueue_rem);
-      #endif
+      unsigned int dsNode = dsInstances[node];
+      unsigned int dsQueue_rem = dsQueues[node]->getUtilization(dsNode);
+    
       //returns 0 if we can fire again, -1 if we cannot
       //return if i am allowed to fire again
       if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
-        //printf("there is %u slots in ds queue\n", dsQueue_rem);
         return true;
       }
       

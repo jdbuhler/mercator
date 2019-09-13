@@ -104,6 +104,23 @@ namespace Mercator  {
     unsigned int getTotalCapacity() const
     { return totalCapacity; }
 
+    
+    
+
+    //
+    // @brief get Utilization of queue
+    //
+    // @param instIdx instance to query
+    //
+    __device__
+    unsigned int getUtilization(unsigned int instIdx) const
+    {
+      assert(instIdx < numInstances);
+      unsigned int cap = dataSizes[instIdx] - 1;
+      unsigned int occ = (tails[instIdx] - heads[instIdx] + (tails[instIdx] < heads[instIdx] ? dataSizes[instIdx] : 0));      
+      return cap-occ;
+    }
+
     //
     // @brief get capacity of queue
     //
