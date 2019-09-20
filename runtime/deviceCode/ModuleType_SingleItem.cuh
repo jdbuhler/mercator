@@ -87,6 +87,7 @@ namespace Mercator  {
     using BaseType::ensembleWidth;
     using BaseType::numInputsPending;
     using BaseType::isInTail;
+    using BaseType::deactivate;
     
     // make these downwardly available to the user
     using BaseType::getNumInstances;
@@ -124,11 +125,13 @@ namespace Mercator  {
         int bid = blockIdx.x;
               #endif
 
+        MOD_TIMER_START(gather);
         unsigned int ew = ensembleWidth();
         bool inTail = isInTail();
         unsigned int worstCaseMult = this->maxOutputPerInput_AllChannels; 
-        MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
+        DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
+
         //for each node in the module
         for(unsigned int node=0; node<numInstances;node++){
           //if it was suppose to fire
@@ -140,11 +143,11 @@ namespace Mercator  {
             unsigned int totalToFire = numInputsPending(node);
 
             //round down to nearest multiple of ew
-            if(!inTail){
-              unsigned int overfill = totalToFire % ew;
-              totalToFire-=overfill;
-            }
-            else{ //we are in tail, and are force to compute safe amount to fire 
+            unsigned int overfill = totalToFire % ew;
+            totalToFire-=overfill;
+            //we are in tail, and are force to compute safe amount to fire
+            //overwrite what we had before  
+            if(inTail){
               totalToFire = getFireableCount(node);
             }
 
@@ -152,10 +155,14 @@ namespace Mercator  {
             //input queue (in chunks of ensamble width)
             while( numFired<totalToFire ){
              
-           
-
               //num to fire is the smaller of stuff remaining and ew
-              unsigned int numToFire = min(totalToFire - numFired, ew);
+              unsigned int numToFire = ew;
+              unsigned int leftToFire = totalToFire - numFired;
+              //overwrite numToFire
+              if( leftToFire < ew){
+                numToFire  = leftToFire;
+              }
+              
               
               if (spaceAvail < numToFire * worstCaseMult){
                 break;
@@ -181,7 +188,6 @@ namespace Mercator  {
               MOD_TIMER_STOP(gather);
 
               MOD_TIMER_START(run);
-              DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
               if (tid < numToFire)
                 mod->run(myData, node);
               __syncthreads(); // all threads must see active channel state
@@ -192,7 +198,11 @@ namespace Mercator  {
               numFired+=numToFire;
               for (unsigned int c = 0; c < numChannels; c++){
                   //update if we should fire again also flips active flag on ds node
-                  spaceAvail = min(spaceAvail, getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader()));
+                  unsigned int DSspace = getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader());
+                  if(spaceAvail>DSspace){
+                    spaceAvail = DSspace; 
+                  }
+              
               }
 
               __syncthreads(); // all threads must see reset channel state
@@ -207,7 +217,8 @@ namespace Mercator  {
               //if there is still downstream space, 
               //but we made it here, that means we are out of input and should deactivate
               if(spaceAvail>= ew * worstCaseMult){
-                this->deactivate(node);
+                //this->deactivate(node);
+                deactivate(node);
               }
               
             }

@@ -13,7 +13,7 @@
 //
 
 // instrument code timing for performance model parameters?
-//#define INSTRUMENT_TIME
+#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS
