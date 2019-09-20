@@ -136,6 +136,9 @@ namespace Mercator  {
 
       //tell our queue who we are 
       queue.setModuleAssocation((ModuleTypeBase*)this);
+
+      //zero out var
+      maxOutputPerInput_AllChannels = 0;
     }
     
     
@@ -178,15 +181,18 @@ namespace Mercator  {
       
       channels[c] = new Channel<DST>(outputsPerInput, 
              reservedSlots);
-      
+
+      //store worst case multiplier for use later
+      maxOutputPerInput_AllChannels = max(maxOutputPerInput_AllChannels, outputsPerInput); 
+
       // make sure alloc succeeded
       if (channels[c] == nullptr)
-  {
-    printf("ERROR: failed to allocate channel object [block %d]\n",
-     blockIdx.x);
-    
-    crash();
-  }
+      {
+        printf("ERROR: failed to allocate channel object [block %d]\n",
+         blockIdx.x);
+        
+        crash();
+      }
     }
     
     
@@ -570,6 +576,7 @@ namespace Mercator  {
     
   protected:
 
+    unsigned int maxOutputPerInput_AllChannels;
     unsigned int activeFlag[numInstances]; //is this node active 
     unsigned int firingMask[numInstances];
     ChannelBase* channels[numChannels];  // module's output channels

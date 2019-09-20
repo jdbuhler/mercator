@@ -126,7 +126,7 @@ namespace Mercator  {
 
         unsigned int ew = ensembleWidth();
         bool inTail = isInTail();
- 
+        unsigned int worstCaseMult = this->maxOutputPerInput_AllChannels; 
         MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
         //for each node in the module
@@ -134,36 +134,47 @@ namespace Mercator  {
           //if it was suppose to fire
           if(checkFiringMask(node)){
 
-            bool isDSSpace = true;
-            unsigned int preFireNumPending=numInputsPending(node);
+            //this is true at selectioni time , ensure by scheduler
+            unsigned int spaceAvail = ew * worstCaseMult; 
             unsigned int numFired = 0;
-            while( isDSSpace ){
+            unsigned int totalToFire = numInputsPending(node);
 
-              //break when there is not enough stuff left
-              unsigned int remainingInQueue = preFireNumPending - numFired;
-              if ( (remainingInQueue <ew && !inTail) ||  remainingInQueue<=0){
+            //round down to nearest multiple of ew
+            if(!inTail){
+              unsigned int overfill = totalToFire % ew;
+              totalToFire-=overfill;
+            }
+            else{ //we are in tail, and are force to compute safe amount to fire 
+              totalToFire = getFireableCount(node);
+            }
+
+            //keep going until we have exaused our
+            //input queue (in chunks of ensamble width)
+            while( numFired<totalToFire ){
+             
+           
+
+              //num to fire is the smaller of stuff remaining and ew
+              unsigned int numToFire = min(totalToFire - numFired, ew);
+              
+              if (spaceAvail < numToFire * worstCaseMult){
                 break;
-              }
+              } 
 
-              //set up fireable count to be maxRunSize if not in tail, else take whattever you can get
-              unsigned int totalFireable;
-              if(isInTail()){
-                totalFireable = min(ew, min(getFireableCount(node), remainingInQueue )); 
-              }
-              else{
-                totalFireable = ew;
-              }
-
-              assert(totalFireable > 0);
+              assert(numToFire> 0);
 
               #ifdef PRINTDBG
               if(IS_BOSS()){
-                printf("%i: \tNode %u pulling %u from %u (num pending)\n",bid, node,  totalFireable,  numInputsPending(node));
+                printf("%i: \tNode %u pulling %u from %u (num pending)\n",
+                        bid, 
+                        node,  
+                        numToFire,  
+                        numInputsPending(node));
               }
               #endif
 
               const T &myData = 
-                (tid < totalFireable
+                (tid < numToFire
                  ? queue.getElt(node, tid+numFired)
                  : queue.getDummy()); // don't create a null reference
 
@@ -171,30 +182,31 @@ namespace Mercator  {
 
               MOD_TIMER_START(run);
               DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
-              if (tid < totalFireable)
+              if (tid < numToFire)
                 mod->run(myData, node);
               __syncthreads(); // all threads must see active channel state
               MOD_TIMER_STOP(run);
 
+
               MOD_TIMER_START(scatter);
+              numFired+=numToFire;
               for (unsigned int c = 0; c < numChannels; c++){
                   //update if we should fire again also flips active flag on ds node
-                  isDSSpace = isDSSpace & getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader());
+                  spaceAvail = min(spaceAvail, getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader()));
               }
+
               __syncthreads(); // all threads must see reset channel state
               MOD_TIMER_STOP(scatter);
               MOD_TIMER_START(gather);
-              //increment offset
-              numFired+=totalFireable;
-
-              //go around again
             }
 
             // release ALL items that were consumed during node firing 
             if(IS_BOSS()){ //call single threaded
               COUNT_ITEMS_INST(node, numFired);  // instrumentation
               queue.release(node, numFired);
-              if (isDSSpace){ //if there is still downstream space, but we made it here, that means we are out of input and should deactivate
+              //if there is still downstream space, 
+              //but we made it here, that means we are out of input and should deactivate
+              if(spaceAvail>= ew * worstCaseMult){
                 this->deactivate(node);
               }
               

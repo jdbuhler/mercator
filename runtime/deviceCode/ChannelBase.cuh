@@ -70,7 +70,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    bool  compressCopyToDSQueue(InstTagT, bool) = 0;
+    unsigned int   compressCopyToDSQueue(InstTagT, bool) = 0;
 
     __device__
     virtual
