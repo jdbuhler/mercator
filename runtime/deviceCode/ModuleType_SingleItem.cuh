@@ -194,7 +194,10 @@ namespace Mercator  {
             if(IS_BOSS()){ //call single threaded
               COUNT_ITEMS_INST(node, numFired);  // instrumentation
               queue.release(node, numFired);
-              this->deactivate(node);
+              if (isDSSpace){ //if there is still downstream space, but we made it here, that means we are out of input and should deactivate
+                this->deactivate(node);
+              }
+              
             }
 
             MOD_TIMER_STOP(gather);
