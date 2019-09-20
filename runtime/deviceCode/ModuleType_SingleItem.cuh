@@ -129,7 +129,6 @@ namespace Mercator  {
  
         MOD_TIMER_START(gather);
         Queue<T> &queue = this->queue; 
-        DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
         //for each node in the module
         for(unsigned int node=0; node<numInstances;node++){
           //if it was suppose to fire
@@ -171,6 +170,7 @@ namespace Mercator  {
               MOD_TIMER_STOP(gather);
 
               MOD_TIMER_START(run);
+              DerivedModuleType *mod = static_cast<DerivedModuleType *>(this);
               if (tid < totalFireable)
                 mod->run(myData, node);
               __syncthreads(); // all threads must see active channel state

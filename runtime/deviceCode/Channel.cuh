@@ -225,6 +225,9 @@ namespace Mercator  {
       //not enough space, so lets go ahead and activate the ds node
       //only one thread activates the ds modules
   
+      //TODO:: update so that the channel can directly access 
+      //the ds active state so that we can flit it with one mem access 
+
       ModuleTypeBase* dsModule = dsQueues[node]->getAssocatedModule();
       dsModule->activate(dsNode);
       return false;
