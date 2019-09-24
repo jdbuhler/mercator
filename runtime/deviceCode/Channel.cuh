@@ -181,7 +181,7 @@ namespace Mercator  {
       // @param isLeader true iff thread is threadGroupLeader
       //
       __device__
-      unsigned int  compressCopyToDSQueue(InstTagT node, bool isLeader)
+      unsigned int  compressCopyToDSQueue(InstTagT node, bool isLeader, unsigned int* dsActiveFlagAddr, unsigned int* dsUtilAddr)
       {
       assert(node< numInstances);
       int tid = threadIdx.x;
@@ -215,10 +215,10 @@ namespace Mercator  {
       if (tid < numThreadGroups)
         nextSlot[tid] = 0;
 
+
       //update ds varables
-      unsigned int dsNode = dsInstances[node];
-      unsigned int dsQueue_rem = dsQueues[node]->getUtilization(dsNode);
-    
+      unsigned int dsQueue_rem = *dsUtilAddr;
+ 
       //returns 0 if we can fire again, -1 if we cannot
       //return if i am allowed to fire again
       if(dsQueue_rem >= (maxRunSize*outputsPerInput)){//it is safe to fire again 
@@ -231,11 +231,10 @@ namespace Mercator  {
       //TODO:: update so that the channel can directly access 
       //the ds active state so that we can flit it with one mem access 
 
-      ModuleTypeBase* dsModule = dsQueues[node]->getAssocatedModule();
       #ifdef PRINTDBG
             if(IS_BOSS())printf("%u:\tActivated DSnode\n", blockIdx.x, instTotal);
       #endif
-      dsModule->activate(dsNode);
+      *dsActiveFlagAddr = 1;
       return dsQueue_rem;
     }
 

@@ -85,6 +85,14 @@ namespace Mercator  {
     virtual
     QueueBase *getUntypedQueue() const =0;
 
+    
+    __device__
+    virtual
+    unsigned int* activeFlagAddressOf(unsigned int node) =0;
+
+    __device__
+    virtual
+    void addressShortCut()=0;
     ///////////////////////////////////////////////////////////////////
     //OLD SCHEDULING INTERFACE (see ModuleType.cuh for details)
     ///////////////////////////////////////////////////////////////////

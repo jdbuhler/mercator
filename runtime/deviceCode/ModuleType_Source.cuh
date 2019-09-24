@@ -131,6 +131,9 @@ namespace Mercator  {
     
   private:
 
+    using BaseType::dsQueueUtilAddress;
+    using BaseType::dsActiveFlagAddress;
+
     using BaseType::getChannel;
     using BaseType::getFireableCount;
     
@@ -267,13 +270,10 @@ namespace Mercator  {
             const Channel *channel = static_cast<Channel *>(getChannel(c));
             channel->directWrite(0, myData, dsBase[c], tid); 
             //while we have this convient channel pointer, may as well check what the occupancy is like
-            ModuleTypeBase* dsModule = channel->getDSModule(0);
-            unsigned int dsInstId = (unsigned int)channel->getDSInstance(0);
-            QueueBase* dsQueue = dsModule->getUntypedQueue();
-            unsigned int dsQueue_rem = dsQueue->getUtilization(dsInstId);
+            unsigned int dsQueue_rem = *dsQueueUtilAddress[0][c];
             //if there is not enough space to fire us again, activate DS 
             if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
-              dsModule->activate(dsInstId);
+              *dsActiveFlagAddress[0][c]=1;
               //if(tid==0) printf("activating ds and breaking\n");
               loopCont =false;
               //maybe do this section in paraallel for all channels, then use 

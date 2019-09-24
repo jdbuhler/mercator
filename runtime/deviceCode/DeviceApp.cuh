@@ -72,6 +72,12 @@ namespace Mercator {
 	modules[j]->init();
       
       __syncthreads(); // make sure init is visible to all threads
+
+      //setup shortcut addresses for fast accesses
+      for (unsigned int j = 0; j < numModules; j++){
+            modules[j]->addressShortCut();  
+      } 
+      
       
       scheduler.run(modules, modules[sourceModuleIdx]);
       

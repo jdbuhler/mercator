@@ -61,6 +61,7 @@ namespace Mercator  {
 	  dataSizes[i] = capacities[i] + 1;
 	  heads[i]     = 0;
 	  tails[i]     = 0;
+          totalUtil[i]= 0;
 	  
 	  data[i]      = new T [dataSizes[i]];
 	  
@@ -191,6 +192,7 @@ namespace Mercator  {
       tails[instIdx] = 
 	addModulo(tails[instIdx], nElts, dataSizes[instIdx]);
 
+      totalUtil[instIdx]=getUtilization(instIdx);
       return oldTail;
     }
     
@@ -217,6 +219,7 @@ namespace Mercator  {
       //if(instIdx==0){
       //  printf("release didnt crash\n"); 
       //}
+      totalUtil[instIdx]=getUtilization(instIdx);
     }
     
     
@@ -282,6 +285,12 @@ namespace Mercator  {
     const T &getDummy() const
     { return data[0][0]; }
     
+    __device__
+    unsigned int* getUtilAddressof(unsigned int instIdx){
+      return &totalUtil[instIdx];
+    }
+
+
   private:
 
     void* owner; //what is the module id that should be associated witht his queue
@@ -296,7 +305,9 @@ namespace Mercator  {
     unsigned int tails[WARP_SIZE];   // tail ptr -- pts to next *free slot*
     
     unsigned int totalCapacity; // total capacity of all queues
-    
+   
+    unsigned int totalUtil[WARP_SIZE];    
+ 
     // add two numbers x, y modulo m
     // we assume that x and y are each < m, so we can implement
     // modulus with one conditional subtraction rather than division.

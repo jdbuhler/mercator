@@ -35,6 +35,9 @@ namespace Mercator  {
   __device__
   virtual
   unsigned int getUtilization(unsigned int instIdx) const=0;
+  __device__
+  virtual
+  unsigned int* getUtilAddressof(unsigned int instIdx)=0;
   };  // end class Queue
 
 }   // end Mercator namespace

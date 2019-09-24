@@ -338,11 +338,7 @@ namespace Mercator  {
       }
 
       for (unsigned int c = 0; c < numChannels; ++c){
-        //get dsModule for tid node
-        ModuleTypeBase* dsMod = channels[c]->getDSModule(instIdx);
-        unsigned int dsInstIdx = (unsigned int)channels[c]->getDSInstance(instIdx);      
-
-        isFireable = isFireable && !dsMod->getActiveFlag(dsInstIdx);
+        isFireable = isFireable && !(*dsActiveFlagAddress[instIdx][c]);
         if(!isFireable){ //break once we go false
           lastFireableCount[instIdx] = 0;
           break;
@@ -573,9 +569,29 @@ namespace Mercator  {
     }
     
 #endif
-    
-  protected:
+  
+  __device__
+  unsigned int* activeFlagAddressOf(unsigned int node){
+    return &activeFlag[node];
+  }   
+  __device__
+  void addressShortCut(){
+    for(int i=0;i<numInstances;i++){
+      for(int c=0;c<numChannels;c++){
+        ModuleTypeBase* dsMod = channels[c]->getDSModule(i);
+        unsigned int dsNode = (unsigned int)channels[c]->getDSInstance(i);
+        dsActiveFlagAddress[i][c] = dsMod->activeFlagAddressOf(dsNode);
+        QueueBase* dsQueue = dsMod->getUntypedQueue();
+        dsQueueUtilAddress[i][c]  = dsQueue->getUtilAddressof(dsNode);
+      }
+    }
 
+  }
+ 
+  protected:
+    
+    unsigned int* dsActiveFlagAddress [numInstances][numChannels]; 
+    unsigned int* dsQueueUtilAddress [numInstances][numChannels]; 
     unsigned int maxOutputPerInput_AllChannels;
     unsigned int activeFlag[numInstances]; //is this node active 
     unsigned int firingMask[numInstances];

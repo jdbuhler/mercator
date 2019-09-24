@@ -88,7 +88,11 @@ namespace Mercator  {
     using BaseType::numInputsPending;
     using BaseType::isInTail;
     using BaseType::deactivate;
-    
+    using BaseType::dsActiveFlagAddress; 
+    using BaseType::dsQueueUtilAddress; 
+       
+
+ 
     // make these downwardly available to the user
     using BaseType::getNumInstances;
     using BaseType::getNumActiveThreads;
@@ -198,7 +202,7 @@ namespace Mercator  {
               numFired+=numToFire;
               for (unsigned int c = 0; c < numChannels; c++){
                   //update if we should fire again also flips active flag on ds node
-                  unsigned int DSspace = getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader());
+                  unsigned int DSspace = getChannel(c)->compressCopyToDSQueue(node, isThreadGroupLeader(), dsActiveFlagAddress[node][c], dsQueueUtilAddress[node][c]);
                   if(spaceAvail>DSspace){
                     spaceAvail = DSspace; 
                   }
