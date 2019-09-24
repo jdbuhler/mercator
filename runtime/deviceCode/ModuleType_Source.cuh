@@ -136,7 +136,8 @@ namespace Mercator  {
 
     using BaseType::getChannel;
     using BaseType::getFireableCount;
-    
+    using BaseType::maxOutputPerInput_AllChannels; 
+ 
 #ifdef INSTRUMENT_TIME
     using BaseType::gatherTimer;
     using BaseType::runTimer;
@@ -201,10 +202,18 @@ namespace Mercator  {
       
       // type of our downstream channels matchses our input type,
       // since the source module just copies its inputs downstream
-      using Channel = typename BaseType::Channel<T>;
-      
-      
+
       MOD_TIMER_START(gather);
+      using Channel = typename BaseType::Channel<T>;
+      const Channel* enumChannels[numChannels];      
+
+      // enum channels once then use multiple
+      for (unsigned int c = 0; c < numChannels; c++){
+      enumChannels[c]= static_cast<Channel *>(getChannel(c));
+      }
+  
+
+      unsigned int ew = this->ensembleWidth();
       __shared__ bool loopCont;     
   
       if(IS_BOSS()){
@@ -215,7 +224,7 @@ namespace Mercator  {
 
       while(loopCont){
         //if we fire (and not in tail) then it is implyed that we have enought for maxRunSize
-        unsigned int totalFireable = min(this->ensembleWidth(), (unsigned int)numPending);
+        unsigned int totalFireable = min(ew, (unsigned int)numPending);
 
         MOD_OCC_COUNT(totalFireable);
         
@@ -231,8 +240,7 @@ namespace Mercator  {
         
         __shared__ unsigned int dsBase[numChannels];
         if (tid < numChannels){
-          const Channel *channel = static_cast<Channel *>(getChannel(tid));
-          dsBase[tid] = channel->directReserve(0, totalFireable);
+          dsBase[tid] = enumChannels[tid]->directReserve(0, totalFireable);
         }
         __syncthreads(); // all threads must see dsBase[] values
         
@@ -267,12 +275,11 @@ namespace Mercator  {
 	    COUNT_ITEMS_INST(0, totalFireable);  // instrumentation
           }
           for (unsigned int c = 0; c < numChannels; c++){
-            const Channel *channel = static_cast<Channel *>(getChannel(c));
-            channel->directWrite(0, myData, dsBase[c], tid); 
+            enumChannels[c]->directWrite(0, myData, dsBase[c], tid); 
             //while we have this convient channel pointer, may as well check what the occupancy is like
             unsigned int dsQueue_rem = *dsQueueUtilAddress[0][c];
             //if there is not enough space to fire us again, activate DS 
-            if(dsQueue_rem <= (this->ensembleWidth()*channel->getGain())){ 
+            if(dsQueue_rem <= (ew*maxOutputPerInput_AllChannels)){ 
               *dsActiveFlagAddress[0][c]=1;
               //if(tid==0) printf("activating ds and breaking\n");
               loopCont =false;
