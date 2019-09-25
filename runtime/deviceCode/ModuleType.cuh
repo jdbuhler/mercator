@@ -911,13 +911,13 @@ namespace Mercator  {
 							}
 							pushSignal(s, instIdx, channel);
 						}
-						else {
-							printf("AGGREGATE CHANNEL FOUND\n");
-						}
+						//else {
+						//	printf("AGGREGATE CHANNEL FOUND\n");
+						//}
 					}
-					//#if PF_DEBUG
+					#if PF_DEBUG
 					printf("Enumerate Signal Processed\t%d\t%d\n", sigQueueOcc, s.getCredit());
-					//#endif
+					#endif
 					break;
 				}
 
@@ -946,9 +946,9 @@ namespace Mercator  {
 							pushSignal(s, instIdx, channel);
 						}
 						else {
-							printf("SUBTRACTING BEFORE %d\n", s.getRefCount()[0]);
+							//printf("SUBTRACTING BEFORE %d\n", s.getRefCount()[0]);
 							s.getRefCount()[0] -= 1;
-							printf("SUBTRACTING AFTER %d\n", s.getRefCount()[0]);
+							//printf("SUBTRACTING AFTER %d\n", s.getRefCount()[0]);
 						}
 					}
 					#if PF_DEBUG
@@ -965,7 +965,7 @@ namespace Mercator  {
 					Signal s;
 					s.setTag(Signal::SignalTag::Tail);
 
-					assert(!(isInTailInit()));
+					//assert(!(isInTailInit()));
 
 					setInTailInit(true);
 
@@ -1086,6 +1086,36 @@ namespace Mercator  {
 
 	//Reset number of items produced if we have processed a signal
 	channel->resetNumProduced(instIdx);
+    }
+
+    // stimcheck: Push Signal to downstream channel
+    // Uses void* for channel type (Since the type does not matter)
+    //
+    // @brief Write an output signal to the indicated channel.
+    //
+    // @param item Item to be written
+    // @param instTag tag of node that is writing item
+    // @param channelIdx channel to which to write the item
+    //
+    template<typename DST>
+    __device__
+    void pushAggregate(const DST &item, 
+	      		unsigned int instIdx, 
+	      		unsigned int channelIdx = 0) const
+    {
+      //Channel<void*>* channel = 
+	//static_cast<Channel<void*> *>(channels[channelIdx]);
+      Channel<DST>* channel = 
+	static_cast<Channel<DST> *>(channels[channelIdx]);
+      
+     // channel->pushSignal(item, isThreadGroupLeader());
+	unsigned int dsBase = channel->directReserve(instIdx, 1);
+
+	//Write enum signal to downstream node
+	channel->directWrite(instIdx, item, dsBase, 0);
+
+	//Reset number of items produced if we have processed a signal
+	//channel->resetNumProduced(instIdx);
     }
   };  // end ModuleType class
 }  // end Mercator namespace

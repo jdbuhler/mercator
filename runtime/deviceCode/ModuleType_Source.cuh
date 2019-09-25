@@ -129,6 +129,7 @@ namespace Mercator  {
 	this->setInTailInit(true);
       }
 
+	/*
 	      if (numPending == 0) { // no more input left to request!
       		using Channel = typename BaseType::Channel<T>;
 		this->setInTail(true);
@@ -161,6 +162,7 @@ namespace Mercator  {
 		  channel->directSignalWrite(0, s, dsSignalBase[c], 0); 
 		}
               }
+	*/
     }
     
   private:

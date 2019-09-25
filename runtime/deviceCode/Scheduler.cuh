@@ -221,7 +221,7 @@ namespace Mercator  {
 	clock_t global_now = now;
 	*/
 
-      assert(hasAllInTail);
+      //assert(hasAllInTail);
       assert(!hasPendingS);
       assert(!hasPendingC);
       assert(!hasPending);

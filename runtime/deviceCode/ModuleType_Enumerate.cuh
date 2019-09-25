@@ -177,12 +177,16 @@ namespace Mercator  {
 	//if(currentCount[instIdx] == dataCount[instIdx]) {
 		//stimcheck: Only remove elements from the parentBuffer if elements even exist, and only from the head value
 		while(parentBuffer.getOccupancy(instIdx) > 0) {
+			#if PF_DEBUG
 			printf("[%d, %d] OCCUPANCY: %d\t\tREF COUNT: 0th: %d, Occth: %d\n", blockIdx.x, threadIdx.x, parentBuffer.getOccupancy(instIdx), refCounts.getElt(instIdx, 0), refCounts.getElt(instIdx, refCounts.getOccupancy(instIdx) - 1));
+			#endif
 			if(refCounts.getElt(instIdx, refCounts.getOccupancy(instIdx) - 1) == 0) {
 			//if(refCounts.getElt(instIdx, 0) == 0) {
 				refCounts.release(instIdx, 1);
 				parentBuffer.release(instIdx, 1);
+				#if PF_DEBUG
 				printf("[%d, %d] RELEASED PARENT\n", blockIdx.x, threadIdx.x);
+				#endif
 			}
 			else {
 				break;
@@ -217,7 +221,9 @@ namespace Mercator  {
 
 			currentCount[instIdx] = 0;
 			dataCount[instIdx] = this->findCount(instIdx);
+			#if PF_DEBUG
 			printf("[%d] IN HERE\t\trefCounts[here] = %d\t\trefelt = %d\t\tcurrentParent = %p\tcurrentRefCount = %p\n", blockIdx.x, refCounts.getElt(instIdx, offset), refelt, s, rc);
+			#endif
 			setCountFlag[instIdx] = true;
 			bufferFullFlag[instIdx] = false;
 		}
@@ -512,10 +518,14 @@ namespace Mercator  {
 					s.setCredit(channel->dsPendingOccupancy(instIdx));
 				}
 
+				#if PF_DEBUG
 				printf("[%d] BEFORE ENUM SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
+				#endif
 				s.setParent(&parentBuffer.getModifiableTail(instIdx));
 				s.setRefCount(&refCounts.getModifiableTail(instIdx));
+				#if PF_DEBUG
 				printf("[%d] AFTER ENUM SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
+				#endif
 
 				//If the channel is NOT an aggregate channel, send a new enum signal downstream
 				if(!(channel->isAggregate())) {
@@ -693,8 +703,8 @@ namespace Mercator  {
 	//	currentCount[tid] = 0;
 	 // }
 	  if(dataCount[tid] == 0) {
-		printf("RELEASED HERE\n");
 		#if PF_DEBUG
+		printf("RELEASED HERE\n");
 		printf("MADE IT\t\tCURRENT COUNT = %d\t\tDATA COUNT = %d\t\tCURRENT CREDIT = %d\n", currentCount[tid], dataCount[tid], this->currentCredit[tid]);
 		#endif
 		sendAggSignal = true;
@@ -747,13 +757,17 @@ namespace Mercator  {
 			s.setCredit(channel->dsPendingOccupancy(instIdx));
 		}
 
+		#if PF_DEBUG
 		printf("[%d] BEFORE AGG SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
+		#endif
 		s.setParent(&parentBuffer.getModifiableTail(instIdx));
 		s.setRefCount(&refCounts.getModifiableTail(instIdx));
+		#if PF_DEBUG
 		printf("[%d] AFTER AGG SET PARENT\t%p\t%p\n", blockIdx.x, s.getParent(), s.getRefCount());
 
-		//If the channel is NOT an aggregate channel, send a new enum signal downstream
 		printf("[%d] IS CHANNEL AGGREGATE?: %d\n", (channel->isAggregate() ? 1 : 0));
+		#endif
+		//If the channel is NOT an aggregate channel, send a new enum signal downstream
 		if(!(channel->isAggregate())) {
 			assert(channel->dsSignalCapacity(instIdx) > 0);
 			dsSignalBase = channel->directSignalReserve(instIdx, 1);
