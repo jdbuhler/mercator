@@ -175,7 +175,7 @@ namespace Mercator  {
 #ifdef PRINTDBG
 	  printf("%u:\tWrote %u down stream\n", blockIdx.x, agg);
 #endif
-	  COUNT_ITEMS_INST(agg);  // instrumentation
+	  COUNT_ITEMS(agg);  // instrumentation
 	  dsBase = directReserve(agg);
 	}
       __syncthreads(); // all threads must see updates to dsBase

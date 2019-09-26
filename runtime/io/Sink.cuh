@@ -3,7 +3,7 @@
 
 //
 // @file Sink.cuh
-// device-side sink object associated with ModuleType_Sink
+// device-side sink object associated with Node_Sink
 //
 // MERCATOR
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.

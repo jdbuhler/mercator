@@ -16,7 +16,7 @@
 /**
  * @class OccCounter
  *
- * @brief Structure to hold occupancy data for module firings.
+ * @brief Structure to hold occupancy data for node firings
  */
 struct OccCounter {
   

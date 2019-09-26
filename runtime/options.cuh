@@ -18,7 +18,7 @@
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS
 
-// instrument code for occupancy of each module firing?
+// instrument code for occupancy of each node firing?
 // NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
 //       set to 1 causes interference with this option.
 //#define INSTRUMENT_OCC
@@ -56,7 +56,7 @@
 #define USE_SM_BLOCKS
 
 
-// try to avoid calling run() on a module when there are not enough
+// try to avoid calling run() on a node when there are not enough
 // inputs to fill all threads
 #define PREFER_FULL_ENSEMBLES true
 
