@@ -122,6 +122,8 @@ namespace Mercator  {
     void fire()
     {
       unsigned int tid = threadIdx.x;
+
+      TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
       
@@ -132,6 +134,9 @@ namespace Mercator  {
       // have at least one full ensemble to write.
       if (!isFlushing)
 	  numToWrite = (numToWrite / maxRunSize) * maxRunSize;
+      
+      TIMER_STOP(input);
+      TIMER_START(output);
       
       if (numToWrite > 0)
 	{
@@ -152,17 +157,21 @@ namespace Mercator  {
 		  sink->put(basePtr, srcIdx, myData);
 		}
 	    }
-	 
-	  if (IS_BOSS())
-	    {
-	      COUNT_ITEMS(numToWrite);
-	      queue.release(numToWrite);
-	    }
 	}
+      
+      TIMER_STOP(output);
+      TIMER_START(input);
       
       // we consumed enough input that we are no longer active
       if (IS_BOSS())
-	this->deactivate();
+	{
+	  COUNT_ITEMS(numToWrite);
+	  queue.release(numToWrite);
+	  
+	  this->deactivate();
+	}
+      
+      TIMER_STOP(input);
     }
     
 

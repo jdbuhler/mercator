@@ -9,7 +9,7 @@
 // Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
-#include <cstddef>
+#include <climits>
 
 #include "Node.cuh"
 
@@ -143,6 +143,8 @@ namespace Mercator  {
     void fire()
     {
       int tid = threadIdx.x;
+
+      TIMER_START(input);
       
       __shared__ unsigned int pendingOffset;
       __shared__ unsigned int numToWrite;
@@ -167,6 +169,9 @@ namespace Mercator  {
 	}
       
       __syncthreads(); // all threads must see numToWrite and pendingOffset
+      
+      TIMER_STOP(input);
+      TIMER_START(output);
       
       if (numToWrite > 0)
 	{
@@ -193,6 +198,9 @@ namespace Mercator  {
 	    }
 	}
       
+      TIMER_STOP(output);
+      TIMER_START(input);
+      
       if (IS_BOSS())
 	{
 	  if (numToWrite < numToRequest) // source is out of inputs
@@ -217,6 +225,8 @@ namespace Mercator  {
 		  }
 	    }
 	}
+      
+      TIMER_STOP(input);
     }
     
   private:
