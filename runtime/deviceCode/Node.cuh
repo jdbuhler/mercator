@@ -129,9 +129,6 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
-      
-      // tell our queue who we are 
-      queue.setNodeAssocation((NodeBase *) this);
     }
     
     
