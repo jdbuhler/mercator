@@ -183,8 +183,9 @@ namespace Mercator  {
 		  // flush mode and the active flag to *their* downstreams.
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
-		      getChannel(c)->getDSNode()->setFlushing();
-		      getChannel(c)->getDSNode()->activate();
+		      NodeBase *dsNode = getChannel(c)->getDSNode();
+		      dsNode->setFlushing();
+		      dsNode->activate();
 		    }
 		}
 	    }

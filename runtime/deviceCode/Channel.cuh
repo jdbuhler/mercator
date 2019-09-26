@@ -155,14 +155,16 @@ namespace Mercator  {
     //
     // RETURNS: true iff downstream node is active after copy
     //
-    // FIXME: can this ever be called when dsQueue is null?
-    // if so, do we need to do anything in this fcn?
-    //
     __device__
       bool moveOutputToDSQueue()
     {
       int tid = threadIdx.x;
       
+      // FIXME: can we ever call this function when the dsQueue is
+      // null  (i.e. the channel is not connected to anything)? If
+      // so, short-circuit here
+      asert(dsQueue != nullptr);
+
       BlockScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
       unsigned int count = (tid < numThreadGroups ? nextSlot[tid] : 0);
       unsigned int agg;
@@ -220,7 +222,7 @@ namespace Mercator  {
     __device__
       unsigned int directReserve(unsigned int nToWrite) const
     {
-      return (dsQueue ? dsQueue->reserve(nToWrite) : 0);
+      return dsQueue->reserve(nToWrite);
     }
     
     
@@ -236,8 +238,7 @@ namespace Mercator  {
 		       unsigned int base,
 		       unsigned int offset) const
     {
-      if (dsQueue)
-	dsQueue->putElt(base, offset, item);
+      dsQueue->putElt(base, offset, item);
     }
     
   private:

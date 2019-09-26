@@ -209,8 +209,9 @@ namespace Mercator  {
 	      
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  getChannel(c)->getDSNode()->setFlushing();
-		  getChannel(c)->getDSNode()->activate();
+		  NodeBase *dsNode = getChannel(c)->getDSNode();
+		  dsNode->setFlushing();
+		  dsNode->activate();
 		}
 	    }
 	  else
@@ -218,11 +219,14 @@ namespace Mercator  {
 	      nDSActive = 0;
 	      
 	      for (unsigned int c = 0; c < numChannels; c++)
-		if (getChannel(c)->dsCapacity() < maxRunSize)
-		  {
-		    getChannel(c)->getDSNode()->activate();
-		    nDSActive++;
-		  }
+		{
+		  ChannelBase *chan = getChannel(c);
+		  if (chan->dsCapacity() < maxRunSize)
+		    {
+		      chan->getDSNode()->activate();
+		      nDSActive++;
+		    }
+		}
 	    }
 	}
       
