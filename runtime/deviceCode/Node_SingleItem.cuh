@@ -84,9 +84,9 @@ namespace Mercator  {
     using BaseType::isThreadGroupLeader;
     
   #ifdef INSTRUMENT_TIME
-      using BaseType::gatherTimer;
+      using BaseType::inputTimer;
       using BaseType::runTimer;
-      using BaseType::scatterTimer;
+      using BaseType::outputTimer;
   #endif
 
   #ifdef INSTRUMENT_OCC
@@ -114,7 +114,7 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
-      MOD_TIMER_START(gather);
+      MOD_TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
       DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
@@ -139,7 +139,7 @@ namespace Mercator  {
 	     ? queue.getElt(nConsumed + tid);
 	     : queue.getDummy()); // don't create a null reference
 	  
-	  MOD_TIMER_STOP(gather);
+	  MOD_TIMER_STOP(input);
 	  
 	  MOD_TIMER_START(run);
 	  
@@ -153,7 +153,7 @@ namespace Mercator  {
 	  
 	  MOD_TIMER_STOP(run);
 	  
-	  MOD_TIMER_START(scatter);
+	  MOD_TIMER_START(output);
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
@@ -163,8 +163,8 @@ namespace Mercator  {
 	  
 	  __syncthreads(); // all threads must see reset channel state
 	  
-	  MOD_TIMER_STOP(scatter);
-	  MOD_TIMER_START(gather);
+	  MOD_TIMER_STOP(output);
+	  MOD_TIMER_START(input);
 	}
       
       if (IS_BOSS())
@@ -193,10 +193,7 @@ namespace Mercator  {
 	  queue.release(nConsumed);
 	}
       
-      MOD_TIMER_STOP(gather);
-      
-      // FIXME: is this required?
-      __syncthreads();
+      MOD_TIMER_STOP(input);
     }
   };
 }  // end Mercator namespace

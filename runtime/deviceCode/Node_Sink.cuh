@@ -97,9 +97,9 @@ namespace Mercator  {
     using BaseType::isFlushing;
     
 #ifdef INSTRUMENT_TIME
-    using BaseType::gatherTimer;
+    using BaseType::inputTimer;
     using BaseType::runTimer;
-    using BaseType::scatterTimer;
+    using BaseType::outputTimer;
 #endif
 
 #ifdef INSTRUMENT_OCC

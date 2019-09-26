@@ -61,9 +61,12 @@ namespace Mercator  {
 	  __shared__ NodeBase *nextNode;
 	  if (IS_BOSS())
 	    nextNode = dequeue();
-	  __syncthreads(); // for nextNode
+	  __syncthreads(); // for nextNode, queue status
 	  
-	  nextNode->run();	  
+	  nextNode->run();
+	  
+	  // boss thread did any updates to fireable item queue, so 
+	  // it sees all newly enqueued items w/o a syncthreads
 	}
       
       TIMER_STOP(scheduler);

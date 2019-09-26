@@ -112,7 +112,7 @@ namespace Mercator {
     static
     void printTimersCSVHeader()
     {
-      printf("blockIdx,nodeID,gather,run,scatter\n");
+      printf("blockIdx,nodeID,input,run,output\n");
     }
 #endif
     

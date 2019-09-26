@@ -270,12 +270,12 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
     
-      DeviceTimer::DevClockT gatherTime  = gatherTimer.getTotalTime();
-      DeviceTimer::DevClockT runTime     = runTimer.getTotalTime();
-      DeviceTimer::DevClockT scatterTime = scatterTimer.getTotalTime();
+      DeviceTimer::DevClockT inputTime  = inputTimer.getTotalTime();
+      DeviceTimer::DevClockT runTime    = runTimer.getTotalTime();
+      DeviceTimer::DevClockT outputTime = outputTimer.getTotalTime();
     
       printf("%d,%u,%llu,%llu,%llu\n",
-	     blockIdx.x, nodeId, gatherTime, runTime, scatterTime);
+	     blockIdx.x, nodeId, inputTime, runTime, outputTime);
     }
   
 #endif
@@ -348,9 +348,9 @@ namespace Mercator  {
     NodeBase *parent;          // parent of this node in dataflow graph
   
 #ifdef INSTRUMENT_TIME
-    DeviceTimer gatherTimer;
+    DeviceTimer inputTimer;
     DeviceTimer runTimer;
-    DeviceTimer scatterTimer;
+    DeviceTimer outputTimer;
 #endif
   
 #ifdef INSTRUMENT_OCC
