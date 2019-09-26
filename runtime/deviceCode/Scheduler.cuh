@@ -38,7 +38,9 @@ namespace Mercator  {
     // Called single-threaded from init kernel
     // 
     __device__
-    Scheduler() {}
+    Scheduler()
+      : workQueue(numNodes)
+    {}
     
     //
     // @brief destructor
@@ -56,11 +58,11 @@ namespace Mercator  {
     {
       TIMER_START(scheduler);
       
-      while (!empty())
+      while (!workQueue.empty())
 	{
 	  __shared__ NodeBase *nextNode;
 	  if (IS_BOSS())
-	    nextNode = dequeue();
+	    nextNode = workQueue.dequeue();
 	  __syncthreads(); // for nextNode, queue status
 	  
 	  nextNode->run();
@@ -77,7 +79,7 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      enqueue(node);
+      workQueue.enqueue(node);
     }
     
     
@@ -92,26 +94,8 @@ namespace Mercator  {
     
   private:
     
-    // FIXME: create queue here
-    
-    __device__
-    void enqueue(NodeBase *node)
-    {
-      ....
-    }
-
-    __device__
-    NodeBase *dequeue(NodeBase *node)
-    {
-      ....
-    }
-    
-    __device__
-    bool empty() const
-    {
-      ....
-    }
-    
+    Queue<NodeBase *> workQueue;
+        
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;
 #endif

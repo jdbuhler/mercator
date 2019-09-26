@@ -73,18 +73,6 @@ namespace Mercator  {
       delete [] data;
     }
     
-    __device__
-      void setDSNode(NodeBase *idsNode)
-    {
-      dsNode = idsNode;
-    }
-    
-    __device__
-      NodeBase* getDSNode() const 
-    {
-      return dsNode;
-    }
-    
     //
     // @brief get free space on queue
     //
@@ -209,15 +197,39 @@ namespace Mercator  {
     const T &getDummy() const
     { return data[0]; }
     
+    
+    //
+    // @brief reserve and put an element at the tail of the queue in a
+    // single call.
+    //
+    __device__
+    void enqueue(const T &v)
+    {
+      assert(getOccupancy() < getCapacity());
+      
+      tail = addModulo(tail, 1, dataSize);
+      data[tail] = v;
+    }
+
+    //
+    // @brief get an element and release its space in a single call.
+    //
+    __device__
+    T dequeue()
+    {
+      assert(getOccupancy() > 0);
+      
+      T &v = data[head];
+      addModulo(head, 1, dataSize);
+      return v;
+    }
+    
   private:
 
     T* data;
     unsigned int dataSize; // space allocated
     unsigned int head;     // head ptr -- pts to next *available elt*
     unsigned int tail;     // tail ptr -- pts to next *free slot*
-
-    NodeBase *dsNode; // node at downstream end of queue
-    
     
     // add two numbers x, y modulo m
     // we assume that x and y are each < m, so we can implement

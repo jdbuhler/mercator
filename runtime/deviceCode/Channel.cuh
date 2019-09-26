@@ -84,7 +84,7 @@ namespace Mercator  {
     __device__
       NodeBase* getDSNode() const
     {
-      return dsQueue->getDSNode();
+      return dsNode;
     }
     
     
@@ -92,14 +92,27 @@ namespace Mercator  {
     // @brief Set the downstream target of the edge for
     // this channel.
     //
-    // @param dsQueue queue of downstream edge endpoint
+    // @param idsNode downstream node
     //
     __device__
-      void setDSEdge(Queue<T> *idsQueue)
+      void setDSNode(NodeBase *idsNode)
+    {
+      dsNode = idsNode;
+    }
+    
+    //
+    // @brief set the queue into which this channel feeds.  It
+    // should terminate at the dsNode, but we only get the
+    // basetype version of that node and so cannot extract
+    // the correctly typed queue.
+    //
+    // @param idsQueue the downstream queue
+    //
+    __device__
+      void setDSQueue(Queue<T> *idsQueue)
     {
       dsQueue = idsQueue;
     }
-
     
     //
     // @brief get the number of inputs whose output could
@@ -188,7 +201,7 @@ namespace Mercator  {
       if (dsQueue->getfreeSpace() < maxRunSize * outputsPerInput)
 	{
 	  if (IS_BOSS())
-	    dsQueue->getDSNode()->activate();
+	    dsNode->activate();
 	  
 	  return true;
 	}
@@ -249,9 +262,10 @@ namespace Mercator  {
     //
     // target (edge) for scattering items from output buffer
     //
-    
+
     Queue<T> *dsQueue;
-        
+    NodeBase *dsNode;
+    
   }; // end Channel class
 }  // end Mercator namespace
 

@@ -185,22 +185,26 @@ namespace Mercator  {
     
     
     //
-    // @brief Set the edge from channel channelIdx of this node to
-    // point to downstream node dsNode.  We save the downstream
-    // node's queue.
+    // @brief Set the downstream neighbor of this node on 
+    // hannel channelIdx.
     //
     // @param channelIdx upstream channel
     // @param dsNode downstream node
     //
     template <typename DSP>
     __device__
-    void setDSEdge(unsigned int channelIdx,
+    void setDSNode(unsigned int channelIdx,
 		   Node<DSP> *dsNode) 
     { 
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
       
-      channel->setDSEdge(dsNode->getQueue());
+      // FIXME: can we pass the typed dsNode to the channel using a
+      // similar templating trick so that we can extract the
+      // queue from it in setDSNode?
+      
+      channel->setDSNode(dsNode);
+      channel->setQueue(dsNode->getQueue());
     }
   
   
