@@ -133,7 +133,7 @@ namespace Mercator  {
       // ensemble.  Since we are active, if we aren't flushing, we
       // have at least one full ensemble to write.
       if (!isFlushing)
-	  numToWrite = (numToWrite / maxRunSize) * maxRunSize;
+	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
       
       TIMER_STOP(input);
       TIMER_START(output);

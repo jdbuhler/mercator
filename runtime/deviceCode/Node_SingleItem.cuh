@@ -119,23 +119,25 @@ namespace Mercator  {
       Queue<T> &queue = this->queue; 
       DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
       
-      // # of items left to consume from queue
-      unsigned int nLeft = queue->getOccupancy();
+      // # of items available to consume from queue
+      unsigned int nToConsume = queue->getOccupancy();
+      
+      // unless we are flushing, round # to consume down to a multiple
+      // of ensemble width.
+      if (!isFlushing)
+	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
       
       // # of items already consumed from queue
       unsigned int nConsumed = 0;
-
-      // value of nLeft below which we shoul stop consuming items
-      unsigned int lowerLimit = (isFlushing ? 0 : nLeft % maxRunSize);
       
       unsigned int mynDSActive = 0;
       
-      while (nLeft > lowerLimit && mynDSActive == 0)
+      while (nConsumed < nToConsume && mynDSActive == 0)
 	{
-	  unsigned int nToConsume = min(nLeft, maxRunSize);
+	  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
 	  
 	  const T &myData = 
-	    (tid < nToConsume
+	    (tid < nItems
 	     ? queue.getElt(nConsumed + tid);
 	     : queue.getDummy()); // don't create a null reference
 	  
@@ -143,11 +145,10 @@ namespace Mercator  {
 	  
 	  TIMER_START(run);
 	  
-	  if (runWithAllThreads || tid < nToConsume)
+	  if (runWithAllThreads || tid < nitems)
 	    n->run(myData);
 	  
-	  nLeft     -= nToConsume;
-	  nConsumed += nToConsume;
+	  nConsumed += nItems;
 	 
 	  __syncthreads(); // all threads must see active channel state
 	  
@@ -171,9 +172,9 @@ namespace Mercator  {
 	{
 	  nDSActive = mynDSActive;
 	  
-	  if (nLeft <= lowerLimit) // not enough input to keep running
+	  if (nConsumed == nToConsume)
 	    {
-	      this->deactivate();
+	      this->deactivate(); // less than a full ensemble remains
 	      
 	      if (isFlushing)
 		{
