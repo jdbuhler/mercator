@@ -6,7 +6,7 @@
 // @brief Base class of MERCATOR channel object
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 #include "options.cuh"
@@ -17,12 +17,12 @@ namespace Mercator  {
 
   //
   // @class ChannelBase
-  // @brief Base class for an output channel of a module.  This is
+  // @brief Base class for an output channel of a node.  This is
   // a pure interface class, so that we can mix channels with different
-  // properties in a module's channels[] array.
+  // properties in a node's channels[] array.
   //
   template <class Props>
-  class ModuleType<Props>::ChannelBase {
+  class Node<Props>::ChannelBase {
   public:
     
     __device__
@@ -32,52 +32,37 @@ namespace Mercator  {
     virtual
     ~ChannelBase() {}
     
-
-    __device__
-    virtual 
-    unsigned int getGain()const=0;
-
-
-     //
-    //  @brief get the downstream module of the
-    //  the specified instance of this channel's
-    //  module . Virtual because it requires access to
-    //  the channel's queue, which does not have an untyped base.
+    //
+    // @brief get the downstream node associated with this channel.
+    // Virtual because it requires access to the channel's queue,
+    // which does not have an untyped base.
     //
 
     __device__
     virtual 
-    ModuleTypeBase* getDSModule(unsigned int instIdx) const = 0;
-
-    __device__
-    virtual
-    InstTagT getDSInstance(unsigned int instIdx) const=0;
-    //
-    //  @brief get the number of inputs that can be safely be
-    //  consumed by the specified instance of this channel's
-    //  module without overrunning the available downstream
-    //  queue space.  Virtual because it requires access to
-    //  the channel's queue, which does not have an untyped base.
-    //
-    __device__
-    virtual
-    unsigned int dsCapacity(unsigned int) const = 0;
+    NodeBase* getDSNode() const = 0;
     
     //
-    // @brief After a call to run(), scatter its outputs
-    //  to the appropriate queues.
-    //  NB: must be called with all threads
+    // @brief get # of inputs whose outputs can safely be written
+    // to channel's downstream queue
+    //
+    
+    __device__
+    virtual
+    unsigned int dsCapacity() const = 0;
+        
+    //
+    // @brief After a call to run(), move node's output
+    // from its temporary buffer to its downstream queue.
+    // NB: must be called with all threads
     //
     __device__
     virtual
-    unsigned int  compressCopyToDSQueue(InstTagT node, bool isLeader, unsigned int* dsActiveFlagAddr, unsigned int* dsUtilAddr)=0;
+    bool moveOutputToDSQueue() = 0;
 
-    __device__
-    virtual
-    void scatterToQueues(InstTagT, bool, bool) = 0;
 #ifdef INSTRUMENT_COUNTS
-    // counts outputs on channel, accessed by ModuleType
-    ItemCounter<numInstances> itemCounter;
+    // counts outputs on channel
+    ItemCounter itemCounter;
 #endif
 
   };

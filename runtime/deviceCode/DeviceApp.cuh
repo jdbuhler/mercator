@@ -6,14 +6,14 @@
 // base class of all MERCATOR device-side apps
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>
 
 #include "options.cuh"
 
-#include "ModuleTypeBase.cuh"
+#include "NodeBase.cuh"
 #include "Scheduler.cuh"
 
 #include "instrumentation/device_timer.cuh"
@@ -22,7 +22,7 @@
 
 namespace Mercator {
  
-  template <unsigned int numModules,
+  template <unsigned int numNodes,
 	    unsigned int _THREADS_PER_BLOCK,
 	    unsigned int _DEVICE_STACK_SIZE,
 	    unsigned int _DEVICE_HEAP_SIZE>
@@ -36,13 +36,13 @@ namespace Mercator {
     
     //
     // @brief constructor
-    // initialize space for app's modules
+    // initialize space for app's nodes
     //
     __device__
     DeviceApp()
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j] = nullptr;
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j] = nullptr;
     }
 
     //
@@ -52,40 +52,46 @@ namespace Mercator {
     __device__
     virtual ~DeviceApp() 
     {
-      for (unsigned int j = 0; j < numModules; j++)
+      for (unsigned int j = 0; j < numNodes; j++)
 	{
-	  if (modules[j])
-	    delete modules[j];
+	  if (nodes[j])
+	    delete nodes[j];
 	}
     }
     
     //
     // @brief run an app in one block from the main kernel
-    //   We need to initialize all modules, then actually
-    //   do the run, and finally clean up all modules
+    //   We need to initialize all nodes, then actually
+    //   do the run, and finally clean up all nodes
     //
     __device__
     void run()
     {
-      // call init hooks for each module
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->init();
+      // call init hooks for each node
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->init();
       
-      __syncthreads(); // make sure init is visible to all threads
-
-      //setup shortcut addresses for fast accesses
-      for (unsigned int j = 0; j < numModules; j++){
-            modules[j]->addressShortCut();  
-      } 
+      if (IS_BOSS())
+	scheduler.addFireableNode(nodes[sourceModuleIdx]);
       
+      __syncthreads(); // init and scheduler state visible to all threads
       
-      scheduler.run(modules, modules[sourceModuleIdx]);
+      scheduler.run();
       
-      __syncthreads(); // make sure run is complete in all threads
-
-      // call cleanup hooks for each module
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->cleanup();    
+      __syncthreads(); // run is complete in all threads
+      
+#ifndef NDEBUG
+      // sanity check -- make sure no node still has pending inputs
+      bool hasPending = false;
+      for (unsigned int j = 0; j < numNodes; j++)
+	hasPending |= (nodes[j]->numPending() > 0);
+      
+      assert(!hasPending);
+#endif
+      
+      // call cleanup hooks for each node
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->cleanup();    
     }
     
     /////////////////////////////////////////////////////////////
@@ -98,8 +104,8 @@ namespace Mercator {
     {
       scheduler.printTimersCSV();
       
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printTimersCSV(j);
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printTimersCSV(j);
     }
 
     __device__
@@ -114,8 +120,8 @@ namespace Mercator {
     __device__
     void printOccupancy() const
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printOccupancyCSV(j);
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printOccupancyCSV(j);
     }
     
     __device__
@@ -130,8 +136,8 @@ namespace Mercator {
     __device__
     void printCounts() const
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printCountsCSV(j);
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printCountsCSV(j);
     }
 
     __device__
@@ -145,21 +151,21 @@ namespace Mercator {
   protected:
     
     __device__
-    void registerModules(ModuleTypeBase * const *imodules, 
-		    unsigned int isourceModuleIdx) 
+    void registerNodes(NodeBase * const *inodes, 
+		    unsigned int isourceNodeIdx) 
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j] = imodules[j];
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j] = inodes[j];
       
-      sourceModuleIdx = isourceModuleIdx;
+      sourceNodeIdx = isourceNodeIdx;
     }
     
   private:
     
-    Scheduler<numModules, THREADS_PER_BLOCK> scheduler;
+    Scheduler<numNodes, THREADS_PER_BLOCK> scheduler;
     
-    ModuleTypeBase *modules[numModules];
-    unsigned int sourceModuleIdx;
+    ModuleTypeBase *nodes[numNodes];
+    unsigned int sourceNodeIdx;
   };
 }
 

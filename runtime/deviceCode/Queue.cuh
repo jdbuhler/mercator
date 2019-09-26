@@ -6,23 +6,20 @@
 // @brief MERCATOR queue object
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
 
 #include "device_config.cuh"
 #include "QueueBase.cuh"
+
 namespace Mercator  {
 
   //
   // @class Queue
   // @brief FIFO queue holding items that are in transit from one
   //         node to the next.
-  //
-  // Note that one Queue is actually an array of (# instances) queues.
-  // Operations to reserve or release space on the Queue are intended
-  // to run simultaneously on its ocmponent queues.
   //
   // Notes on safety:
   //  - Queue is not concurrent -- we assume that different callers cannot
@@ -48,119 +45,82 @@ namespace Mercator  {
     //
     // @brief Constructor.
     //
-    // @param inumInstances Number of instances this queue holds
-    // @param icapacity capacity for each instance's queue
+    // @param icapacity capacity of queue
     //
     __device__
-    Queue(unsigned int inumInstances, const unsigned int *capacities)
-      : numInstances(inumInstances)
+      Queue(unsigned int capacity)
     {
-      totalCapacity = 0;
-      for (unsigned int i = 0; i < numInstances; ++i)
+      dataSize  = capacity + 1;
+      head      = 0;
+      tail      = 0;
+      
+      data = new T [dataSize];
+      
+      // ensure allocation succeeded
+      if (data == nullptr)
 	{
-	  dataSizes[i] = capacities[i] + 1;
-	  heads[i]     = 0;
-	  tails[i]     = 0;
-          totalUtil[i]= 0;
+	  printf("ERROR: failed to allocate queue [block %d]\n",
+		 blockIdx.x);
 	  
-	  data[i]      = new T [dataSizes[i]];
-	  
-	  // ensure allocation succeeded
-	  if (data[i] == nullptr)
-	    {
-	      printf("ERROR: failed to allocate queue [block %d]\n",
-		     blockIdx.x);
-	      
-	      crash();
-	    }
-	  
-	  totalCapacity += capacities[i];
+	  crash();
 	}
     }
     
     
     __device__
-    ~Queue()
+      ~Queue()
     {
-      for (unsigned int i = 0; i < numInstances; i++)
-	delete [] data[i];
+      delete [] data;
     }
     
     __device__
-    void setModuleAssocation(void* _owning_module){
-      owner = _owning_module;
-    }
-    
-    __device__
-    ModuleTypeBase* getAssocatedModule() const{
-      return (ModuleTypeBase*) owner;
-    }
-
-
-
-    //
-    // @ brief return total capacity of all our component queues
-    //
-    __device__
-    unsigned int getTotalCapacity() const
-    { return totalCapacity; }
-
-    
-    
-
-    //
-    // @brief get Utilization of queue
-    //
-    // @param instIdx instance to query
-    //
-    __device__
-    unsigned int getUtilization(unsigned int instIdx) const
+      void setDSNode(NodeBase *idsNode)
     {
-      assert(instIdx < numInstances);
-      unsigned int cap = dataSizes[instIdx] - 1;
-      unsigned int occ = (tails[instIdx] - heads[instIdx] + (tails[instIdx] < heads[instIdx] ? dataSizes[instIdx] : 0));      
-      return cap-occ;
+      dsNode = idsNode;
+    }
+    
+    __device__
+      NodeBase* getDSNode() const 
+    {
+      return dsNode;
+    }
+    
+    //
+    // @brief get free space on queue
+    //
+    __device__
+    unsigned int getFreeSpace() const
+    {
+      return getCapacity() - getOccupancy();
     }
 
     //
     // @brief get capacity of queue
     //
-    // @param instIdx instance to query
-    //
     // NB: capacity is < actual allocated size to support
     // efficient circular queue operations
     //
     __device__
-    unsigned int getCapacity(unsigned int instIdx) const
+    unsigned int getCapacity() const
     {
-      assert(instIdx < numInstances);
-      return dataSizes[instIdx] - 1;
+      return dataSize - 1;
     }
 
     //
     // @brief get occupancy of queue
     //
-    // @param instIdx instance to query
-    //
     __device__
-    unsigned int getOccupancy(unsigned int instIdx) const 
+    unsigned int getOccupancy() const 
     { 
-      assert(instIdx < numInstances);
-      
-      unsigned int head = heads[instIdx];
-      unsigned int tail = tails[instIdx];
-      
-      return (tail - head + (tail < head ? dataSizes[instIdx] : 0));      
+      return (tail - head + (tail < head ? dataSize : 0));      
     }
     
     //
     // @brief return true iff queue is empty
     //
-    // @param instIdx instance to query
-    //
     __device__
-    bool empty(unsigned int instIdx) const
-    { return (heads[instIdx] == tails[instIdx]); }
+    bool empty() const
+    { return (head == tail); }
     
     
     //
@@ -168,31 +128,18 @@ namespace Mercator  {
     //
     // Should be called SINGLE-THREADED.
     //
-    // @param instIdx instance to queue
     // @param nElts number of elements to reserve
     // @return index of start of reserved space
     //
     __device__
-    unsigned int reserve(unsigned int instIdx, unsigned int nElts)
+    unsigned int reserve(unsigned int nElts)
     {
-      assert(instIdx < numInstances);
-        unsigned int a= blockIdx.x;
-        unsigned int b= threadIdx.x;
-        unsigned int c= instIdx;
-        unsigned int d= getOccupancy(instIdx);
-        unsigned int e= getCapacity(instIdx);
-        unsigned int f= nElts;
-
-      if(!(getOccupancy(instIdx) <= (getCapacity(instIdx) - nElts)) ){
-        printf("%u: threadIdx.x:%u, instIdx:%u, Occ:%u, Cap: %u, nElts:%u\n", a,b,c,d,e,f); 
-      }
-      assert(getOccupancy(instIdx) <= getCapacity(instIdx) - nElts);
-      unsigned int oldTail = tails[instIdx];
+      assert(getOccupancy() <= getCapacity() - nElts);
       
-      tails[instIdx] = 
-	addModulo(tails[instIdx], nElts, dataSizes[instIdx]);
-
-      totalUtil[instIdx]=getUtilization(instIdx);
+      unsigned int oldTail = tail;
+      
+      tail = addModulo(tail, nElts, dataSize);
+      
       return oldTail;
     }
     
@@ -201,25 +148,14 @@ namespace Mercator  {
     //
     // Should be called SINGLE-THREADED.
     //
-    // @param instIdx instance to queue
     // @param nElts number of elements to release
     //
     __device__
-    void release(unsigned int instIdx, unsigned int nElts)
+    void release( unsigned int nElts)
     {
-      assert(instIdx < numInstances);
+      assert(getOccupancy() >= nElts);
       
-      //if(instIdx==0){
-      //  printf("release may crash, instIdx:%u, releasing:%u\n", instIdx, nElts); 
-      //}
-      assert(getOccupancy(instIdx) >= nElts);
-      
-      heads[instIdx] = 
-	addModulo(heads[instIdx], nElts, dataSizes[instIdx]);
-      //if(instIdx==0){
-      //  printf("release didnt crash\n"); 
-      //}
-      totalUtil[instIdx]=getUtilization(instIdx);
+      head = addModulo(head, nElts, dataSize);
     }
     
     
@@ -229,22 +165,18 @@ namespace Mercator  {
     //        
     // May be called multithreaded; does NOT reserve space
     //
-    // @param instIdx instance to queue
     // @param base base pointer for write (returned by reserve()
     // @param offset offset of element to write relative to base
     // @param elt value to write
     //
     __device__
-    void putElt(unsigned int instIdx, 
-		unsigned int base,
+    void putElt(unsigned int base,
 		unsigned int offset,
 		const T &elt) const
     {
-      assert(instIdx < numInstances);
+      unsigned int myIdx = addModulo(base, offset, dataSize);
       
-      unsigned int myIdx = addModulo(base, offset, dataSizes[instIdx]);
-      
-      data[instIdx][myIdx] = elt;
+      data[myIdx] = elt;
     }
     
     //
@@ -253,25 +185,17 @@ namespace Mercator  {
     //        
     // May be called multithreaded; does NOT release space
     //
-    // @param instIdx instance to queue
     // @param offset offset of element to read relative to head
     // @return value read
     //
     __device__
-    const T &getElt(unsigned int instIdx, 
-		    unsigned int offset) const
+    const T &getElt(unsigned int offset) const
     {
-      assert(instIdx < numInstances);
-      if (!(getOccupancy(instIdx) > offset)){
-        #ifdef PRINTDBG
-          printf("getElt may crash, node:%u, tid:%u, occ of node:%u\n", instIdx, offset, getOccupancy(instIdx)); 
-        #endif
-        assert(getOccupancy(instIdx) > offset);
-      }
+      assert(getOccupancy() > offset);
       
-      unsigned int head = heads[instIdx];
-      unsigned int myIdx = addModulo(head, offset, dataSizes[instIdx]);
-      return data[instIdx][myIdx]; 
+      unsigned int myIdx = addModulo(head, offset, dataSize);
+      
+      return data[myIdx]; 
     }
     
     
@@ -283,36 +207,25 @@ namespace Mercator  {
     //
     __device__
     const T &getDummy() const
-    { return data[0][0]; }
+    { return data[0]; }
     
-    __device__
-    unsigned int* getUtilAddressof(unsigned int instIdx){
-      return &totalUtil[instIdx];
-    }
-
-
   private:
 
-    void* owner; //what is the module id that should be associated witht his queue
+    T* data;
+    unsigned int dataSize; // space allocated
+    unsigned int head;     // head ptr -- pts to next *available elt*
+    unsigned int tail;     // tail ptr -- pts to next *free slot*
 
-    const unsigned int numInstances;  // # instances in this queue
+    NodeBase *dsNode; // node at downstream end of queue
     
-    // number of instances per module is limited to <= WARP_SIZE
     
-    T* data[WARP_SIZE];                // queue elements
-    unsigned int dataSizes[WARP_SIZE]; // space allocated
-    unsigned int heads[WARP_SIZE];   // head ptr -- pts to next *available elt*
-    unsigned int tails[WARP_SIZE];   // tail ptr -- pts to next *free slot*
-    
-    unsigned int totalCapacity; // total capacity of all queues
-   
-    unsigned int totalUtil[WARP_SIZE];    
- 
     // add two numbers x, y modulo m
     // we assume that x and y are each < m, so we can implement
     // modulus with one conditional subtraction rather than division.
     __device__
-    static unsigned int addModulo(unsigned int x, unsigned int y, unsigned int m)
+    static unsigned int addModulo(unsigned int x, 
+				  unsigned int y, 
+				  unsigned int m)
     {
       unsigned int s = x + y;
       s -= (s >= m ? m : 0);

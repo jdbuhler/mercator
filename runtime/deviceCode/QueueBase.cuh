@@ -28,17 +28,17 @@ namespace Mercator  {
 
   __device__
   virtual
-  unsigned int getCapacity(unsigned int instIdx)const=0;
+  unsigned int getCapacity()const=0;
   __device__
   virtual
-  unsigned int getOccupancy(unsigned int instIdx) const =0;
+  unsigned int getOccupancy() const =0;
   __device__
   virtual
-  unsigned int getUtilization(unsigned int instIdx) const=0;
+  unsigned int getUtilization() const=0;
   __device__
   virtual
-  unsigned int* getUtilAddressof(unsigned int instIdx)=0;
-  };  // end class Queue
+  unsigned int* getUtilAddressof()=0;
+  };
 
 }   // end Mercator namespace
 
