@@ -170,6 +170,8 @@ namespace Mercator  {
 	  
 	  // ask the source buffer for as many inputs as we want
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
+	  
+	  COUNT_ITEMS(numToWrite);
 	}
       
       __syncthreads(); // all threads must see numToWrite and pendingOffset
