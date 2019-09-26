@@ -27,8 +27,6 @@ namespace Mercator  {
   // @brief Schedules all nodes in an application
   //
   
-  template <unsigned int numNodes,
-	    unsigned int THREADS_PER_BLOCK>
   class Scheduler {
     
   public:
@@ -38,7 +36,7 @@ namespace Mercator  {
     // Called single-threaded from init kernel
     // 
     __device__
-    Scheduler()
+    Scheduler(unsigned int numNodes)
       : workQueue(numNodes)
     {}
     

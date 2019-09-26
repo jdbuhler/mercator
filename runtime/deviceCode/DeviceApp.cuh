@@ -40,6 +40,7 @@ namespace Mercator {
     //
     __device__
     DeviceApp()
+      : scheduler(numNodes)
     {
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j] = nullptr;
@@ -162,10 +163,10 @@ namespace Mercator {
     
   private:
     
-    Scheduler<numNodes, THREADS_PER_BLOCK> scheduler;
-    
     NodeBase *nodes[numNodes];
     unsigned int sourceNodeIdx;
+
+    Scheduler scheduler;
   };
 }
 

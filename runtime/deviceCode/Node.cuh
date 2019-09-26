@@ -116,11 +116,11 @@ namespace Mercator  {
 	 NodeBase *iparent, 
 	 Scheduler *ischeduler)
       : queue(queueSize),
+	parent(iparent),
+	scheduler(ischeduler),
 	isActive(false),
 	nDSActive(0),
-	isFlushing(false),
-	parent(iparent),
-	scheduler(ischeduler)
+	isFlushing(false)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -344,13 +344,14 @@ namespace Mercator  {
 
     Queue<T> queue;                     // node's input queue
     ChannelBase* channels[numChannels];  // node's output channels
+
+    NodeBase *parent;          // parent of this node in dataflow graph
+    Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
   
     bool isActive;             // is node in active
     unsigned int nDSActive;    // # of active downstream children of node
     bool isFlushing;           // is node in flushing mode?
-  
-    NodeBase *parent;          // parent of this node in dataflow graph
-  
+
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
     DeviceTimer runTimer;
