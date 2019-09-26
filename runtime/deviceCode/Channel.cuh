@@ -229,7 +229,7 @@ namespace Mercator  {
     
   private:
     
-    const unsigned int outputsPerInput;  // max # outputs per input to module
+    const unsigned int outputsPerInput;  // max # outputs per input to node
     const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
     const unsigned int reservedQueueEntries; // reserved ds queue entries
 

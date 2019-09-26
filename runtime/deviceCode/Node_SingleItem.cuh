@@ -16,7 +16,7 @@
 
 #include "ChannelBase.cuh"
 
-#include "module_options.cuh"
+#include "timing_options.cuh"
 
 #include "Queue.cuh"
 

@@ -47,7 +47,7 @@ namespace Mercator {
 
     //
     // @brief destructor
-    // clean up app's modules
+    // clean up app's nodes
     //
     __device__
     virtual ~DeviceApp() 
@@ -72,7 +72,7 @@ namespace Mercator {
 	nodes[j]->init();
       
       if (IS_BOSS())
-	scheduler.addFireableNode(nodes[sourceModuleIdx]);
+	scheduler.addFireableNode(nodes[sourceNodeIdx]);
       
       __syncthreads(); // init and scheduler state visible to all threads
       
@@ -112,7 +112,7 @@ namespace Mercator {
     static
     void printTimersCSVHeader()
     {
-      printf("blockIdx,moduleID,gather,run,scatter\n");
+      printf("blockIdx,nodeID,gather,run,scatter\n");
     }
 #endif
     
@@ -128,7 +128,7 @@ namespace Mercator {
     static
     void printOccupancyCSVHeader()
     {
-      printf("blockIdx,moduleID,maxWidth,totalInputs,totalRuns,totalFullRuns\n");
+      printf("blockIdx,nodeID,maxWidth,totalInputs,totalRuns,totalFullRuns\n");
     }
 #endif
     
@@ -144,7 +144,7 @@ namespace Mercator {
     static
     void printCountsCSVHeader()
     {
-      printf("blockIdx,moduleID,channelId,nodeId,count\n");
+      printf("blockIdx,nodeID,channelId,nodeId,count\n");
     }
 #endif
     
@@ -152,7 +152,7 @@ namespace Mercator {
     
     __device__
     void registerNodes(NodeBase * const *inodes, 
-		    unsigned int isourceNodeIdx) 
+		       unsigned int isourceNodeIdx) 
     {
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j] = inodes[j];
@@ -164,7 +164,7 @@ namespace Mercator {
     
     Scheduler<numNodes, THREADS_PER_BLOCK> scheduler;
     
-    ModuleTypeBase *nodes[numNodes];
+    NodeBase *nodes[numNodes];
     unsigned int sourceNodeIdx;
   };
 }

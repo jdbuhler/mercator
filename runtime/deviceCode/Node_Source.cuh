@@ -15,7 +15,7 @@
 
 #include "io/Source.cuh"
 
-#include "module_options.cuh"
+#include "timing_options.cuh"
 
 namespace Mercator  {
 
@@ -133,7 +133,7 @@ namespace Mercator  {
     
     
     //
-    // @brief fire the module, copying as much input as possible from
+    // @brief fire the node, copying as much input as possible from
     // the source to the downstream queues.  This will cause at least
     // one downstream queue to activate OR will exhaust the source.
     //

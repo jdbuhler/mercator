@@ -13,7 +13,7 @@
 
 #include "io/Sink.cuh"
 
-#include "module_options.cuh"
+#include "timing_options.cuh"
 
 namespace Mercator  {
 
@@ -49,9 +49,9 @@ namespace Mercator  {
     // @param queueSize - size for input queue
     //
     __device__
-    ModuleType_Sink(unsigned int queueSize,
-		    NodeBase *parent, 
-		    Scheduler *scheduler)
+    Node_Sink(unsigned int queueSize,
+	      NodeBase *parent, 
+	      Scheduler *scheduler)
       : BaseType(queueSize, parent, scheduler),
 	sink(nullptr)
     {}
