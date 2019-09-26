@@ -12,7 +12,6 @@
 #include <cassert>
 
 #include "device_config.cuh"
-#include "QueueBase.cuh"
 
 namespace Mercator  {
 
@@ -38,7 +37,7 @@ namespace Mercator  {
   // @tparam T Type of data item held in this Queue
   //
   template<typename T>
-  class Queue final: public QueueBase {
+  class Queue {
   
   public:
 
