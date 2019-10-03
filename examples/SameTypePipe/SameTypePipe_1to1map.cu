@@ -17,6 +17,8 @@ A::init()
   if (threadIdx.x == 0)
     getState()->randState = new curandState_t [threadWidth];
   
+  __syncthreads();
+  
   // initialize the random state vector
   if (threadIdx.x < threadWidth)
     {
