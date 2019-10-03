@@ -56,9 +56,9 @@ struct OccCounter {
 #endif
 
 #ifdef INSTRUMENT_OCC
-#define OCC_COUNT(n) { occCounter.add_firing(n); }
+#define NODE_OCC_COUNT(n) { occCounter.add_firing(n); }
 #else
-#define OCC_COUNT(n) {}
+#define NODE_OCC_COUNT(n) {}
 #endif
 
 #endif

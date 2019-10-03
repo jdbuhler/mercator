@@ -124,24 +124,39 @@ int main(int argc, char* argv[])
       
       // set up each node in pipeline
       
-      int upperBd = NUM_INPUTS;
-      int lastUpperBd = upperBd;  // final (lowest) filter value; used for
-      //  validation
-      
+      int lastUpperBd; // final (lowest) filter value, for validation
       {
-	const int NUM_NODES = APP_TYPE::A::getNumInstances();
+	int upperBd = NUM_INPUTS;
 	
-	auto params = app.A.getParams();
-	for (int i=0; i < NUM_NODES; ++i)
-	  {
-	    if (i == NUM_NODES - 1)
-	      lastUpperBd = upperBd;
-	    
-	    params->filterRate[i] = float(FILTER_RATE);
-	    params->upperBound[i] = upperBd;
-	    
-	    upperBd -= (int)(FILTER_RATE * (float)upperBd);
-	  }
+	auto params = app.A1node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+
+	params = app.A2node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+
+	params = app.A3node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+	
+	params = app.A4node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+	
+	params = app.A5node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	lastUpperBd = upperBd;
       }
       
       // associate buffers with nodes

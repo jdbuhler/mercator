@@ -25,17 +25,12 @@ unsigned int munge(unsigned int key)
 // the current node's modulus value.  This code is shared by all
 // nodes of type Filter.
 //
-// Note that one call to run() may process inputs to *different
-// nodes* in different GPU threads, so we need to use the per-thread
-// nodeIdx variable to make sure we get the modulus parameter for the
-// right node in each thread.
-//
 __device__
 void ModFilter_dev::
-Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
+Filter::run(const unsigned int& inputItem)
 {
   unsigned int v = munge(inputItem);
   
-  if (v % getParams()->modulus[nodeIdx] == 0)
-    push(v, nodeIdx);
+  if (v % getParams()->modulus == 0)
+    push(v);
 }

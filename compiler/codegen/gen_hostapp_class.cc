@@ -18,105 +18,6 @@
 using namespace std;
 
 //
-// @brief Build a derived module class's enumeration
-//  of its instances.
-//
-// @param mod Module for which to generate output
-// @param f Formatter to receive code
-//
-static
-void genHostModuleInstancesEnum(const ModuleType *mod,
-				Formatter &f)
-{
-  f.add("enum Node {");
-  f.indent();
-  
-  for (const Node *node : mod->nodes)
-    {
-      f.add(node->get_name() + " = " + 
-	    to_string(node->get_idxInModuleType()) + ",");
-    } 
-  
-  f.unindent();
-  f.add("};");
-}
-
-
-//
-// @brief Generate the structure of per-module and per-node parameters
-// for a module.
-//
-// @param mod Module for which to generate output
-// @param f Formatter to receive code
-//
-static
-void genHostModuleParameterStruct(const ModuleType *mod,
-				  Formatter &f)
-{
-  f.add("struct Params {");
-  f.indent();
-
-  // per-module parameters  
-  for (const DataItem *param : mod->params)
-    f.add(param->type->name + " " + param->name + ";");
-  
-  // per-node parameters
-  for (const DataItem *param : mod->nodeParams)
-    f.add(param->type->name + " " + param->name + 
-	  "[" + to_string(mod->nodes.size()) + "];");
-  
-  f.unindent();
-  f.add("};");
-}
-
-
-//
-// @brief Generate a per-node parameter structure, which is just
-// a view of a single slice through a module's per-node parameters
-// corresponding to a particular node index.  We generate this as
-// a template so that we can instantiate it once for each node
-// of the module's type.
-//
-// @param mod module being codegen'd
-// @param f Formatter to receive generated code
-//
-static
-void genHostNodeParameterStruct(const ModuleType *mod,
-				Formatter &f)
-{
-  f.add("template <int idx>");
-  f.add("struct NodeParamsView {");
-  f.indent();
-  
-  // create a reference for each per-node parameter
-  for (const DataItem *param : mod->nodeParams)
-    f.add(param->type->name + "& " + param->name + ";");
-  f.add("");
-  
-  // constructor sets refs for each per-node parameter
-  f.add(genFcnHeader("",
-		     "NodeParamsView",
-		     "Params *iparams"));
-  
-  for (unsigned int j = 0; j < mod->nodeParams.size(); j++)
-    {
-      const DataItem *param = mod->nodeParams[j];
-      
-      string start = (j == 0 ? " : " : "   ");
-      string end   = (j == mod->nodeParams.size() - 1 ? "" : ",");
-      
-      f.add(start + param->name + 
-	    "(iparams->" + param->name + "[idx])" + end);
-    }
-  
-  f.add("{}");
-  
-  f.unindent();
-  f.add("};");
-}
-
-
-//
 // @brief Genenerate the app-wide parameter structure
 //
 // @param app Application for which to generate output
@@ -138,6 +39,50 @@ void genHostAppParameterStruct(const App *app,
 
 
 //
+// @brief Generate the structure of per-module parameters for a module.
+//
+// @param mod Module for which to generate output
+// @param f Formatter to receive code
+//
+static
+void genHostModuleParameterStruct(const ModuleType *mod,
+				  Formatter &f)
+{
+  f.add("struct ModuleParams {");
+  f.indent();
+
+  // per-module parameters  
+  for (const DataItem *param : mod->moduleParams)
+    f.add(param->type->name + " " + param->name + ";");
+  
+  f.unindent();
+  f.add("};");
+}
+
+//
+// @brief Generate the structure of per-node parameters for a module.
+//
+// @param mod Module for which to generate output
+// @param f Formatter to receive code
+//
+
+static
+void genHostNodeParameterStruct(const ModuleType *mod,
+				Formatter &f)
+{
+  f.add("struct NodeParams {");
+  f.indent();
+
+  // per-node parameters
+  for (const DataItem *param : mod->nodeParams)
+    f.add(param->type->name + " " + param->name + ";");
+  
+  f.unindent();
+  f.add("};");
+}
+  
+
+//
 // @brief Generate the host-side class definition for a module
 //
 // @param mod Module for which to generate output
@@ -151,39 +96,26 @@ void genHostModuleClass(const ModuleType *mod,
   f.indent();
   
   f.add("public:", true);
-
-  // generate instance enumeration  
-  genHostModuleInstancesEnum(mod, f);
-  f.add("");
-    
-  // generate reflector for # of instances
-  f.add("// reflect on # of instances");
-  f.add(genFcnHeader("static int", "getNumInstances","") +
-	" { return " + to_string(mod->nodes.size()) + "; }");
-  f.add("");
   
-  // generate module/node parameters
+  // generate structure to hold module-wide parameters
   genHostModuleParameterStruct(mod, f);
   f.add("");
   
-  // generate per-node view structure for parameters
-  if (mod->nodeParams.size() > 0)
-    {
-      genHostNodeParameterStruct(mod, f);
-      f.add("");
-    }
+  // generate structure to hold per-node parameters
+  genHostNodeParameterStruct(mod, f);
+  f.add("");
   
-  // generate accessor for parameters  
-  f.add(genFcnHeader("Params*",
+  // generate accessor for module-wide parameters  
+  f.add(genFcnHeader("ModuleParams*",
 		     "getParams",
 		     ""));
   f.add("{ return params; }");
   f.add("");
-
-  // constructor takes pointer to our parameter structure
+  
+  // constructor takes pointer to module-wide parameter structure
   f.add(genFcnHeader("",
 		     mod->get_name(),
-		     "Params *iparams"));
+		     "ModuleParams *iparams"));
   f.add(" : params(iparams) {}");
   f.add("");
   
@@ -191,7 +123,7 @@ void genHostModuleClass(const ModuleType *mod,
   
   // generate params object pointer storage
   // (does not change after construction)
-  f.add("Params * const params;");
+  f.add("ModuleParams * const params;");
   
   f.unindent();
   f.add("};");
@@ -219,12 +151,6 @@ void genHostNodeClasses(const ModuleType *mod,
       
       f.add("public:", true);
       
-      // use a NodeParamsView from this module type instead of a
-      // separate parameter structure
-      f.add("typedef " + mod->get_name() + "::NodeParamsView<" + 
-	    mod->get_name() + "::Node::" + node->get_name() + "> Params;");
-      f.add("");
-
       //
       // generate functions to access/mutate parameter information
       //
@@ -242,9 +168,9 @@ void genHostNodeClasses(const ModuleType *mod,
 	  f.add("{");
 	  f.indent();
 	  
-	  f.add("params.sourceData.kind = Mercator::SourceData<"
+	  f.add("params->sourceData.kind = Mercator::SourceData<"
 		+ dataType + ">::Buffer;");
-	  f.add("params.sourceData.bufferData = buffer.getData();");
+	  f.add("params->sourceData.bufferData = buffer.getData();");
 	  
 	  f.unindent();
 	  f.add("}");
@@ -259,9 +185,9 @@ void genHostNodeClasses(const ModuleType *mod,
 	  f.add("{");
 	  f.indent();
 	  
-	  f.add("params.sourceData.kind = Mercator::SourceData<"
+	  f.add("params->sourceData.kind = Mercator::SourceData<"
 		+ dataType + ">::Range;");
-	  f.add("params.sourceData.rangeData = range.getData();");
+	  f.add("params->sourceData.rangeData = range.getData();");
 	  
 	  f.unindent();
 	  f.add("}");
@@ -279,9 +205,9 @@ void genHostNodeClasses(const ModuleType *mod,
 	  f.add("{");
 	  f.indent();
 	  
-	  f.add("params.sinkData.kind = Mercator::SinkData<"
+	  f.add("params->sinkData.kind = Mercator::SinkData<"
 		+ dataType + ">::Buffer;");
-	  f.add("params.sinkData.bufferData = buffer.getData();");
+	  f.add("params->sinkData.bufferData = buffer.getData();");
 	  
 	  f.unindent();
 	  f.add("}");
@@ -289,23 +215,26 @@ void genHostNodeClasses(const ModuleType *mod,
       else
 	{
 	  // accessor for node parameters
-	  f.add(genFcnHeader("Params*",
+	  f.add(genFcnHeader(mod->get_name() + "::NodeParams*",
 			     "getParams",
 			     ""));
-	  f.add("{ return &params; }");
+	  f.add("{ return params; }");
 	}
       f.add("");
-      
-      // constructor creates view into module params structure
+
+      // constructor takes pointer to node parameter structure 
       f.add(genFcnHeader("",
 			 node->get_name(),
-			 mod->get_name() + "::Params *iparams"));
+			 mod->get_name() + "::NodeParams *iparams"));
       f.add(" : params(iparams) {}");
       f.add("");
       
       f.add("private:", true);
       
-      f.add("Params params;");
+      // generate params object pointer storage
+      // (does not change after construction)
+      
+      f.add(mod->get_name() + "::NodeParams * const params;");
       
       f.unindent();
       f.add("};");
@@ -315,9 +244,9 @@ void genHostNodeClasses(const ModuleType *mod,
 
 
 //
-// @brief Generate a single struct containing all parameters for
-//   the application and each of its modules. We pass this structure
-//   down to the device.
+// @brief Generate a single struct containing all parameters for the
+//   application and each of its modules and nodes. We pass this
+//   structure down to the device.
 //
 // @param app Application for which to generate output
 // @param f Formatter to receive code
@@ -333,7 +262,12 @@ void genHostAppAllParameters(const App *app,
   f.add("");
   
   for (const ModuleType *mod : app->modules)
-    f.add(mod->get_name() + "::Params p" + mod->get_name() + ";");
+    {
+      f.add(mod->get_name() + "::ModuleParams p" + mod->get_name() + ";");
+      
+      f.add(mod->get_name() + "::NodeParams n" + mod->get_name() + 
+	    "[" + to_string(mod->nodes.size()) + "];");
+    }
   
   f.unindent();
   f.add("};");
@@ -384,17 +318,21 @@ void genHostAppHeader(const string &hostClassFileName,
   f.add("public:", true);
     
   // generate constants for compile-time app properties
-  f.add("static const int NUM_MODULES = " + 
-	to_string(app->modules.size()) + ";");
+  f.add("static const int NUM_NODES = " + 
+	to_string(app->nodes.size()) + ";");
   f.add("");
 
   // report mapping of IDs to modules, used for statistics
-  f.add("// MODULE IDENTIFIERS: ");
-  for (unsigned int j = 0; j < app->modules.size(); j++)
+  f.add("// NODE IDENTIFIERS: ");
+  for (unsigned int j = 0; j < app->nodes.size(); j++)
     {
-      const ModuleType *mod = app->modules[j];
-      f.add("// " + to_string(j) + " = " + mod->get_name() +
-	    (mod->isSink() ? " [" + mod->get_inputType()->name + "]" : ""));
+      const Node *node = app->nodes[j];
+      const ModuleType *mod = node->get_moduleType();
+      
+      f.add("// " + to_string(j) + " = " + node->get_name() +
+	    (mod->isSink()
+	     ? " [" + mod->get_inputType()->name + "]" 
+	     : ""));
     }
   f.add("// -1 = MERCATOR scheduler");
   f.add("");
@@ -431,10 +369,11 @@ void genHostAppHeader(const string &hostClassFileName,
   // read/write access to its parameters
   for (const ModuleType *mod : app->modules)
     {
-      f.add(mod->get_name() + " " + mod->get_name() + ";");
+      if (mod->hasModuleParams())
+	f.add(mod->get_name() + " " + mod->get_name() + ";");
       
       // generate any per-node instances for this module
-      if (mod->nodeParams.size() > 0)
+      if (mod->hasNodeParams())
 	{
 	  for (const Node *node : mod->nodes)
 	    f.add(node->get_name() + " " + node->get_name() + ";");
@@ -526,19 +465,29 @@ void genHostAppConstructor(const string &hostClassFileName,
   f.add(" :");
   f.indentAfter(':');
   
+  bool firstParam = true;
   for (unsigned int j = 0; j < app->modules.size(); j++)
     {
       const ModuleType *mod = app->modules[j];
       
-      f.add((j == 0 ? "  " : ", ") + mod->get_name() + 
-	    "(&allParams.p" + mod->get_name() + ")");
+      if (mod->hasModuleParams())
+	{
+	  f.add((firstParam ? " " : ", ") + mod->get_name() + 
+		"(&allParams.p" + mod->get_name() + ")");
+	  firstParam = false;
+	}
       
       // initialize any node objects from their module object
-      if (mod->nodeParams.size() > 0)
+      if (mod->hasNodeParams())
 	{
-	  for (const Node *node : mod->nodes)
-	    f.add(", " + node->get_name() + 
-		  "(" + mod->get_name() + ".getParams())");
+	  for (unsigned int k = 0; k < mod->nodes.size(); k++)
+	    {
+	      const Node *node = mod->nodes[k];
+	      f.add((firstParam ? " " : ", ") + node->get_name() + 
+		    "(&allParams.n" + mod->get_name() + 
+		    "[" + to_string(k) + "])");
+	      firstParam = false;
+	    }
 	}
     }
   

@@ -16,6 +16,8 @@
 
 #include "device_config.cuh"
 
+#include "Queue.cuh"
+
 #include "NodeBase.cuh"
 
 #include "instrumentation/device_timer.cuh"
@@ -54,7 +56,7 @@ namespace Mercator  {
     __device__
     void run()
     {
-      TIMER_START(scheduler);
+      //TIMER_START(scheduler);
       
       while (!workQueue.empty())
 	{
@@ -63,13 +65,13 @@ namespace Mercator  {
 	    nextNode = workQueue.dequeue();
 	  __syncthreads(); // for nextNode, queue status
 	  
-	  nextNode->run();
+	  nextNode->fire();
 	  
 	  // boss thread did any updates to fireable item queue, so 
 	  // it sees all newly enqueued items w/o a syncthreads
 	}
       
-      TIMER_STOP(scheduler);
+      //TIMER_STOP(scheduler);
     }
     
     __device__

@@ -10,34 +10,26 @@ SameTypePipe_1to1map_dev::
 A::init()
 {
   const int threadWidth = getNumActiveThreads();
-  const int nInstances  = getNumInstances();
   
-  // allocate a random state vector for each node
-  __shared__ curandState_t *randState;
-  if (threadIdx.x == 0)
-    randState = new curandState_t [threadWidth];
-  
-  __syncthreads(); // all threads must see randState
-
   // all nodes share the same random state vector.  We
   // are not able to guarantee deterministic behavior even
   // if we give them separate vectors, so who cares.
-  if (threadIdx.x < nInstances)
-    getState()->randState[threadIdx.x] = randState;
+  if (threadIdx.x == 0)
+    getState()->randState = new curandState_t [threadWidth];
   
-  // initialize teh random state vector
+  // initialize the random state vector
   if (threadIdx.x < threadWidth)
     {
       curand_init(getAppParams()->seed,
 		  blockIdx.x * threadWidth + threadIdx.x,
-		  0, &randState[threadIdx.x]);
+		  0, &getState()->randState[threadIdx.x]);
     }
 }
 
 __device__
 void 
 SameTypePipe_1to1map_dev::
-A::run(const PipeEltT &inputItem, InstTagT nodeIdx)
+A::run(const PipeEltT &inputItem)
 { 
   PipeEltT myItem = inputItem;
   
@@ -51,15 +43,13 @@ A::run(const PipeEltT &inputItem, InstTagT nodeIdx)
   float putResult  = 1.0f;
   
   // item's state for PRNG -- cache it for efficiency
-  //curandState_t randState = getState()->randState[nodeIdx][threadIdx.x];
-  State* temp= getState();
-  curandState_t randState = temp->randState[nodeIdx][threadIdx.x];
+  curandState_t randState = getState()->randState[threadIdx.x];
   
   // call BlackScholes fcn
   doBlackScholes_fast(callResult, putResult, num_opts, randState);
   
   //save updated random state
-  getState()->randState[nodeIdx][threadIdx.x] = randState;
+  getState()->randState[threadIdx.x] = randState;
   
   // store result in item (addition combo is arbitrary)
   myItem.set_floatResult(callResult + putResult);
@@ -69,15 +59,15 @@ A::run(const PipeEltT &inputItem, InstTagT nodeIdx)
   //  bounded (node-specific) range; else push item downstream
   auto params = getParams();
   
-  float fr = params->filterRate[nodeIdx];
-  int ub   = params->upperBound[nodeIdx];
+  float fr = params->filterRate;
+  int ub   = params->upperBound;
   
   // border b/t filtered (above) and forwarded (below) items
   int thresh = (1.0f - fr) * ub;
   
   bool passThrough = (myItem.get_ID() < thresh);
   if (passThrough)
-    push(myItem, nodeIdx);
+    push(myItem);
 }
 
 __device__
@@ -85,8 +75,6 @@ void
 SameTypePipe_1to1map_dev::
 A::cleanup()
 {
-  const int nInstances = getNumInstances();
-  
   if (threadIdx.x == 0)
-    delete [] getState()->randState[0]; // only delete once
+    delete [] getState()->randState;
 }

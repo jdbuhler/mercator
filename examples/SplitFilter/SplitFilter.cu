@@ -27,9 +27,9 @@ uint32_t munge(uint32_t key)
 //
 __device__
 void SplitFilter_dev::
-Filter::run(const uint32_t& inputItem, InstTagT nodeIdx)
+Filter::run(const uint32_t& inputItem)
 {
   uint32_t v = munge(inputItem);
   
-  push(v, nodeIdx, (v % 2 == 0 ? Out::accept : Out::reject));
+  push(v, (v % 2 == 0 ? Out::accept : Out::reject));
 }

@@ -13,7 +13,7 @@ const uint32_t MAXITER = 255; // max number of iterations
 
 __device__
 void Mandelbrot_dev::
-MakePixel::run(const uint32_t& idx, InstTagT nodeIdx)
+MakePixel::run(const uint32_t& idx)
 {
   auto params = getAppParams();
   
@@ -42,13 +42,13 @@ MakePixel::run(const uint32_t& idx, InstTagT nodeIdx)
       p.rCurr = 0.0;
       p.cCurr = 0.0;
       
-      push(p, nodeIdx);
+      push(p);
     }
 }
 
 __device__
 void Mandelbrot_dev::
-IteratePixel::run(const Pixel& pixel, InstTagT nodeIdx)
+IteratePixel::run(const Pixel& pixel)
 {
   float rsq = pixel.rCurr * pixel.rCurr;
   float csq = pixel.cCurr * pixel.cCurr;
@@ -64,7 +64,7 @@ IteratePixel::run(const Pixel& pixel, InstTagT nodeIdx)
       p.rCurr = rsq - csq + p.r;
       p.cCurr = 2 * pixel.rCurr * pixel.cCurr + p.c;
       
-      push(p, nodeIdx, Out::repeat);
+      push(p, Out::repeat);
     }
   else
     {
@@ -72,5 +72,6 @@ IteratePixel::run(const Pixel& pixel, InstTagT nodeIdx)
       auto params = getAppParams();
   
       params->image[pixel.idx] = pixel.iter;
+
     }
 }

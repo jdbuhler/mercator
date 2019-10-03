@@ -160,13 +160,13 @@ namespace Mercator {
       
       sourceNodeIdx = isourceNodeIdx;
     }
+
+    Scheduler scheduler;
     
   private:
     
     NodeBase *nodes[numNodes];
     unsigned int sourceNodeIdx;
-
-    Scheduler scheduler;
   };
 }
 

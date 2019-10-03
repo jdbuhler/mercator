@@ -29,10 +29,10 @@ unsigned int munge(unsigned int key)
 //
 __device__
 void AsyncFilter_dev::
-Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
+Filter::run(const unsigned int& inputItem)
 {
   unsigned int v = munge(inputItem);
   
-  if (v % getParams()->modulus == 0)
-    push(v, nodeIdx);
+  if (v % getModuleParams()->modulus == 0)
+    push(v);
 }

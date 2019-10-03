@@ -50,9 +50,9 @@ namespace Mercator  {
     //
     __device__
     Node_Sink(unsigned int queueSize,
-	      NodeBase *parent, 
-	      Scheduler *scheduler)
-      : BaseType(queueSize, parent, scheduler),
+	      Scheduler *scheduler,
+	      NodeBase *parent) 
+      : BaseType(queueSize, scheduler, parent),
 	sink(nullptr)
     {}
     
@@ -127,7 +127,7 @@ namespace Mercator  {
       
       Queue<T> &queue = this->queue; 
       
-      unsigned int numToWrite = queue.occupancy();
+      unsigned int numToWrite = queue.getOccupancy();
             
       // unless we are flushing all our input, round down to a full
       // ensemble.  Since we are active, if we aren't flushing, we
@@ -174,6 +174,7 @@ namespace Mercator  {
       TIMER_STOP(input);
     }
     
+  };
 
 }; // namespace Mercator
 

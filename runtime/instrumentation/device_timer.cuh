@@ -81,15 +81,15 @@ private:
 //
 
 #ifdef INSTRUMENT_TIME
-#define TIMER_START(tm) { (tm ## Timer).start(); } 
+#define NODE_TIMER_START(tm) { (tm ## Timer).start(); } 
 #else
-#define TIMER_START(tm) {}
+#define NODE_TIMER_START(tm) {}
 #endif
 
 #ifdef INSTRUMENT_TIME
-#define TIMER_STOP(tm) { (tm ## Timer).stop(); } 
+#define NODE_TIMER_STOP(tm) { (tm ## Timer).stop(); } 
 #else
-#define TIMER_STOP(tm) {}
+#define NODE_TIMER_STOP(tm) {}
 #endif
 
 #endif

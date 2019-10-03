@@ -35,6 +35,7 @@ DataType::DataType(const string &iname)
 
 ///////////////////////////////////////////
 
+
 Node::Node(const string &iname,
 	   ModuleType *imt,
 	   int imIdx)
@@ -88,7 +89,7 @@ ModuleType::ModuleType(const string &iname,
 
 ModuleType::~ModuleType()
 {
-  for (DataItem *param : params)
+  for (DataItem *param : moduleParams)
     {
       delete param;
     }
@@ -207,10 +208,10 @@ void ModuleType::print() const
   cout << "  NELEMENTS: " << nElements << endl;
   cout << "   NTHREADS: " << nThreads << endl;
   
-  if (params.size() > 0)
+  if (moduleParams.size() > 0)
     {
       cout << "   PER-MODULE PARAMS:" << endl;
-      for (const DataItem *p : params)
+      for (const DataItem *p : moduleParams)
 	{
 	  cout << "    ";
 	  p->print();

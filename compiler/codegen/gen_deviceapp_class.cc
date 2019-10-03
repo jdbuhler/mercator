@@ -36,14 +36,12 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
   if(mod->get_nElements() > 1)
     {
       runFcnParams = 
-	"const " + inputType + "* inputItems, " 
-	"InstTagT* nodeIdxs";
+	"const " + inputType + "* inputItems";
     }
   else
     {
       runFcnParams = 
-	"const " + inputType + "& inputItem, " 
-	"InstTagT nodeIdx";
+	"const " + inputType + "& inputItem";
     }
   
   return runFcnParams;
@@ -53,7 +51,7 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
 //
 // @brief generate the base type for a module, based on its properties
 //
-// @param mod Pointer to module for which to generate typep
+// @param mod Pointer to module for which to generate type
 // @return generated type string
 //
 static
@@ -64,37 +62,35 @@ string genDeviceModuleBaseType(const ModuleType *mod)
   if (mod->isSource())
     {
       baseType =
-	"ModuleType_Source"
+	"Node_Source"
 	"<" + mod->get_channel(0)->type->name
 	+ ", " + to_string(mod->get_nChannels())
 	+ ", THREADS_PER_BLOCK>";
     }
   else
     {
-      // get data type for this module
+      // get data type for this node
       string inTypeString = mod->get_inputType()->name;
       
       if (mod->isSink())
 	{
 	  baseType =
-	    "ModuleType_Sink"
+	    "Node_Sink"
 	    "<" + inTypeString 
-	    + ", " + to_string(mod->nodes.size())
 	    + ", THREADS_PER_BLOCK>";
 	}
-      else // regular module
+      else // regular node
 	{
 	  string moduleTypeVariant;
 	  
 	  if (mod->get_nElements() > 1)
-	    moduleTypeVariant = "ModuleType_ManyItems";
+	    moduleTypeVariant = "Node_ManyItems";
 	  else
-	    moduleTypeVariant = "ModuleType_SingleItem";
+	    moduleTypeVariant = "Node_SingleItem";
 	  
 	  baseType =
 	    moduleTypeVariant
 	    + "<" + inTypeString 
-	    + ", " + to_string(mod->nodes.size())
 	    + ", " + to_string(mod->get_nChannels())
 	    + ", " + to_string(mod->get_nThreads())
 	    + ", " + to_string(mod->get_inputLimit())
@@ -111,10 +107,11 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 
 //
 // @brief generate statements that initialize the channels of
-//   a module, for use inside its constructor
+//   a node, for use inside its constructor
 //
-// @param mod Module whose code is being generated
-// @f Formatter to receive generated code
+// @param node node whose code is being generated
+// @param mod type of node whose code is being generated
+// @param f Formatter to receive generated code
 static
 void genDeviceModuleChannelInitStmts(const ModuleType *mod,
 				     Formatter &f)
@@ -127,36 +124,12 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
       for (int j=0; j < nChannels; ++j)
 	{
 	  const Channel *channel = mod->get_channel(j);
-	  
-	  f.add("{");
-	  f.indent();
-	  
-	  // Create const array of reservedSlot counts for each
-	  // queue targeted by this channel (one per node)
-	  string nextStmt = "const unsigned int reservedSlots[] = {";
-	  for (const Node *node : mod->nodes)
-	    {
-	      const Edge *dsEdge = node->get_dsEdge(j);
-	      unsigned int reserved = 
-		(dsEdge ? dsEdge->dsReservedSlots : 0);
-	      
-	      nextStmt += to_string(reserved) + ", ";
-	    }
-	  nextStmt += "};";
-	  f.add(nextStmt);
-	  
-	  // format: module->initChannel<type>(outstream-enum,
-	  //   outputsPerInput, capacity);
+
+	  // format: initChannel<type>(outstream-enum, outputsPerInput)
 	  f.add("initChannel<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
-		+ to_string(channel->maxOutputs) + ", "
-		+ "reservedSlots);");
-	  
-	  f.unindent();
-	  f.add("}");
-	  
-	  f.add("");
+		+ to_string(channel->maxOutputs) + ");");
 	}
     }
 }
@@ -223,19 +196,47 @@ void genDeviceModuleConstructor(const App *app,
       baseArgs.push_back("tailPtr");
     }
   
-  // all modules take array of queue sizes
-  args.push_back({"const unsigned int*", "queueSizes"});
-    
-  // modules with parameters have mod parameter accessor
-  if (mod->hasParams())
+  // all nodes except the source take a queue size
+  if (!mod->isSource())
     {
-      string paramsType = app->name + "::" + mod->get_name() + "::Params";
-      args.push_back({"const " + paramsType + "*", "iparams"});
-      
-      inits.push_back({"params", "iparams"});
+      args.push_back({"unsigned int", "queueSize"});
+      baseArgs.push_back("queueSize");
     }
   
-  // in apps with aprams, all modules have app parameter accessor
+  // all nodes take a pointer to the app scheduler
+  args.push_back({"Mercator::Scheduler *", "scheduler"});
+  baseArgs.push_back("scheduler");
+  
+  // all nodes except the source have a parent
+  if (!mod->isSource())
+    {
+      args.push_back({"NodeBase *", "parent"});
+      baseArgs.push_back("parent");
+    }
+  
+  // modules with per-node parameters have a node parameter accessor
+  if (mod->hasNodeParams())
+    {
+      string paramsType = app->name + "::" + mod->get_name() +
+	"::NodeParams";
+      
+      args.push_back({"const " + paramsType + "*", "inodeParams"});
+      
+      inits.push_back({"nodeParams", "inodeParams"});
+    }
+
+  // modules with per-module parameters have a module parameter accessor
+  if (mod->hasModuleParams())
+    {
+      string paramsType = app->name + "::" + mod->get_name() +
+	"::ModuleParams";
+      
+      args.push_back({"const " + paramsType + "*", "imoduleParams"});
+      
+      inits.push_back({"moduleParams", "imoduleParams"});
+    }
+  
+  // in apps with params, all modules have app parameter accessor
   if (app->hasParams())
     {
       string paramsType = app->name + "::" + "AppParams";
@@ -243,10 +244,6 @@ void genDeviceModuleConstructor(const App *app,
       
       inits.push_back({"appParams", "iappParams"});
     }
-  
-  // all modules but the source pass the queue sizes to their base type
-  if (!mod->isSource())
-    baseArgs.push_back("queueSizes");
   
   // emit function declaration
   f.add("__device__");  
@@ -303,9 +300,9 @@ void genDeviceModuleConstructor(const App *app,
 
 
 //
-// @brief generate a device-side module class
+// @brief generate a device-side node class
 //
-// @param mod Module whose code is being generated
+// @param mod node type fo rwhich we are generating class
 // @param f Formatter to receive generated code
 //
 static
@@ -330,11 +327,6 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
-  // make host-side node enumeration available to user functions in the
-  // device-side class (useful mainly for state initialization)
-  f.add("typedef " + app->name + "::" + mod->get_name() + "::Node Node;");
-  f.add("");
-  
   // constructor
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
@@ -355,7 +347,6 @@ void genDeviceModuleClass(const App *app,
   if (!mod->isSource() && !mod->isSink())
     {
       // generate reflectors for user code to learn about this module
-      f.add("using " + baseType + "::getNumInstances;");
       f.add("using " + baseType + "::getNumActiveThreads;");
       f.add("using " + baseType + "::getThreadGroupSize;");
       f.add("using " + baseType + "::isThreadGroupLeader;");
@@ -363,22 +354,43 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
-  if (mod->hasParams())
+  if (mod->hasNodeParams())
+    {
+      // generate node parameter storage
+      
+      string paramsType = app->name + "::" + mod->get_name() + 
+	"::NodeParams";
+      
+      f.add("const " + paramsType + "* const nodeParams;");
+      f.add("");
+      
+      // generate node parameter accessor
+      
+      f.add("__device__");
+      f.add(genFcnHeader("const " + paramsType + "*",
+			 "getParams",
+			 "") + " const");
+      f.add("{ return nodeParams; }");
+      f.add("");
+    }
+  
+  if (mod->hasModuleParams())
     {
       // generate module parameter storage
       
-      string paramsType = app->name + "::" + mod->get_name() + "::Params";
+      string paramsType = app->name + "::" + mod->get_name() + 
+	"::ModuleParams";
       
-      f.add("const " + paramsType + "* const params;");
+      f.add("const " + paramsType + "* const moduleParams;");
       f.add("");
       
       // generate module parameter accessor
       
       f.add("__device__");
       f.add(genFcnHeader("const " + paramsType + "*",
-			 "getParams",
+			 "getModuleParams",
 			 "") + " const");
-      f.add("{ return params; }");
+      f.add("{ return moduleParams; }");
       f.add("");
     }
   
@@ -402,15 +414,14 @@ void genDeviceModuleClass(const App *app,
 
   if (mod->hasState())
     {
-      // generate module state structure
+      // generate node state structure
       
-      f.add("struct State {");
+      f.add("struct NodeState {");
       f.indent();
       
       for (const DataItem *var : mod->nodeState)
 	{
-	  f.add(var->type->name + " " + var->name + 
-		"[" + to_string(mod->nodes.size()) + "];");
+	  f.add(var->type->name + " " + var->name + ";");
 	}
       
       f.unindent();
@@ -421,7 +432,7 @@ void genDeviceModuleClass(const App *app,
       // generate state accessor
       
       f.add("__device__");
-      f.add(genFcnHeader("State*",
+      f.add(genFcnHeader("NodeState*",
 			 "getState",
 			 ""));
       f.add("{ return &state; }");
@@ -429,7 +440,7 @@ void genDeviceModuleClass(const App *app,
       f.add("");
       
       // generate state storage
-      f.add("State state;");
+      f.add("NodeState state;");
       
       f.add("");
       
@@ -453,8 +464,8 @@ void genDeviceModuleClass(const App *app,
       f.add("{");
       f.indent();
       
-      f.add("state.source[0] = createSource(params->sourceData[0], &state.sourceMem[0]);");
-      f.add("setInputSource(state.source[0]);");
+      f.add("state.source = createSource(nodeParams->sourceData, &state.sourceMem);");
+      f.add("setInputSource(state.source);");
       
       f.unindent();
       f.add("}");
@@ -471,13 +482,13 @@ void genDeviceModuleClass(const App *app,
       f.add(genFcnHeader("void", "init", ""));
       f.add("{");
       f.indent();
-      
-      f.add("if (threadIdx.x < getNumInstances())");
+
+      f.add("if (threadIdx.x == 0)");
       f.add("{");
       f.indent();
       
-      f.add("state.sink[threadIdx.x] = createSink(params->sinkData[threadIdx.x], &state.sinkMem[threadIdx.x]);");
-      f.add("setOutputSink(threadIdx.x, state.sink[threadIdx.x]);");
+      f.add("state.sink = createSink(nodeParams->sinkData, &state.sinkMem);");
+      f.add("setOutputSink(state.sink);");
       
       f.unindent();
       f.add("}");
@@ -532,27 +543,27 @@ void genDeviceAppHeader(const string &deviceClassFileName,
       }
     
     if (needsSingleItem)
-      f.add(genUserInclude("deviceCode/ModuleType_SingleItem.cuh"));
+      f.add(genUserInclude("deviceCode/Node_SingleItem.cuh"));
     
     if (needsMultiItem)
-      f.add(genUserInclude("deviceCode/ModuleType_MultiItem.cuh"));
+      f.add(genUserInclude("deviceCode/Node_MultiItem.cuh"));
     
-    f.add(genUserInclude("deviceCode/ModuleType_Source.cuh"));
-    f.add(genUserInclude("deviceCode/ModuleType_Sink.cuh"));
+    f.add(genUserInclude("deviceCode/Node_Source.cuh"));
+    f.add(genUserInclude("deviceCode/Node_Sink.cuh"));
     f.add("");
   }
   
   // begin device app class
   f.add("class " + DeviceAppClass +
 	" : public Mercator::DeviceApp<" 
-	+ app->name + "::NUM_MODULES, "
+	+ app->name + "::NUM_NODES, "
 	+ to_string(options.threadsPerBlock) + "," 
 	+ to_string(options.deviceStackSize) + ","
 	+ to_string(options.deviceHeapSize)
 	+ "> {");
   f.indent();
   
-  // generate class def for each module type
+  // generate class def for each module type and its nodes
   for (const ModuleType *mod : app->modules)
     {
       genDeviceModuleClass(app, mod, f);

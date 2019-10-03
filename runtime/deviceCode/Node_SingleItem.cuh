@@ -65,9 +65,9 @@ namespace Mercator  {
     
     __device__
     Node_SingleItem(unsigned int queueSize,
-		    NodeBase *parent,
-		    Scheduler *scheduler)
-      : BaseType(queueSize, parent, scheduler)
+		    Scheduler *scheduler,
+		    NodeBase *parent)
+      : BaseType(queueSize, scheduler, parent)
     {}
     
   protected:
@@ -120,7 +120,7 @@ namespace Mercator  {
       DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
       
       // # of items available to consume from queue
-      unsigned int nToConsume = queue->getOccupancy();
+      unsigned int nToConsume = queue.getOccupancy();
       
       // unless we are flushing, round # to consume down to a multiple
       // of ensemble width.
@@ -138,14 +138,14 @@ namespace Mercator  {
 	  
 	  const T &myData = 
 	    (tid < nItems
-	     ? queue.getElt(nConsumed + tid);
+	     ? queue.getElt(nConsumed + tid)
 	     : queue.getDummy()); // don't create a null reference
 	  
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
 	  
-	  if (runWithAllThreads || tid < nitems)
+	  if (runWithAllThreads || tid < nItems)
 	    n->run(myData);
 	  
 	  nConsumed += nItems;

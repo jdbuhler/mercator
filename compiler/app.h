@@ -264,9 +264,14 @@ public:
   bool isSource() const { return flags & F_isSource; }
   bool isSink()   const { return flags & F_isSink; }
   
-  bool hasParams() const 
+  bool hasNodeParams() const 
   {
-    return (params.size() > 0 || nodeParams.size() > 0);
+    return nodeParams.size() > 0;
+  }
+
+  bool hasModuleParams() const 
+  {
+    return moduleParams.size() > 0;
   }
   
   bool hasState() const
@@ -282,8 +287,8 @@ public:
   
   std::vector<Node *> nodes; // all nodes of this module type
   
-  std::vector<DataItem *> params;      // all per-module parameters
-  std::vector<DataItem *> nodeParams;  // all per-node parameters
+  std::vector<DataItem *> moduleParams; // all per-module parameters
+  std::vector<DataItem *> nodeParams;   // all per-node parameters
 
   std::vector<DataItem *> nodeState;  // all per-node state
 

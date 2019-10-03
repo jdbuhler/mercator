@@ -58,7 +58,7 @@ namespace Mercator  {
     __device__
     Node_Source(size_t *itailPtr,
 		Scheduler *scheduler)
-      : BaseType(0, nullptr, scheduler),
+      : BaseType(0, scheduler, nullptr),
 	source(nullptr),
 	tailPtr(itailPtr)
     {}
@@ -112,6 +112,7 @@ namespace Mercator  {
     
   private:
 
+    using BaseType::maxRunSize;
     using BaseType::getChannel;
     using BaseType::nDSActive;
     
@@ -150,17 +151,18 @@ namespace Mercator  {
 
       TIMER_START(input);
       
-      __shared__ unsigned int pendingOffset;
-      __shared__ unsigned int numToWrite;
+      __shared__ size_t pendingOffset;
+      __shared__ size_t numToWrite;
+      __shared__ size_t numToRequest;
       
       if (IS_BOSS())
 	{
 	  // determine the amount of data needed to activate at least one
 	  // downstream node by filling its queue.
 	  
-	  unsigned int numToRequest = UINT_MAX;
+	  numToRequest = UINT_MAX;
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    numToRequest = min(numToRequest, getChannel(c)->dsCapacity());
+	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
 	  
 	  // round down to a full ensemble width, since the node with the
 	  // least available space still has at least one ensemble's worth
@@ -234,7 +236,7 @@ namespace Mercator  {
 	      
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  ChannelBase *chan = getChannel(c);
+		  auto chan = getChannel(c);
 		  if (chan->dsCapacity() < maxRunSize)
 		    {
 		      chan->getDSNode()->activate();

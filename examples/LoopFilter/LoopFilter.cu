@@ -26,13 +26,13 @@ unsigned int munge(unsigned int key)
 //
 __device__
 void LoopFilter_dev::
-Setup::run(const unsigned int& inputItem, InstTagT nodeIdx)
+Setup::run(const unsigned int& inputItem)
 {
   UIntWithCounter elt;
   elt.v = inputItem;
   elt.count = 0;
   
-  push(elt, nodeIdx);
+  push(elt);
 }
 
 
@@ -44,7 +44,7 @@ Setup::run(const unsigned int& inputItem, InstTagT nodeIdx)
 //
 __device__
 void LoopFilter_dev::
-Filter::run(const UIntWithCounter& inputItem, InstTagT nodeIdx)
+Filter::run(const UIntWithCounter& inputItem)
 {
   unsigned int v = munge(inputItem.v);
   
@@ -55,7 +55,7 @@ Filter::run(const UIntWithCounter& inputItem, InstTagT nodeIdx)
       if (inputItem.count == getAppParams()->numCycles - 1)
 	{
 	  // success!
-	  push(v, nodeIdx, Out::accept);
+	  push(v, Out::accept);
 	}
       else
 	{
@@ -64,7 +64,7 @@ Filter::run(const UIntWithCounter& inputItem, InstTagT nodeIdx)
 	  elt.v = v;
 	  elt.count = inputItem.count + 1;
 	  
-	  push(elt, nodeIdx, Out::keepgoing);
+	  push(elt, Out::keepgoing);
 	}	  
     }
 }

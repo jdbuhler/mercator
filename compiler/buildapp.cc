@@ -500,7 +500,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	  if (var->isParam)
 	    {
 	      vector<DataItem *> &vars = 
-		(var->isPerNode ? mod->nodeParams : mod->params);
+		(var->isPerNode ? mod->nodeParams : mod->moduleParams);
 	      
 	      vars.push_back(v);
 	    }

@@ -18,6 +18,8 @@
 
 #include "Queue.cuh"
 
+#include "support/collective_ops.cuh"
+
 namespace Mercator  {
     
   //
@@ -39,13 +41,10 @@ namespace Mercator  {
     // @brief Constructor (called single-threaded)
     //
     // @param ioutputsPerInput Outputs per input for this channel
-    // @param reservedQueueEntries # queue entries reserved in ds queue 
     //
     __device__
-      Channel(unsigned int ioutputsPerInput,
-	      const unsigned int ireservedQueueEntries)
+      Channel(unsigned int ioutputsPerInput)
       : outputsPerInput(ioutputsPerInput),
-      reservedQueueEntries(ireservedQueueEntries),
       numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
 	{
 	  // allocate enough total buffer capacity to hold outputs 
@@ -62,7 +61,6 @@ namespace Mercator  {
 	    }
 	  
 	  dsQueue = nullptr;
-	  reservedQueueEntries = ireservedQueueEntries;
 	  
 	  for (unsigned int j = 0; j < numThreadGroups; j++)
 	    nextSlot[j] = 0;
@@ -98,6 +96,12 @@ namespace Mercator  {
       void setDSNode(NodeBase *idsNode)
     {
       dsNode = idsNode;
+    }
+    
+    __device__
+      void setDSReservedSlots(unsigned int ireservedSlots)
+    {
+      reservedQueueEntries = ireservedSlots;
     }
     
     //
@@ -163,8 +167,8 @@ namespace Mercator  {
       // FIXME: can we ever call this function when the dsQueue is
       // null  (i.e. the channel is not connected to anything)? If
       // so, short-circuit here
-      asert(dsQueue != nullptr);
-
+      assert(dsQueue != nullptr);
+      
       BlockScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
       unsigned int count = (tid < numThreadGroups ? nextSlot[tid] : 0);
       unsigned int agg;
@@ -200,7 +204,7 @@ namespace Mercator  {
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
       //
-      if (dsQueue->getfreeSpace() < maxRunSize * outputsPerInput)
+      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
 	{
 	  if (IS_BOSS())
 	    dsNode->activate();
@@ -245,7 +249,6 @@ namespace Mercator  {
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
     const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
-    const unsigned int reservedQueueEntries; // reserved ds queue entries
 
     //
     // output buffer
@@ -266,7 +269,7 @@ namespace Mercator  {
 
     Queue<T> *dsQueue;
     NodeBase *dsNode;
-    
+    unsigned int reservedQueueEntries; // NB: will be used for cycles
   }; // end Channel class
 }  // end Mercator namespace
 

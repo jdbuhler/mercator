@@ -46,7 +46,20 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int numPending() = 0;
+
+    __device__
+    virtual
+    void fire() = 0;
     
+    __device__
+    virtual
+    void init() {}
+
+    __device__
+    virtual
+    void cleanup() {}
+    
+
     //////////////////////////////////////////////////////////////
     // INSTRUMENTATION PRINTING (see Node.h for details)
     //////////////////////////////////////////////////////////////

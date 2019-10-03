@@ -392,6 +392,5 @@ namespace Mercator  {
   };
 
 }// end Mercator namespace
-    
+
 #endif
-    

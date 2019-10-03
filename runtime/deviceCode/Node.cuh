@@ -113,8 +113,8 @@ namespace Mercator  {
     //
     __device__
     Node(const unsigned int queueSize,
-	 NodeBase *iparent, 
-	 Scheduler *ischeduler)
+	 Scheduler *ischeduler,
+	 NodeBase *iparent)
       : queue(queueSize),
 	parent(iparent),
 	scheduler(ischeduler),
@@ -151,15 +151,12 @@ namespace Mercator  {
     // @brief Create and initialize an output channel.
     //
     // @param c index of channel to initialize
-    //
     // @param outputsPerInput Num outputs/input for the channel
-    // @param reservedSlots reserved slot count for downstream queue
     //
     template<typename DST>
     __device__
     void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput,
-		     const unsigned int reservedSlots)
+		     unsigned int outputsPerInput)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
@@ -167,8 +164,7 @@ namespace Mercator  {
       // init the output channel -- should only happen once!
       assert(channels[c] == nullptr);
       
-      channels[c] = new Channel<DST>(outputsPerInput, 
-				     reservedSlots);
+      channels[c] = new Channel<DST>(outputsPerInput);
       
       // make sure alloc succeeded
       if (channels[c] == nullptr)
@@ -187,11 +183,13 @@ namespace Mercator  {
     //
     // @param channelIdx upstream channel
     // @param dsNode downstream node
+    // @param reservedSlots reserved slot count for downstream queue
     //
     template <typename DSP>
     __device__
     void setDSNode(unsigned int channelIdx,
-		   Node<DSP> *dsNode) 
+		   Node<DSP> *dsNode,
+		   unsigned int reservedSlots) 
     { 
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
@@ -201,12 +199,13 @@ namespace Mercator  {
       // queue from it in setDSNode?
       
       channel->setDSNode(dsNode);
-      channel->setQueue(dsNode->getQueue());
+      channel->setDSReservedSlots(reservedSlots);
+      channel->setDSQueue(dsNode->getQueue());
     }
   
   
     //
-    // @brief return our queue (needed for setDSEdge(), since downstream
+    // @brief return our queue (needed for setDSNode(), since downstream
     // node is not necessarily of same type as us).
     //
     __device__
@@ -252,7 +251,7 @@ namespace Mercator  {
     __device__
     unsigned int numPending()
     {
-      return (queue ? queue->getOccupancy() : 0);
+      return queue.getOccupancy();
     }
 	  
     ///////////////////////////////////////////////////////////////////
@@ -342,9 +341,9 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     ChannelBase* channels[numChannels];  // node's output channels
 
-    NodeBase *parent;          // parent of this node in dataflow graph
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-  
+    NodeBase *parent;          // parent of this node in dataflow graph
+    
     bool isActive;             // is node in active
     unsigned int nDSActive;    // # of active downstream children of node
     bool isFlushing;           // is node in flushing mode?

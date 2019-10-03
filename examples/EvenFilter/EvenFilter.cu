@@ -3,7 +3,7 @@
 // Device-side app to filter even numbers
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 #include "EvenFilter_dev.cuh"
@@ -26,12 +26,12 @@ unsigned int munge(unsigned int key)
 //
 __device__
 void EvenFilter_dev::
-Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
+Filter::run(const unsigned int& inputItem)
 {
   unsigned int v = munge(inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
   if (v % 2 == 0)
-    push(v, nodeIdx); // eqv to "push(v, nodeIdx, Out::accept);"
+    push(v); // eqv to "push(v, Out::accept);"
 }
