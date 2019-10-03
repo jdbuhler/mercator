@@ -79,7 +79,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     __device__
     virtual
-    void printCountsCSV(unsigned int nodeId) const = 0;
+    void printCountsCSV(unsigned int nodeId, bool inputOnly = false) const = 0;
 #endif
     
   };    // end class NodeBase

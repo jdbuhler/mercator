@@ -56,7 +56,7 @@ namespace Mercator  {
     __device__
     void run()
     {
-      //TIMER_START(scheduler);
+      NODE_TIMER_START(scheduler);
       
       while (!workQueue.empty())
 	{
@@ -69,13 +69,17 @@ namespace Mercator  {
 	  
 	  __syncthreads(); // for nextNode, queue status
 	  
+	  NODE_TIMER_STOP(scheduler);
+	  
 	  nextNode->fire();
+	  
+	  NODE_TIMER_START(scheduler);
 	  
 	  // boss thread did any updates to fireable item queue, so 
 	  // it sees all newly enqueued items w/o a syncthreads
 	}
       
-      //TIMER_STOP(scheduler);
+      NODE_TIMER_STOP(scheduler);
     }
     
     __device__

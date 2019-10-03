@@ -337,19 +337,21 @@ namespace Mercator  {
     // @brief print the contents of the node's item counters
     // @param nodeId a node identifier to print along with the
     //    output
-    //
+    // @param inputOnly print only the input counts, not the channel
+    //    counts
     __device__
     virtual
-    void printCountsCSV(unsigned int nodeId) const
+    void printCountsCSV(unsigned int nodeId, bool inputOnly) const
     {
       assert(IS_BOSS());
     
       printCountsSingle(itemCounter, nodeId, -1);
     
-      for (unsigned int c = 0; c < numChannels; c++)
-	printCountsSingle(channels[c]->itemCounter, nodeId, c);
+      if (!inputOnly)
+	for (unsigned int c = 0; c < numChannels; c++)
+	  printCountsSingle(channels[c]->itemCounter, nodeId, c);
     }
-  
+    
     //
     // @brief print the contents of one item counter
     // @param counter the counter to print

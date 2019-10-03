@@ -163,7 +163,7 @@ namespace Mercator  {
 	  numToRequest = UINT_MAX;
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
-
+	  
 	  // round down to a full ensemble width, since the node with the
 	  // least available space still has at least one ensemble's worth
 	  // (given that it was inactive when fire() was called), and
@@ -176,9 +176,10 @@ namespace Mercator  {
 	  COUNT_ITEMS(numToWrite);
 	}
       
-      __syncthreads(); // all threads must see numToWrite and pendingOffset
+      __syncthreads(); // all threads must see shared vars
       
       TIMER_STOP(input);
+
       TIMER_START(output);
       
       if (numToWrite > 0)
@@ -215,14 +216,21 @@ namespace Mercator  {
 	}
       
       TIMER_STOP(output);
+
       TIMER_START(input);
       
       if (IS_BOSS())
 	{
-	  if (numToWrite < numToRequest) // source is out of inputs
+	  if (numToWrite < numToRequest)
 	    {
+	      // no inputs remaining in source
 	      this->deactivate();
 	      
+	      // no more inputs to read -- force downstream nodes
+	      // into flushing mode and activte them (if not
+	      // already active).  Even if they have no input,
+	      // they must fire once to propagate flush mode and
+	      // activate *their* downstream nodes.
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
@@ -234,6 +242,7 @@ namespace Mercator  {
 	    {
 	      nDSActive = 0;
 	      
+	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  auto chan = getChannel(c);

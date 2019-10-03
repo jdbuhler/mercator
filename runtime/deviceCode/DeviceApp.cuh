@@ -143,7 +143,7 @@ namespace Mercator {
     void printCounts() const
     {
       for (unsigned int j = 0; j < numNodes; j++)
-	nodes[j]->printCountsCSV(j);
+	nodes[j]->printCountsCSV(j, (j == sourceNodeIdx));
     }
 
     __device__

@@ -5,7 +5,7 @@
 // @brief Define execution options for MERCATOR
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 //
@@ -13,7 +13,7 @@
 //
 
 // instrument code timing for performance model parameters?
-#define INSTRUMENT_TIME
+//#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS

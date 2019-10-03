@@ -135,6 +135,7 @@ namespace Mercator  {
 	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
       
       TIMER_STOP(input);
+      
       TIMER_START(output);
       
       if (numToWrite > 0)
@@ -148,17 +149,17 @@ namespace Mercator  {
 	  for (int base = 0; base < numToWrite; base += maxRunSize)
 	    {
 	      int srcIdx = base + tid;
-	      T myData;
 	      
 	      if (srcIdx < numToWrite)
 		{
-		  myData = queue.getElt(srcIdx);
+		  const T &myData = queue.getElt(srcIdx);
 		  sink->put(basePtr, srcIdx, myData);
 		}
 	    }
 	}
       
       TIMER_STOP(output);
+      
       TIMER_START(input);
       
       // we consumed enough input that we are no longer active

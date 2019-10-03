@@ -149,7 +149,7 @@ namespace Mercator  {
 	  
 	  nConsumed += nItems;
 	  
-	  __syncthreads(); // all threads must see active channel state
+	  __syncthreads(); // all threads must see channel state
 	  
 	  TIMER_STOP(run);
 	  
@@ -161,9 +161,10 @@ namespace Mercator  {
 	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
 	    }
 	  
-	  __syncthreads(); // all threads must see reset channel state
+	  __syncthreads(); // all threads must see channel state
 	  
 	  TIMER_STOP(output);
+	  
 	  TIMER_START(input);
 	}
       
@@ -176,14 +177,16 @@ namespace Mercator  {
 
 	  if (nConsumed == nToConsume)
 	    {
-	      this->deactivate(); // less than a full ensemble remains
+	      // less than a full ensemble remains, or 0 if flushing
+	      this->deactivate(); 
 	      
 	      if (isFlushing)
 		{
-		  // no more inputs to write -- force downstream nodes into
-		  // flushing mode and activte them so that they fire.  Even if
-		  // they have no input, they must fire once to propagate
-		  // flush mode and the active flag to *their* downstreams.
+		  // no more inputs to read -- force downstream nodes
+		  // into flushing mode and activte them (if not
+		  // already active).  Even if they have no input,
+		  // they must fire once to propagate flush mode and
+		  // activate *their* downstream nodes.
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
 		      NodeBase *dsNode = getChannel(c)->getDSNode();
