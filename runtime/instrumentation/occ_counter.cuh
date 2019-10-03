@@ -39,15 +39,15 @@ struct OccCounter {
   { sizePerRun = isizePerRun; }
   
   __device__
-  void add_firing(unsigned long long nElements)
+  void add_run(unsigned long long nElements)
   {
     if (IS_BOSS())
       {
 	totalInputs += nElements;
 	
-	totalRuns += (nElements + sizePerRun - 1)/ sizePerRun;
+	totalRuns++;
 	
-	totalFullRuns += nElements / sizePerRun;
+	totalFullRuns += (nElements == sizePerRun);
       }
   }
      
@@ -56,7 +56,7 @@ struct OccCounter {
 #endif
 
 #ifdef INSTRUMENT_OCC
-#define NODE_OCC_COUNT(n) { occCounter.add_firing(n); }
+#define NODE_OCC_COUNT(n) { occCounter.add_run(n); }
 #else
 #define NODE_OCC_COUNT(n) {}
 #endif

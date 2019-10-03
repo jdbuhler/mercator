@@ -135,6 +135,8 @@ namespace Mercator  {
 	{
 	  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
 	  
+	  NODE_OCC_COUNT(nItems);
+	  
 	  const T &myData = 
 	    (tid < nItems
 	     ? queue.getElt(nConsumed + tid)
