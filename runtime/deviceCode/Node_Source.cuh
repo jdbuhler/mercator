@@ -175,11 +175,11 @@ namespace Mercator  {
 	  	  
 	  COUNT_ITEMS(numToWrite);
 	}
-      
+
       __syncthreads(); // all threads must see shared vars
       
       TIMER_STOP(input);
-
+      
       TIMER_START(output);
       
       if (numToWrite > 0)
@@ -216,7 +216,7 @@ namespace Mercator  {
 	}
       
       TIMER_STOP(output);
-
+      
       TIMER_START(input);
       
       if (IS_BOSS())

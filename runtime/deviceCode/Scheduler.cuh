@@ -73,6 +73,8 @@ namespace Mercator  {
 	  
 	  nextNode->fire();
 	  
+	  __syncthreads(); // for updated queue status
+	  
 	  NODE_TIMER_START(scheduler);
 	  
 	  // boss thread did any updates to fireable item queue, so 

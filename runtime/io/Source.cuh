@@ -9,6 +9,7 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
+#include <climits>
 #include <cassert>
 
 #include "Buffer.cuh"
@@ -51,8 +52,15 @@ namespace Mercator {
     __device__
     Source(size_t isize, size_t *itail)
       : size(isize),
-	tail(itail)
+	tail(itail),
+	reqLimit((size + gridDim.x - 1)/ gridDim.x)
     {}
+    
+    __device__
+    void setRequestLimit(size_t ireqLimit)
+    {
+      reqLimit = ireqLimit;
+    }
     
     //
     // @brief reserve up to reqSize elements from the end of the array.
@@ -71,6 +79,8 @@ namespace Mercator {
     {
       if (*tail >= size)
 	return 0;
+    
+      reqSize = min(reqSize, reqLimit);
       
       // try to reserve reqSize items
       *base = myAtomicAdd(tail, reqSize);
@@ -92,6 +102,7 @@ namespace Mercator {
     
     const size_t size;
     size_t *tail;
+    size_t reqLimit;
     
     //
     // @brief CUDA does not provide an atomic add for size_t, despite

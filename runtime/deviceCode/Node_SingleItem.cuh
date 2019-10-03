@@ -125,7 +125,7 @@ namespace Mercator  {
       // of ensemble width.
       if (!isFlushing)
 	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
-      
+            
       // # of items already consumed from queue
       unsigned int nConsumed = 0;
       
@@ -145,10 +145,11 @@ namespace Mercator  {
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
-	  
+
 	  if (runWithAllThreads || tid < nItems)
-	    n->run(myData);
-	  
+	    {
+	      n->run(myData);
+	    }
 	  nConsumed += nItems;
 	  
 	  __syncthreads(); // all threads must see channel state
