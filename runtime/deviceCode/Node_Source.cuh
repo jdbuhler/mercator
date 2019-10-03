@@ -58,7 +58,7 @@ namespace Mercator  {
     __device__
     Node_Source(size_t *itailPtr,
 		Scheduler *scheduler)
-      : BaseType(0, scheduler, nullptr),
+      : BaseType(0, scheduler),
 	source(nullptr),
 	tailPtr(itailPtr)
     {}

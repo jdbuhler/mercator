@@ -93,29 +93,12 @@ namespace Mercator  {
     // @param idsNode downstream node
     //
     __device__
-      void setDSNode(NodeBase *idsNode)
+      void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue,
+		     unsigned int ireservedSlots)
     {
       dsNode = idsNode;
-    }
-    
-    __device__
-      void setDSReservedSlots(unsigned int ireservedSlots)
-    {
-      reservedQueueEntries = ireservedSlots;
-    }
-    
-    //
-    // @brief set the queue into which this channel feeds.  It
-    // should terminate at the dsNode, but we only get the
-    // basetype version of that node and so cannot extract
-    // the correctly typed queue.
-    //
-    // @param idsQueue the downstream queue
-    //
-    __device__
-      void setDSQueue(Queue<T> *idsQueue)
-    {
       dsQueue = idsQueue;
+      reservedQueueEntries = ireservedSlots;
     }
     
     //

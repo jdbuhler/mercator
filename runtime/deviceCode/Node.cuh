@@ -113,11 +113,10 @@ namespace Mercator  {
     //
     __device__
     Node(const unsigned int queueSize,
-	 Scheduler *ischeduler,
-	 NodeBase *iparent)
+	 Scheduler *ischeduler)
       : queue(queueSize),
-	parent(iparent),
 	scheduler(ischeduler),
+	parent(nullptr),
 	isActive(false),
 	nDSActive(0),
 	isFlushing(false)
@@ -178,47 +177,63 @@ namespace Mercator  {
     
     
     //
-    // @brief Set the downstream neighbor of this node on 
-    // hannel channelIdx.
+    // @brief Construc tthe edge between this node and a downstream
+    // neighbor on a partrcular channel.
     //
-    // @param channelIdx upstream channel
-    // @param dsNode downstream node
-    // @param reservedSlots reserved slot count for downstream queue
+    // @param channelIdx channel that holds edge
+    // @param dsNode node at downstream end of edge
+    // @param reservedSlots reserved slot count for edge's queue
     //
     template <typename DSP>
     __device__
-    void setDSNode(unsigned int channelIdx,
+    void setDSEdge(unsigned int channelIdx,
 		   Node<DSP> *dsNode,
 		   unsigned int reservedSlots) 
     { 
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
       
-      // FIXME: can we pass the typed dsNode to the channel using a
-      // similar templating trick so that we can extract the
-      // queue from it in setDSNode?
-      
-      channel->setDSNode(dsNode);
-      channel->setDSReservedSlots(reservedSlots);
-      channel->setDSQueue(dsNode->getQueue());
+      dsNode->setParent(this);
+      channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots);
     }
-  
-  
+    
+        
     //
-    // @brief return our queue (needed for setDSNode(), since downstream
-    // node is not necessarily of same type as us).
+    // @brief return our queue (needed for setDSEdge().
     //
     __device__
     Queue<T> *getQueue()
-    { return &queue; }
-  
-  
+    { 
+      return &queue; 
+    }
+    
+    
+    //
+    // @brief set the parent of this node (the node at the upstream
+    // end of is incoming edge).
+    //
+    // @param iparent parent node
+    ///
+    __device__
+    void setParent(NodeBase *iparent)
+    { 
+      parent = iparent;
+    }
+    
+    
+    //
+    // @brief indicate that node is in flush mode
+    //
     __device__
     void setFlushing()
     {
       isFlushing = true;
     }
-  
+
+    //
+    // @brief set node to be active for scheduling purposes;
+    // if this makes node fireable, schedule it for execution.
+    //
     __device__
     void activate()
     {
@@ -228,7 +243,10 @@ namespace Mercator  {
       if (nDSActive == 0) // node is eligible for firing
 	scheduler->addFireableNode(this);
     }   
-  
+
+    //
+    // @brief set node to be inactive for scheduling purposes;
+    //
     __device__
     void deactivate()
     {
@@ -237,7 +255,11 @@ namespace Mercator  {
       isActive = false;
       parent->decrDSActive();
     }    
-  
+
+    //
+    // @brief decrement node's count of active downstream children;
+    // if this makes the node fireable, schedule it for execution.
+    //
     __device__
     void decrDSActive()
     {
@@ -248,6 +270,10 @@ namespace Mercator  {
 	scheduler->addFireableNode(this);
     }
     
+    //
+    // @brief return number of data items queued for this node.
+    // (Only used for debugging right now.)
+    //
     __device__
     unsigned int numPending()
     {
@@ -342,6 +368,7 @@ namespace Mercator  {
     ChannelBase* channels[numChannels];  // node's output channels
 
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
+    
     NodeBase *parent;          // parent of this node in dataflow graph
     
     bool isActive;             // is node in active

@@ -207,13 +207,6 @@ void genDeviceModuleConstructor(const App *app,
   args.push_back({"Mercator::Scheduler *", "scheduler"});
   baseArgs.push_back("scheduler");
   
-  // all nodes except the source have a parent
-  if (!mod->isSource())
-    {
-      args.push_back({"NodeBase *", "parent"});
-      baseArgs.push_back("parent");
-    }
-  
   // modules with per-node parameters have a node parameter accessor
   if (mod->hasNodeParams())
     {

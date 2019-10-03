@@ -53,9 +53,6 @@ void genNodeConstruction(const string &nodeObj,
    
     nextStmt += ", &scheduler";
     
-    if (!mod->isSource())
-      nextStmt += ", nullptr"; // FIXME: parent
-    
     if (mod->hasNodeParams())
       nextStmt += ", &" + hostNodeParamObj;
     
@@ -111,7 +108,7 @@ void genEdgeInitStmts(const App *app,
 		  string usNodeObj = "d" + usNode->get_name();
 		  string dsNodeObj = "d" + dsEdge->dsNode->get_name();
 		  
-		  f.add(usNodeObj + "->setDSNode(" +
+		  f.add(usNodeObj + "->setDSEdge(" +
 			deviceModuleType +
 			"::Out::" + channelName + ", " +
 			dsNodeObj + ", " +

@@ -50,9 +50,8 @@ namespace Mercator  {
     //
     __device__
     Node_Sink(unsigned int queueSize,
-	      Scheduler *scheduler,
-	      NodeBase *parent) 
-      : BaseType(queueSize, scheduler, parent),
+	      Scheduler *scheduler)
+      : BaseType(queueSize, scheduler),
 	sink(nullptr)
     {}
     
