@@ -148,7 +148,7 @@ namespace Mercator  {
 	    n->run(myData);
 	  
 	  nConsumed += nItems;
-	 
+	  
 	  __syncthreads(); // all threads must see active channel state
 	  
 	  TIMER_STOP(run);
@@ -170,7 +170,7 @@ namespace Mercator  {
       if (IS_BOSS())
 	{
 	  nDSActive = mynDSActive;
-	  
+
 	  if (nConsumed == nToConsume)
 	    {
 	      this->deactivate(); // less than a full ensemble remains

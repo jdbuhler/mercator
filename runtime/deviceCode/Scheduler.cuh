@@ -61,8 +61,12 @@ namespace Mercator  {
       while (!workQueue.empty())
 	{
 	  __shared__ NodeBase *nextNode;
+	  
 	  if (IS_BOSS())
-	    nextNode = workQueue.dequeue();
+	    {
+	      nextNode = workQueue.dequeue();
+	    }
+	  
 	  __syncthreads(); // for nextNode, queue status
 	  
 	  nextNode->fire();
@@ -78,7 +82,7 @@ namespace Mercator  {
     void addFireableNode(NodeBase *node)
     {
       assert(IS_BOSS());
-      
+
       workQueue.enqueue(node);
     }
     

@@ -253,9 +253,10 @@ namespace Mercator  {
       assert(IS_BOSS());
       
       isActive = false;
-      parent->decrDSActive();
+      if (parent)  // source has no parent
+	parent->decrDSActive();
     }    
-
+    
     //
     // @brief decrement node's count of active downstream children;
     // if this makes the node fireable, schedule it for execution.

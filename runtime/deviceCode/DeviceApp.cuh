@@ -73,7 +73,10 @@ namespace Mercator {
 	nodes[j]->init();
       
       if (IS_BOSS())
-	scheduler.addFireableNode(nodes[sourceNodeIdx]);
+	{
+	  nodes[sourceNodeIdx]->activate();
+	  scheduler.addFireableNode(nodes[sourceNodeIdx]);
+	}
       
       __syncthreads(); // init and scheduler state visible to all threads
       
@@ -82,12 +85,15 @@ namespace Mercator {
       __syncthreads(); // run is complete in all threads
       
 #ifndef NDEBUG
-      // sanity check -- make sure no node still has pending inputs
-      bool hasPending = false;
-      for (unsigned int j = 0; j < numNodes; j++)
-	hasPending |= (nodes[j]->numPending() > 0);
-      
-      assert(!hasPending);
+      if (IS_BOSS())
+	{
+	  // sanity check -- make sure no node still has pending inputs
+	  bool hasPending = false;
+	  for (unsigned int j = 0; j < numNodes; j++)
+	    hasPending |= (nodes[j]->numPending() > 0);
+	  
+	  assert(!hasPending);
+	}
 #endif
       
       // call cleanup hooks for each node

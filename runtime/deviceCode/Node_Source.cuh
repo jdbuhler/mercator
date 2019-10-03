@@ -163,7 +163,7 @@ namespace Mercator  {
 	  numToRequest = UINT_MAX;
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
-	  
+
 	  // round down to a full ensemble width, since the node with the
 	  // least available space still has at least one ensemble's worth
 	  // (given that it was inactive when fire() was called), and
@@ -172,7 +172,7 @@ namespace Mercator  {
 	  
 	  // ask the source buffer for as many inputs as we want
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
-	  
+	  	  
 	  COUNT_ITEMS(numToWrite);
 	}
       
