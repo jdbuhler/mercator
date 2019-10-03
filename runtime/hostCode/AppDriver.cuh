@@ -144,11 +144,11 @@ namespace Mercator  {
     #endif
       
     #ifdef USE_ONE_BLOCKS
-      nBlocks=1;
+      nBlocks = 1;
     #endif
 
     #ifdef USE_SM_BLOCKS
-      nBlocks=numSMs;
+      nBlocks= numSMs;
     #endif
     
 

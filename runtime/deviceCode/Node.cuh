@@ -24,7 +24,7 @@
 #include "options.cuh"
 
 namespace Mercator  {
- 
+
   //
   // @class NodeProperties
   // @brief properties of a MERCATOR node known at compile time
@@ -53,8 +53,8 @@ namespace Mercator  {
     static const bool runWithAllThreads        = _runWithAllThreads;
     static const unsigned int THREADS_PER_BLOCK= _THREADS_PER_BLOCK;  
   };
-  
-  
+
+
   //
   // @class Node
   // @brief MERCATOR most general node type
@@ -67,44 +67,44 @@ namespace Mercator  {
   //
   template<typename Props>
   class Node : public NodeBase {
-    
+
     using                                    T = typename Props::T;
     static const unsigned int numChannels      = Props::numChannels;
     static const unsigned int numEltsPerGroup  = Props::numEltsPerGroup;
     static const unsigned int threadGroupSize  = Props::threadGroupSize;
     static const unsigned int maxActiveThreads = Props::maxActiveThreads;
     static const bool runWithAllThreads        = Props::runWithAllThreads;
-    
+
     // actual maximum # of possible active threads in this block
     static const unsigned int deviceMaxActiveThreads =
       (maxActiveThreads > Props::THREADS_PER_BLOCK 
        ? Props::THREADS_PER_BLOCK 
        : maxActiveThreads);
-    
+
     // number of thread groups (no partial groups allowed!)
     static const unsigned int numThreadGroups = 
       deviceMaxActiveThreads / threadGroupSize;
-    
+
     // max # of active threads assumes we only run full groups
     static const unsigned int numActiveThreads =
       numThreadGroups * threadGroupSize;
-    
+
   protected:
-    
+
     // maximum number of inputs that can be processed in a single 
     // call to the node's run() function
     static const unsigned int maxRunSize =
       numThreadGroups * numEltsPerGroup;
-    
+
     // forward-declare channel class
-    
+
     class ChannelBase;
-    
+
     template <typename T>
     class Channel;
-    
+
   public:
-    
+
     //
     // @brief Constructor
     //
@@ -124,13 +124,13 @@ namespace Mercator  {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
 	channels[c] = nullptr;
-      
+
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
     }
-    
-    
+
+
     //
     // @brief Destructor
     //
@@ -145,7 +145,7 @@ namespace Mercator  {
 	    delete channel;
 	}
     }
-  
+
     //
     // @brief Create and initialize an output channel.
     //
@@ -159,23 +159,23 @@ namespace Mercator  {
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
-      
+
       // init the output channel -- should only happen once!
       assert(channels[c] == nullptr);
-      
+
       channels[c] = new Channel<DST>(outputsPerInput);
-      
+
       // make sure alloc succeeded
       if (channels[c] == nullptr)
 	{
 	  printf("ERROR: failed to allocate channel object [block %d]\n",
 		 blockIdx.x);
-	  
+
 	  crash();
 	}
     }
-    
-    
+
+
     //
     // @brief Construc tthe edge between this node and a downstream
     // neighbor on a partrcular channel.
@@ -192,12 +192,12 @@ namespace Mercator  {
     { 
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
-      
+
       dsNode->setParent(this);
       channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots);
     }
-    
-        
+
+
     //
     // @brief return our queue (needed for setDSEdge().
     //
@@ -206,8 +206,8 @@ namespace Mercator  {
     { 
       return &queue; 
     }
-    
-    
+
+
     //
     // @brief set the parent of this node (the node at the upstream
     // end of is incoming edge).
@@ -219,8 +219,8 @@ namespace Mercator  {
     { 
       parent = iparent;
     }
-    
-    
+
+
     //
     // @brief indicate that node is in flush mode
     //
@@ -238,11 +238,16 @@ namespace Mercator  {
     void activate()
     {
       assert(IS_BOSS());
-      
-      isActive = true;
-      if (nDSActive == 0) // node is eligible for firing
-	scheduler->addFireableNode(this);
-    }   
+
+      // do not reschedule already-active nodes -- we can activate
+      // an active node when we put it into flush mode
+      if (!isActive)
+	{
+	  isActive = true;
+	  if (nDSActive == 0) // node is eligible for firing
+	    scheduler->addFireableNode(this);
+	}   
+    }
 
     //
     // @brief set node to be inactive for scheduling purposes;
@@ -255,7 +260,7 @@ namespace Mercator  {
       isActive = false;
       if (parent)  // source has no parent
 	parent->decrDSActive();
-    }    
+    }
     
     //
     // @brief decrement node's count of active downstream children;

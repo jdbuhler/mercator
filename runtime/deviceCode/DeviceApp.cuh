@@ -75,7 +75,6 @@ namespace Mercator {
       if (IS_BOSS())
 	{
 	  nodes[sourceNodeIdx]->activate();
-	  scheduler.addFireableNode(nodes[sourceNodeIdx]);
 	}
       
       __syncthreads(); // init and scheduler state visible to all threads

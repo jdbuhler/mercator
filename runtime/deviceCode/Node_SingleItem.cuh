@@ -113,6 +113,11 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
+      if (IS_BOSS())
+	printf("%d FIRING %p WITH OCCUPANCY %d %d\n",
+	       blockIdx.x, this, this->queue.getOccupancy(), 
+	       isFlushing);
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
@@ -169,10 +174,16 @@ namespace Mercator  {
       
       if (IS_BOSS())
 	{
+	  COUNT_ITEMS(nConsumed);  // instrumentation
+	  queue.release(nConsumed);
+	  
 	  nDSActive = mynDSActive;
 
 	  if (nConsumed == nToConsume)
 	    {
+	      printf("%d DEACTIVATING %p WITH OCCUPANCY %d\n",
+		     blockIdx.x, this, queue.getOccupancy());
+	      
 	      this->deactivate(); // less than a full ensemble remains
 	      
 	      if (isFlushing)
@@ -189,9 +200,9 @@ namespace Mercator  {
 		    }
 		}
 	    }
-	  
-	  COUNT_ITEMS(nConsumed);  // instrumentation
-	  queue.release(nConsumed);
+	  else
+	    printf("%d NOT DEACTIVATING %p -- OCCUPANCY %d\n",
+		   blockIdx.x, this, queue.getOccupancy());
 	}
       
       TIMER_STOP(input);

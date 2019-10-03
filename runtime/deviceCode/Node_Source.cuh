@@ -239,8 +239,8 @@ namespace Mercator  {
 		  auto chan = getChannel(c);
 		  if (chan->dsCapacity() < maxRunSize)
 		    {
-		      chan->getDSNode()->activate();
 		      nDSActive++;
+		      chan->getDSNode()->activate();
 		    }
 		}
 	    }
