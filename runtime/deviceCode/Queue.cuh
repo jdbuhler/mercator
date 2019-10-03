@@ -206,8 +206,8 @@ namespace Mercator  {
     {
       assert(getOccupancy() < getCapacity());
       
-      tail = addModulo(tail, 1, dataSize);
       data[tail] = v;
+      tail = addModulo(tail, 1, dataSize);
     }
 
     //
@@ -219,7 +219,7 @@ namespace Mercator  {
       assert(getOccupancy() > 0);
       
       T &v = data[head];
-      addModulo(head, 1, dataSize);
+      head = addModulo(head, 1, dataSize);
       return v;
     }
     
