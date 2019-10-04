@@ -21,6 +21,7 @@
 #include "NodeBase.cuh"
 
 #include "instrumentation/device_timer.cuh"
+#include "instrumentation/sched_counter.cuh"
 
 namespace Mercator  {
   
@@ -60,6 +61,7 @@ namespace Mercator  {
       
       while (!workQueue.empty())
 	{
+          COUNT_SCHED_LOOP();
 	  __shared__ NodeBase *nextNode;
 	  
 	  if (IS_BOSS())
@@ -101,6 +103,13 @@ namespace Mercator  {
 	     blockIdx.x, -1, schedulerTimer.getTotalTime(), 0, 0);
     }
 #endif
+
+#ifdef INSTRUMENT_SCHED_COUNTS
+  __device__
+  void printLoopCount() const{
+    printf("%u: Sched Loop Count: %llu\n", blockIdx.x, schedCounter.getLoopCount());
+  }
+#endif
     
   private:
     
@@ -108,6 +117,10 @@ namespace Mercator  {
         
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;
+#endif
+
+#ifdef INSTRUMENT_SCHED_COUNTS
+    SchedCounter schedCounter;
 #endif
     
   };  // end Scheduler class

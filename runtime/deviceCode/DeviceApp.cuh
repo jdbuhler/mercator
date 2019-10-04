@@ -19,6 +19,7 @@
 #include "instrumentation/device_timer.cuh"
 #include "instrumentation/occ_counter.cuh"
 #include "instrumentation/item_counter.cuh"
+#include "instrumentation/sched_counter.cuh"
 
 namespace Mercator {
  
@@ -153,7 +154,14 @@ namespace Mercator {
       printf("blockIdx,nodeID,channelId,nodeId,count\n");
     }
 #endif
-    
+
+#ifdef INSTRUMENT_SCHED_COUNTS
+  __device__
+  void printSchedLoopCount() const{
+    scheduler.printLoopCount();
+  }
+
+#endif    
   protected:
     
     __device__
