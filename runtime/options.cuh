@@ -50,9 +50,10 @@
 //
 // Misc runtime options
 //
-//how many blocks to run with, recommended or just one
+//how many blocks to run with
 //#define USE_MAX_BLOCKS
 //#define USE_ONE_BLOCKS
+//#define USE_X_BLOCKS 100
 #define USE_SM_BLOCKS
 
 
