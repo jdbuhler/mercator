@@ -1,11 +1,11 @@
 # MERCATOR
-# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+# Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 
 # for VERSION
 cmake_policy(SET CMP0048 NEW)
 
 project(MERCATOR
-        VERSION 0.9.1
+        VERSION 0.9.5
         LANGUAGES CUDA CXX)
 
 cmake_minimum_required(VERSION 3.8)
