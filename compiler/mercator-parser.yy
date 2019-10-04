@@ -106,6 +106,10 @@ class mercator_driver;
 %type <input::ModuleTypeStmt *> moduletype
 %type <input::DataStmt *> varname scoped_varname;
 
+// expected shift-reduce conflicts:
+//   node <nodename> : <modulename> vs node <nodename> : <moduletype> 
+%expect 1
+
 //////////////////////////////////////////////////////////////////
 // GRAMMAR RULES
 // NB: C++ variant parsers do NOT have default rule behavior;
@@ -220,7 +224,25 @@ mappingspec:
 nodestmt:
 "node" nodename ":" nodetype ";"
 { 
-  input::NodeStmt *node = new input::NodeStmt($2, $4);
+  input::NodeStmt *node;
+  
+  if ($4->kind == input::NodeType::isGensym)
+  {
+    // module type was implicitly defined; give it a name and this
+    // name to record the type of the node
+    
+     std::string gensymType = $2 + "_type";
+     $4->mt->name = gensymType;
+     driver.currApp()->modules.push_back($4->mt);
+     
+     node = new input::NodeStmt($2, new input::NodeType(gensymType));
+     delete $4;
+  }
+  else
+  {
+     node = new input::NodeStmt($2, $4);
+  }
+
   if (!driver.currApp())
    {
       error(yyla.location, "Node statement outside app context");
@@ -229,8 +251,10 @@ nodestmt:
   driver.currApp()->nodes.push_back(node);
 };
 
+
 nodename: "identifier"
 { $$ = $1; };
+
 
 nodetype: 
   "identifier"                    { $$ = new input::NodeType($1); }
@@ -238,7 +262,8 @@ nodetype:
        { $$ = new input::NodeType(input::NodeType::isSource, $3); }
 | "sink" "<" basetypename ">"  
          { $$ = new input::NodeType(input::NodeType::isSink, $3); }
-;
+| moduletype                      { $$ = new input::NodeType($1); };
+
 
 // edge stmt: declare an edge from a channel out of one node into another
 edgestmt:

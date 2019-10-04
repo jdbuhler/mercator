@@ -195,13 +195,14 @@ namespace input {
   struct NodeType {
     
     enum Kind {
-      isSource, isSink, isOther
+      isSource, isSink, isGensym, isOther
     };
     
     std::string name;    // names a module for standard nodes
     Kind kind;           // indicates source or sink type
     DataType *dataType;  // element type of source or sink
-    
+    ModuleTypeStmt *mt;  // module type for gensym'd types
+
     NodeType(const std::string &name)
       : name(name),
 	kind(isOther),
@@ -215,6 +216,13 @@ namespace input {
 	dataType(dataType)
     {}
     
+    NodeType(ModuleTypeStmt *mt)
+      : name(""),
+	kind(isGensym),
+	dataType(nullptr),
+	mt(mt)
+    {}
+	
     ~NodeType()
     { 
       if (dataType) delete dataType; 
