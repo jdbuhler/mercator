@@ -44,6 +44,10 @@ namespace Mercator   {
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printCounts();
 #endif
+#ifdef INSTRUMENT_SCHED_COUNTS
+    if (IS_BOSS())
+      deviceAppObjs[blockIdx.x]->printSchedLoopCount();
+#endif
   }
 }    // end Mercator namespace
 

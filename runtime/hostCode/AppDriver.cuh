@@ -151,6 +151,10 @@ namespace Mercator  {
       nBlocks=numSMs;
     #endif
     
+    #ifdef USE_X_BLOCKS
+      nBlocks = USE_X_BLOCKS;
+    #endif
+
 
       // allocate space on device for passing host parameter struct
       cudaMalloc(&hostParams, sizeof(HostParamsT));

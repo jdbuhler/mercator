@@ -12,6 +12,10 @@
 // Enable device instrumenation
 //
 
+//collect data about the scheduler
+#define INSTRUMENT_SCHED_COUNTS
+
+
 // instrument code timing for performance model parameters?
 #define INSTRUMENT_TIME
 
@@ -54,7 +58,7 @@
 //#define USE_MAX_BLOCKS
 //#define USE_ONE_BLOCKS
 #define USE_SM_BLOCKS
-
+//#define USE_X_BLOCKS 100
 
 // try to avoid calling run() on a module when there are not enough
 // inputs to fill all threads

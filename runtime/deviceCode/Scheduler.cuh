@@ -25,6 +25,7 @@
 
 #include "instrumentation/device_timer.cuh"
 
+#include "instrumentation/sched_counter.cuh"
 namespace Mercator  {
   
   //
@@ -90,6 +91,8 @@ namespace Mercator  {
 
       // main scheduling loop
       while (true){
+        //keep track of how many times we g round this loop
+        COUNT_SCHED_LOOP();
         //Tail check
         if (sourceModule->isInTail()){          
           for (int base = 0; base < numModules; base += THREADS_PER_BLOCK){
@@ -262,6 +265,13 @@ namespace Mercator  {
        blockIdx.x, -1, schedulerTimer.getTotalTime(), 0, 0);
     }
 #endif
+
+#ifdef INSTRUMENT_SCHED_COUNTS
+  __device__
+  void printLoopCount() const{
+    printf("%u: Sched Loop Count: %llu\n", blockIdx.x, schedCounter.getLoopCount());
+  }
+#endif
     
   private:
     
@@ -274,7 +284,10 @@ namespace Mercator  {
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;
 #endif
-    
+
+#ifdef INSTRUMENT_SCHED_COUNTS
+    SchedCounter schedCounter;
+#endif
     //
     // @brief initialize the state for the lottery scheduler
     // Called single-threaded from init kernel
