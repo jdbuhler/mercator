@@ -26,7 +26,7 @@ unsigned int munge(unsigned int key)
 //
 __device__
 void EvenFilter_dev::
-Filter::run(const unsigned int& inputItem)
+f_type::run(const unsigned int& inputItem)
 {
   unsigned int v = munge(inputItem);
   
