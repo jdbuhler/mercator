@@ -210,9 +210,6 @@ namespace Mercator  {
       // switch to our device
       int prevDeviceId = switchDevice(deviceId);
       
-#ifdef INSTRUMENT_TIME_HOST
-      timer.start(stream);
-#endif
       
       // make a copy of the current parameter data so that the user
       // can change this structure safely after we return.
@@ -234,6 +231,10 @@ namespace Mercator  {
       cudaMemsetAsync(sourceTailPtr, 0, sizeof(size_t), stream);
       gpuErrchk( cudaPeekAtLastError() );
       
+      gpuErrchk( cudaStreamSynchronize(stream) );
+#ifdef INSTRUMENT_TIME_HOST
+      timer.start(stream);
+#endif
       mainKernel<<<nBlocks, DevApp::THREADS_PER_BLOCK, 0, stream>>>(deviceAppObjs);
       gpuErrchk( cudaPeekAtLastError() );
       
