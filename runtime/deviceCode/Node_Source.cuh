@@ -160,7 +160,7 @@ namespace Mercator  {
 	  // determine the amount of data needed to activate at least one
 	  // downstream node by filling its queue.
 	  
-	  numToRequest = UINT_MAX;
+	  numToRequest = source->getRequestLimit();
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
 	  
