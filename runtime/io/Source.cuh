@@ -53,14 +53,20 @@ namespace Mercator {
     Source(size_t isize, size_t *itail)
       : size(isize),
 	tail(itail),
-	reqLimit((size + gridDim.x - 1)/ gridDim.x)
+	reqLimit(max((size_t) 1, size / gridDim.x))
     {}
     
+    
+    //
+    // @brief get advisory request limit based on input stream size, so
+    // that every block in the grid will receive work.
+    //
     __device__
-    void setRequestLimit(size_t ireqLimit)
+    size_t getRequestLimit() const
     {
-      reqLimit = ireqLimit;
+      return reqLimit;
     }
+    
     
     //
     // @brief reserve up to reqSize elements from the end of the array.
@@ -79,8 +85,6 @@ namespace Mercator {
     {
       if (*tail >= size)
 	return 0;
-    
-      reqSize = min(reqSize, reqLimit);
       
       // try to reserve reqSize items
       *base = myAtomicAdd(tail, reqSize);
