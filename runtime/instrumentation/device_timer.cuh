@@ -24,8 +24,10 @@ public:
   __device__
   DeviceTimer() 
   {
-    if (IS_BOSS())
-      totalTime = 0; 
+    if (IS_BOSS()){
+      totalTime = 0;
+      //next_timer= rand select threead
+    } 
   }
 
   __device__
@@ -38,6 +40,13 @@ public:
     __syncthreads();
     if (IS_BOSS())
       lastStart = clock64(); 
+    /*
+    remove sync thread
+    if(threadIdx.x==next_timer){
+      lastStart = clock64(); 
+      next_timer= rand select threead
+    }
+    */
   }
   
   __device__
@@ -45,10 +54,18 @@ public:
   { 
     __syncthreads();
     if (IS_BOSS())
-      {
-	DevClockT now = clock64();
-	totalTime += timeDiff(lastStart, now);
-      }
+    {
+      DevClockT now = clock64();
+      totalTime += timeDiff(lastStart, now);
+    }
+    /*
+    remove sync thread
+    if(threadIdx.x==next_timer){
+      DevClockT now = clock64();
+      totalTime += timeDiff(lastStart, now);
+      next_timer= rand select threead
+    }
+    */
   }
   
 private:

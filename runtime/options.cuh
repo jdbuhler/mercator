@@ -39,7 +39,7 @@
 #define INSTRUMENT_TIME_HOST
 
 // profile code for time using nvprof?
-//#define PROFILE_TIME
+#define PROFILE_TIME
 
 // print info about mem allocs?
 //#define PRINT_MEM_USAGE
