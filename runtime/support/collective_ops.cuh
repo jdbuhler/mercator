@@ -207,10 +207,26 @@ namespace Mercator  {
       
       return Reducer(CUB_tmp).Sum(v, nThreads);
     }
+
+    __device__
+    static T max(const T &v, unsigned int nThreads = TPB)
+    {
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      return Reducer(CUB_tmp).Reduce(v, cub::Max());
+    }
+
+    __device__
+    static T min(const T &v, unsigned int nThreads = TPB)
+    {
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      return Reducer(CUB_tmp).Reduce(v, cub::Min());
+    }
   };
 
   //
-  // @brief block-wide sum reductions
+  // @brief warp-wide sum reductions
   // @tparam T type over which to reduce
   // @tparam TPW threads per warp
   //

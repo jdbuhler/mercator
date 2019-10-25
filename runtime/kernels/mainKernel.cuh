@@ -12,6 +12,7 @@
 #include <cassert>
 
 #include "options.cuh"
+#include "support/collective_ops.cuh"
 
 namespace Mercator   {
 
@@ -27,9 +28,9 @@ namespace Mercator   {
   void mainKernel(DeviceAppClass **deviceAppObjs)
   {
     assert(deviceAppObjs[blockIdx.x]);
-    
+    unsigned long long start = clock64();    
     deviceAppObjs[blockIdx.x]->run();
-    
+
 #ifdef INSTRUMENT_TIME
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printTimers();
@@ -48,6 +49,16 @@ namespace Mercator   {
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printSchedLoopCount();
 #endif
+    unsigned long long stop = clock64();    
+    __syncthreads();
+    BlockReduce<unsigned long long, 128> reducer;
+
+    unsigned long long max= reducer.max(stop);
+    unsigned long long min= reducer.min(start);
+  
+    if(threadIdx.x==0){
+      printf("%u: deviceAppObjs[] runtime: %llu, stop %llu, start, %llu\n",blockIdx.x, max-min, max, min);
+    }
   }
 }    // end Mercator namespace
 
