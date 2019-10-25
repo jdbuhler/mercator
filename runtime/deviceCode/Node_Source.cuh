@@ -160,7 +160,7 @@ namespace Mercator  {
 	  // determine the amount of data needed to activate at least one
 	  // downstream node by filling its queue.
 	  
-	  numToRequest = source->getRequestLimit();
+	  numToRequest = UINT_MAX;
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
 	  
@@ -170,9 +170,13 @@ namespace Mercator  {
 	  // we can still get its free space to < one ensemble width.
 	  numToRequest = (numToRequest / maxRunSize) * maxRunSize;
 	  
+	  // if the source advises a lower request size than what we planned,
+	  // honor that.  Note that this may cause us to neither fill any
+	  // output queue nor exhaust the input.
+	  numToRequest = min(numToRequest, source->getRequestLimit());
+	  
 	  // ask the source buffer for as many inputs as we want
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
-	  	  
 	  COUNT_ITEMS(numToWrite);
 	}
 
@@ -251,6 +255,17 @@ namespace Mercator  {
 		      nDSActive++;
 		      chan->getDSNode()->activate();
 		    }
+		}
+	      
+	      // If we did not fill any downstream queues or exhaust
+	      // the input stream, we need to forcibly re-enqueue
+	      // ourselves and fire again.  This can happen only if
+	      // the source artificially limited our input request
+	      // size.
+	      if (nDSActive == 0)
+		{
+		  this->deactivate();
+		  this->activate();
 		}
 	    }
 	}
