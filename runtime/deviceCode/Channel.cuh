@@ -244,7 +244,7 @@ namespace Mercator  {
     //
     
     // next buffer slot avail for thread to push output
-    unsigned int nextSlot[numThreadGroups];
+    unsigned char nextSlot[numThreadGroups];
     
     //
     // target (edge) for scattering items from output buffer
