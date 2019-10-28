@@ -39,7 +39,7 @@
 #define INSTRUMENT_TIME_HOST
 
 // profile code for time using nvprof?
-//#define PROFILE_TIME
+#define PROFILE_TIME
 
 // print info about mem allocs?
 //#define PRINT_MEM_USAGE
@@ -58,6 +58,10 @@
 //#define USE_ONE_BLOCKS
 //#define USE_X_BLOCKS 100
 #define USE_SM_BLOCKS
+
+//use random thread to record timings 
+#define RAND_TIMING_THREAD
+
 
 
 // try to avoid calling run() on a node when there are not enough
