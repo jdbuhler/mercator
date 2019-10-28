@@ -59,28 +59,26 @@ namespace Mercator  {
     {
       NODE_TIMER_START(scheduler);
       
-      while (!workQueue.empty())
+      while (true)
 	{
-          COUNT_SCHED_LOOP();
 	  __shared__ NodeBase *nextNode;
+	  
+          COUNT_SCHED_LOOP();
 	  
 	  if (IS_BOSS())
 	    {
-	      nextNode = workQueue.dequeue();
+	      nextNode = (workQueue.empty() ? nullptr : workQueue.dequeue());
 	    }
+	  __syncthreads(); // for nextNode
 	  
-	  __syncthreads(); // for nextNode, queue status
+	  if (!nextNode) // queue is empty -- terminate
+	    break;
 	  
 	  NODE_TIMER_STOP(scheduler);
 	  
 	  nextNode->fire();
 	  
-	  __syncthreads(); // for updated queue status
-	  
 	  NODE_TIMER_START(scheduler);
-	  
-	  // boss thread did any updates to fireable item queue, so 
-	  // it sees all newly enqueued items w/o a syncthreads
 	}
       
       NODE_TIMER_STOP(scheduler);
