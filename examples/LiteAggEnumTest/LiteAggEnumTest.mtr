@@ -1,0 +1,37 @@
+//
+// LITEAGGENUMTEST.MTR
+// Demonstrate MERCATOR's enumeration and aggregation functionallity
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
+Application LiteAggEnum;
+
+//
+// By default, the filter module produces either 0 or 1 outputs
+// for each input on each output channel. This module has a
+// single channel, called "accept" (though we need not use this
+// name anywhere).
+
+Module EnumModule : {unsigned int} -> accept<{unsigned int}>;
+Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+Module AggModule : {unsigned int} -> accept<{unsigned int}> ;
+
+// nodes
+
+Node src : Source<{unsigned int}> ;
+
+Node e : EnumModule;
+Node f : Filter;
+Node a : AggModule;
+
+Node snk : Sink<{unsigned int}> ;
+
+// edges
+
+Edge src -> e;
+Edge e -> f;
+Edge f -> a;
+Edge a -> snk;
+

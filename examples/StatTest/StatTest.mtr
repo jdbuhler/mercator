@@ -1,0 +1,46 @@
+//
+// STATTEST.MTR
+// Demonstrate MERCATOR's enumeration and aggregation functionallity with
+// statistical measurements per input item
+//
+// MERCATOR
+// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+//
+
+reference "Composite.cuh";
+
+Application Stat;
+
+//
+// By default, the filter module produces either 0 or 1 outputs
+// for each input on each output channel. This module has a
+// single channel, called "accept" (though we need not use this
+// name anywhere).
+
+Module EnumModule : Enumerate {Composite} -> accept<{unsigned int} from {Composite}>;
+//Module EnumModule : Enumerate {unsigned int} -> accept<{unsigned int}>;
+Module Filter : {unsigned int} from {Composite} -> accept<{unsigned int} from {Composite}> ;
+Module AggModule : {unsigned int} from {Composite} -> Aggregate accept<{double}> ;
+//Module AggModule : {unsigned int} from {unsigned int} -> accept<{unsigned int}> ;
+
+//AllThreads AggModule;
+
+// nodes
+
+Node src : Source<{Composite}> ;
+
+Node e : EnumModule;
+Node f : Filter;
+Node a : AggModule;
+
+Node snk : Sink<{double}> ;
+
+// edges
+
+Edge src -> e;
+Edge e -> f;
+Edge f -> a;
+Edge a -> snk;
+
+// State statistic
+NodeState AggModule::avgState : {unsigned int*};
