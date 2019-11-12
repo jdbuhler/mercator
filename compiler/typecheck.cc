@@ -130,6 +130,15 @@ public:
 	    ++dummyNumber;
 	  }
       }
+
+    // stimcheck: Make sure that an unsigned int exists for the compiler to see.
+    // This is for when we create enumeration and aggregation nodes.
+    string varName = "__typecheck_dummy" + to_string(dummyNumber);
+    originalTypeStrings.insert(make_pair(varName, "unsigned int")); 
+	    
+    code += "unsigned int " + varName + ";\n";
+    ++dummyNumber;
+
     code = code + "}";
     
     //Set up args for building the ASTContext 
