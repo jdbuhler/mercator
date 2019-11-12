@@ -152,8 +152,6 @@ namespace Mercator  {
 	    }
 	  nConsumed += nItems;
 	  
-	  //__syncthreads(); // all threads must see channel state
-	  
 	  TIMER_STOP(run);
 	  
 	  TIMER_START(output);
@@ -163,8 +161,6 @@ namespace Mercator  {
 	      // check whether each channel's downstream node was activated
 	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
 	    }
-	  
-	  //__syncthreads(); // all threads must see channel state
 	  
 	  TIMER_STOP(output);
 	  
