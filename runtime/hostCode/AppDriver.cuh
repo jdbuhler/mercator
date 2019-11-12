@@ -187,7 +187,6 @@ namespace Mercator  {
       
       // synchronize to make sure the initialization was successful
       gpuErrchk( cudaStreamSynchronize(stream) );
-      
 #ifdef INSTRUMENT_TIME_HOST
       timer.stop(stream);
       elapsedTime_init = timer.elapsed();

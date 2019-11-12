@@ -56,9 +56,11 @@ namespace Mercator   {
     unsigned long long max= reducer.max(stop);
     unsigned long long min= reducer.min(start);
   
+#ifdef INSTRUMENT_TIME
     if(threadIdx.x==0){
       printf("%u: deviceAppObjs[] runtime: %llu, stop %llu, start, %llu\n",blockIdx.x, max-min, max, min);
     }
+#endif
   }
 }    // end Mercator namespace
 

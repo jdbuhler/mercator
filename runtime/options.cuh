@@ -13,7 +13,7 @@
 //
 
 //count trips thru sched loop
-//#define INSTRUMENT_SCHED_COUNTS
+#define INSTRUMENT_SCHED_COUNTS
 
 // instrument code timing for performance model parameters?
 #define INSTRUMENT_TIME
@@ -39,7 +39,7 @@
 #define INSTRUMENT_TIME_HOST
 
 // profile code for time using nvprof?
-#define PROFILE_TIME
+//#define PROFILE_TIME
 
 // print info about mem allocs?
 //#define PRINT_MEM_USAGE
