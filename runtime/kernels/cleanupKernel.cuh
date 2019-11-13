@@ -28,6 +28,7 @@ namespace Mercator {
     assert(deviceAppObjs[blockIdx.x]);
     
     delete deviceAppObjs[blockIdx.x];
+    if(threadIdx.x==0 and blockIdx.x==0)printf("app done\n");
   }
   
 }   // end Mercator namespace
