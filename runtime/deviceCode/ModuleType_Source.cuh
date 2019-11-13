@@ -121,7 +121,9 @@ namespace Mercator  {
       source = isource;
       this->setInTail(false);
       
-      numPending = source->reserve(REQ_SIZE, &pendingOffset);
+      reqSize = min(REQ_SIZE, source->getRequestLimit());
+      
+      numPending = source->reserve(reqSize, &pendingOffset);
       
       if (numPending == 0)
 	this->setInTail(true);
@@ -169,7 +171,7 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int maxPending() const
-    { return REQ_SIZE; }
+    { return reqSize; }
     
     
     //
@@ -275,7 +277,7 @@ namespace Mercator  {
 	
 	  if (!this->isInTail() && numPending == 0)
 	    {
-	      numPending = source->reserve(REQ_SIZE, &pendingOffset);
+	      numPending = source->reserve(reqSize, &pendingOffset);
 	      if (numPending == 0) // no more input left to request!
 		this->setInTail(true);
 	    }
@@ -291,6 +293,7 @@ namespace Mercator  {
     
     size_t numPending;    // number of inputs left from last request
     size_t pendingOffset; // offset into source of next input to get
+    size_t reqSize;       // size of each request to source
     
     size_t *tailPtr;
   };
