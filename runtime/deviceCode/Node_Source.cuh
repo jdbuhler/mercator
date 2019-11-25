@@ -169,8 +169,8 @@ namespace Mercator  {
       // output queue nor exhaust the input.
       numToRequest = min(numToRequest, source->getRequestLimit());
       
-      __shared__ size_t pendingOffset;
-      __shared__ size_t numToWrite;
+      size_t pendingOffset;
+      size_t numToWrite;
       
       if (IS_BOSS())
 	{	  
@@ -178,8 +178,8 @@ namespace Mercator  {
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
 	  COUNT_ITEMS(numToWrite);
 	}
-      
-      __syncthreads(); // all threads must see shared vars
+      pendingOffset = __shfl_sync(0xffffffff, pendingOffset, 0);
+      numToWrite    = __shfl_sync(0xffffffff, numToWrite, 0);
       
       TIMER_STOP(input);
       
@@ -187,16 +187,14 @@ namespace Mercator  {
       
       if (numToWrite > 0)
 	{
-	  __shared__ unsigned int dsBase[numChannels];
+	  unsigned int dsBase;
 	  if (tid < numChannels)
 	    {
 	      const Channel *channel = 
 		static_cast<Channel *>(getChannel(tid));
 	      
-	      dsBase[tid] = channel->directReserve(numToWrite);
+	      dsBase = channel->directReserve(numToWrite);
 	    }
-	  
-	  __syncthreads(); // all threads must see dsBase[] values
 	  
 	  // use every thread to copy from source to downstream queues
 	  for (int base = 0; base < numToWrite; base += maxRunSize)
@@ -212,7 +210,8 @@ namespace Mercator  {
 		      const Channel *channel = 
 			static_cast<Channel *>(getChannel(c));
 		      
-		      channel->directWrite(myData, dsBase[c], srcIdx);
+		      unsigned int base = __shfl_sync(0xffffffff, dsBase, c);
+		      channel->directWrite(myData, base, srcIdx);
 		    }
 		}
 	    }

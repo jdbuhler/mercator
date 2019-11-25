@@ -61,7 +61,7 @@ namespace Mercator  {
       
       while (true)
 	{
-	  __shared__ NodeBase *nextNode;
+	  NodeBase *nextNode;
 	  
           COUNT_SCHED_LOOP();
 	  
@@ -69,7 +69,8 @@ namespace Mercator  {
 	    {
 	      nextNode = (workQueue.empty() ? nullptr : workQueue.dequeue());
 	    }
-	  __syncthreads(); // for nextNode
+	  unsigned long long v = (unsigned long long) nextNode;
+	  nextNode = (NodeBase *) __shfl_sync(0xffffffff, v, 0);
 	  
 	  if (!nextNode) // queue is empty -- terminate
 	    break;

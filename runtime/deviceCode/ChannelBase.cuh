@@ -50,15 +50,10 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int dsCapacity() const = 0;
-        
-    //
-    // @brief After a call to run(), move node's output
-    // from its temporary buffer to its downstream queue.
-    // NB: must be called with all threads
-    //
+    
     __device__
     virtual
-    bool moveOutputToDSQueue() = 0;
+    bool checkDSFull() const = 0;
 
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel

@@ -40,7 +40,7 @@ struct CommandOptions {
     emitDeps = false;
     generateSkeletons = false;
     
-    threadsPerBlock = 128;
+    threadsPerBlock = 32;
     deviceStackSize = (1024 * 8);          // 8 KB
     //deviceHeapSize  = (1024 * 1024 * 200); // 100 MB
     deviceHeapSize  = (1024 * 1024 * 500); // 524MB 

@@ -156,10 +156,12 @@ namespace Mercator  {
 	  
 	  TIMER_START(output);
 	  
+	  __syncthreads(); // all threads can see ds queue state
+	  
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // check whether each channel's downstream node was activated
-	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+	      mynDSActive += getChannel(c)->checkDSFull();
 	    }
 	  
 	  TIMER_STOP(output);

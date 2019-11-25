@@ -12,6 +12,8 @@
 #include <cassert>
 #include <cstdio>
 
+#include <cooperative_groups.h>
+
 #include "ChannelBase.cuh"
 
 #include "options.cuh"
@@ -21,7 +23,9 @@
 #include "support/collective_ops.cuh"
 
 namespace Mercator  {
-    
+  
+  using namespace cooperative_groups;
+  
   //
   // @class Channel
   // @brief Holds all data associated with an output stream from a node.
@@ -47,23 +51,7 @@ namespace Mercator  {
       : outputsPerInput(ioutputsPerInput),
       numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
 	{
-	  // allocate enough total buffer capacity to hold outputs 
-	  // for one run() call
-	  data = new T [numThreadGroups * numSlotsPerGroup];
-	  
-	  // verify that alloc succeeded
-	  if (data == nullptr)
-	    {
-	      printf("ERROR: failed to allocate channel buffer [block %d]\n",
-		     blockIdx.x);
-	      
-	      crash();
-	    }
-	  
 	  dsQueue = nullptr;
-	  
-	  for (unsigned int j = 0; j < numThreadGroups; j++)
-	    nextSlot[j] = 0;
 	}
     
     //
@@ -72,9 +60,7 @@ namespace Mercator  {
     __device__
       virtual
       ~Channel()
-    {
-      delete [] data;
-    }
+    {}
     
     // 
     // @brief return the node at the other end of this channel's queue
@@ -112,6 +98,40 @@ namespace Mercator  {
     }
      
     
+    __device__
+      void push(const T &item)
+    {
+      coalesced_group g = coalesced_threads();
+      
+      unsigned int dsBase;
+      if (g.thread_rank() == 0)
+	{
+	  COUNT_ITEMS(g.size());  // instrumentation
+	  dsBase = directReserve(g.size());
+	}
+      
+      directWrite(item, g.shfl(dsBase, 0), g.thread_rank());
+    }
+    
+    __device__
+      bool checkDSFull() const
+    {
+            // If we've managed to fill the downstream queue, activate its
+      // target node. Let our caller know if we activated the ds node.
+      //
+      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
+	{
+	  if (IS_BOSS())
+	    dsNode->activate();
+	  
+	  return true;
+	}
+      else
+	return false;
+    }
+    
+
+#if 0    
     //
     // @brief move items in each (live) thread to the output buffer
     // 
@@ -135,70 +155,8 @@ namespace Mercator  {
 	  nextSlot[groupId]++;
 	}
     }
-    
-    //
-    // @brief After a call to run(), collect and write any data generated
-    // to the downstream queue. NB: must be called with all threads
-    //
-    // RETURNS: true iff downstream node is active after copy
-    //
-    __device__
-      bool moveOutputToDSQueue()
-    {
-      int tid = threadIdx.x;
-      
-      // FIXME: can we ever call this function when the dsQueue is
-      // null  (i.e. the channel is not connected to anything)? If
-      // so, short-circuit here
-      assert(dsQueue != nullptr);
-      
-      BlockScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
-      unsigned int count = (tid < numThreadGroups ? nextSlot[tid] : 0);
-      unsigned int agg;
-      
-      unsigned int sum = scanner.exclusiveSum(count, agg);
-      
-      __shared__ unsigned int dsBase;
-      if ( IS_BOSS() )
-	{
-#ifdef PRINTDBG
-	  printf("%u:\tWrote %u down stream\n", blockIdx.x, agg);
 #endif
-	  COUNT_ITEMS(agg);  // instrumentation
-	  dsBase = directReserve(agg);
-	}
-      __syncthreads(); // all threads must see updates to dsBase
-      
-      // for each thread group, copy all generated outputs downstream
-      if (tid < numThreadGroups)
-	{
-	  for (unsigned int j = 0; j < count; j++)
-	    {
-	      unsigned int srcOffset = tid * outputsPerInput + j;
-	      unsigned int dstOffset = sum + j;
-	      const T &myData = data[srcOffset];
-	      directWrite(myData, dsBase, dstOffset);
-	    }
-	  
-	  // clear nextSlot for this thread group
-	  nextSlot[tid] = 0;
-	}
-      
-      // If we've managed to fill the downstream queue, activate its
-      // target node. Let our caller know if we activated the ds node.
-      //
-      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
-	{
-	  if (IS_BOSS())
-	    dsNode->activate();
-	  
-	  return true;
-	}
-      else
-	return false;
-    }
 
-    
     //
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
@@ -232,19 +190,6 @@ namespace Mercator  {
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
     const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
-
-    //
-    // output buffer
-    //
-    
-    T* data;                              // buffered output
-    
-    //
-    // tracking data for usage of output buffer slots
-    //
-    
-    // next buffer slot avail for thread to push output
-    unsigned char nextSlot[numThreadGroups];
     
     //
     // target (edge) for scattering items from output buffer

@@ -461,7 +461,7 @@ namespace Mercator  {
       Channel<DST>* channel = 
 	static_cast<Channel<DST> *>(channels[channelIdx]);
       
-      channel->push(item, isThreadGroupLeader());
+      channel->push(item);
     }
 
   };  // end Node class

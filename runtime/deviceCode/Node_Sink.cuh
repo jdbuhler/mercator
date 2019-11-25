@@ -140,10 +140,10 @@ namespace Mercator  {
       
       if (numToWrite > 0)
 	{
-	  __shared__ unsigned int basePtr;
+	  unsigned int basePtr;
 	  if (IS_BOSS())
 	    basePtr = sink->reserve(numToWrite);
-	  __syncthreads(); // make sure all threads see base ptr
+	  basePtr = __shfl_sync(0xffffffff, basePtr, 0);
 	  
 	  // use every thread to copy from our queue to sink
 	  for (int base = 0; base < numToWrite; base += maxRunSize)

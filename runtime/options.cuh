@@ -13,10 +13,10 @@
 //
 
 //count trips thru sched loop
-#define INSTRUMENT_SCHED_COUNTS
+//#define INSTRUMENT_SCHED_COUNTS
 
 // instrument code timing for performance model parameters?
-#define INSTRUMENT_TIME
+//#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS
@@ -54,10 +54,10 @@
 // Misc runtime options
 //
 //how many blocks to run with
-//#define USE_MAX_BLOCKS
+#define USE_MAX_BLOCKS
 //#define USE_ONE_BLOCKS
 //#define USE_X_BLOCKS 100
-#define USE_SM_BLOCKS
+//#define USE_SM_BLOCKS
 
 //use random thread to record timings 
 #define RAND_TIMING_THREAD
