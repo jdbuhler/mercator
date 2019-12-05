@@ -34,16 +34,6 @@ namespace Mercator  {
     ~ChannelBase() {}
     
     //
-    // @brief get the downstream node associated with this channel.
-    // Virtual because it requires access to the channel's queue,
-    // which does not have an untyped base.
-    //
-
-    __device__
-    virtual 
-    NodeBase* getDSNode() const = 0;
-    
-    //
     // @brief get # of inputs whose outputs can safely be written
     // to channel's downstream queue
     //
@@ -54,7 +44,7 @@ namespace Mercator  {
     
     __device__
     virtual
-    bool checkDSFull(int size) const = 0;
+    bool checkDSFull(unsigned int size) const = 0;
 
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel

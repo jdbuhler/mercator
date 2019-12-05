@@ -57,26 +57,15 @@ namespace Mercator  {
       ~Channel()
     {}
     
-    // 
-    // @brief return the node at the other end of this channel's queue
-    //
-    __device__
-      NodeBase* getDSNode() const
-    {
-      return dsNode;
-    }
-    
     
     //
     // @brief Set the downstream target of the edge for
     // this channel.
     //
-    // @param idsNode downstream node
-    //
+    // @param idsQueue downstream edge's queue
     __device__
-      void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue, int)
+      void setDSEdge(Queue<T> *idsQueue, int)
     {
-      dsNode = idsNode;
       dsQueue = idsQueue;
     }
     
@@ -106,22 +95,15 @@ namespace Mercator  {
       directWrite(item, g.shfl(dsBase, 0), g.thread_rank());
     }
     
+    //
+    // @brief determine whether the downstream queue for this channel
+    // has enough space to hold the max possible # of outputs that
+    // could be produced by 'size' inputs.
+    //
     __device__
-      bool checkDSFull(int size) const
+      bool checkDSFull(unsigned int size) const
     {
-      // If we've managed to fill the downstream queue so that it
-      // cannot hold outputs for 'size' inputs, activate its
-      // target node. Let our caller know if we activated the ds node.
-      //
-      if (dsQueue->getFreeSpace() < size * outputsPerInput)
-	{
-	  if (IS_BOSS())
-	    dsNode->activate();
-	  
-	  return true;
-	}
-      else
-	return false;
+      return (dsQueue->getFreeSpace() < size * outputsPerInput);
     }
     
     //
@@ -162,8 +144,7 @@ namespace Mercator  {
     //
 
     Queue<T> *dsQueue;
-    NodeBase *dsNode;
-
+    
   }; // end Channel class
 }  // end Mercator namespace
 

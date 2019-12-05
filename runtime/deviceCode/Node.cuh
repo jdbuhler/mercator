@@ -118,8 +118,11 @@ namespace Mercator  {
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
-	channels[c] = nullptr;
-
+	{
+	  channels[c] = nullptr;
+	  dsNodes[c] = nullptr;
+	}
+      
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
@@ -183,13 +186,15 @@ namespace Mercator  {
     __device__
     void setDSEdge(unsigned int channelIdx,
 		   Node<DSP> *dsNode,
-		   unsigned int reservedSlots) 
+		   unsigned int)
     { 
+      dsNodes[channelIdx] = dsNode;
+      dsNode->setParent(this);
+      
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
 
-      dsNode->setParent(this);
-      channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots);
+      channel->setDSEdge(dsNode->getQueue(), 0);
     }
 
 
@@ -367,9 +372,10 @@ namespace Mercator  {
   
   protected:
 
-    Queue<T> queue;                     // node's input queue
+    Queue<T> queue;                      // node's input queue
     ChannelBase* channels[numChannels];  // node's output channels
-
+    NodeBase *dsNodes[numChannels];      // node's downstream neighbors
+    
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
     
     NodeBase *parent;          // parent of this node in dataflow graph
@@ -402,18 +408,19 @@ namespace Mercator  {
       assert(c < numChannels);
       return channels[c]; 
     }
-
+    
     //
-    // @brief number of inputs currently enqueued for this node.
+    // @brief inspector for the downstream nodes array (for subclasses)
+    // @param c index of downstream node to get
     //
     __device__
-    virtual
-    unsigned int numInputsPending() const
+    NodeBase *getDSNode(unsigned int c) const
     {
-      return queue.getOccupancy();
+      assert(c < numChannels);
+      return dsNodes[c];
     }
-  
-  
+    
+    
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 

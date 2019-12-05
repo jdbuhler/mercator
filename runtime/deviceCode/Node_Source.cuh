@@ -112,8 +112,10 @@ namespace Mercator  {
     
   private:
 
-    using BaseType::maxRunSize;
     using BaseType::getChannel;
+    using BaseType::getDSNode;
+    using BaseType::maxRunSize;
+    
     using BaseType::nDSActive;
     
 #ifdef INSTRUMENT_TIME
@@ -206,8 +208,8 @@ namespace Mercator  {
 		      const Channel<T> *channel = 
 			static_cast<Channel<T> *>(getChannel(c));
 		      
-		      unsigned int base = __shfl_sync(0xffffffff, dsBase, c);
-		      channel->directWrite(myData, base, srcIdx);
+		      unsigned int dsb = __shfl_sync(0xffffffff, dsBase, c);
+		      channel->directWrite(myData, dsb, srcIdx);
 		    }
 		}
 	    }
@@ -231,7 +233,7 @@ namespace Mercator  {
 	      // activate *their* downstream nodes.
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  NodeBase *dsNode = getChannel(c)->getDSNode();
+		  NodeBase *dsNode = getDSNode(c);
 		  dsNode->setFlushing();
 		  dsNode->activate();
 		}
@@ -239,15 +241,14 @@ namespace Mercator  {
 	  else
 	    {
 	      nDSActive = 0;
-	      
-	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  auto chan = getChannel(c);
-		  if (chan->dsCapacity() < maxRunSize)
+		  // check whether each channel's downstream node should
+		  // be activated
+		  if (getChannel(c)->checkDSFull(maxRunSize))
 		    {
+		      getDSNode(c)->activate();
 		      nDSActive++;
-		      chan->getDSNode()->activate();
 		    }
 		}
 	      

@@ -72,6 +72,7 @@ namespace Mercator  {
   protected:
 
     using BaseType::getChannel;
+    using BaseType::getDSNode;
     using BaseType::maxRunSize; 
     
     using BaseType::nDSActive;
@@ -160,8 +161,15 @@ namespace Mercator  {
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
-	      // check whether each channel's downstream node was activated
-	      mynDSActive += getChannel(c)->checkDSFull(maxRunSize);
+	      // check whether each channel's downstream node should
+	      // be activated
+	      if (getChannel(c)->checkDSFull(maxRunSize))
+		{
+		  if (IS_BOSS())
+		    getDSNode(c)->activate();
+		  
+		  mynDSActive++;
+		}
 	    }
 	  
 	  TIMER_STOP(output);
@@ -190,7 +198,7 @@ namespace Mercator  {
 		  // activate *their* downstream nodes.
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
-		      NodeBase *dsNode = getChannel(c)->getDSNode();
+		      NodeBase *dsNode = getDSNode(c);
 		      dsNode->setFlushing();
 		      dsNode->activate();
 		    }
