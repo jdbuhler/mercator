@@ -10,17 +10,14 @@
 //
 
 #include <cassert>
-#include <cstdio>
 
 #include <cooperative_groups.h>
 
 #include "ChannelBase.cuh"
-
-#include "options.cuh"
-
+#include "NodeBase.cuh"
 #include "Queue.cuh"
 
-#include "support/collective_ops.cuh"
+#include "options.cuh"
 
 namespace Mercator  {
   
@@ -30,10 +27,9 @@ namespace Mercator  {
   // @class Channel
   // @brief Holds all data associated with an output stream from a node.
   //
-  template <typename Props>
   template <typename T>
-  class Node<Props>::Channel final 
-    : public Node<Props>::ChannelBase {
+  class Channel final 
+    : public ChannelBase {
 
 #ifdef INSTRUMENT_COUNTS    
     using ChannelBase::itemCounter;

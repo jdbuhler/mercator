@@ -9,6 +9,8 @@
 // Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
+#include "NodeBase.cuh"
+
 #include "options.cuh"
 
 #include "instrumentation/item_counter.cuh"
@@ -21,8 +23,7 @@ namespace Mercator  {
   // a pure interface class, so that we can mix channels with different
   // properties in a node's channels[] array.
   //
-  template <class Props>
-  class Node<Props>::ChannelBase {
+  class ChannelBase {
   public:
     
     __device__

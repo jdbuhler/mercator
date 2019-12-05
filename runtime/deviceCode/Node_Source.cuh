@@ -143,10 +143,6 @@ namespace Mercator  {
     virtual
     void fire()
     {
-      // type of our downstream channels matchses our input type,
-      // since the source module just copies its inputs downstream
-      using Channel = typename BaseType::Channel<T>;
-      
       int tid = threadIdx.x;
 
       TIMER_START(input);
@@ -190,8 +186,8 @@ namespace Mercator  {
 	  unsigned int dsBase;
 	  if (tid < numChannels)
 	    {
-	      const Channel *channel = 
-		static_cast<Channel *>(getChannel(tid));
+	      const Channel<T> *channel = 
+		static_cast<Channel<T> *>(getChannel(tid));
 	      
 	      dsBase = channel->directReserve(numToWrite);
 	    }
@@ -207,8 +203,8 @@ namespace Mercator  {
 		  
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
-		      const Channel *channel = 
-			static_cast<Channel *>(getChannel(c));
+		      const Channel<T> *channel = 
+			static_cast<Channel<T> *>(getChannel(c));
 		      
 		      unsigned int base = __shfl_sync(0xffffffff, dsBase, c);
 		      channel->directWrite(myData, base, srcIdx);

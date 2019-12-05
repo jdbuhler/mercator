@@ -15,6 +15,8 @@
 
 #include "NodeBase.cuh"
 
+#include "Channel.cuh"
+
 #include "Queue.cuh"
 
 #include "Scheduler.cuh"
@@ -95,13 +97,6 @@ namespace Mercator  {
     // call to the node's run() function
     static const unsigned int maxRunSize =
       numThreadGroups * numEltsPerGroup;
-
-    // forward-declare channel class
-
-    class ChannelBase;
-
-    template <typename T>
-    class Channel;
 
   public:
 
@@ -466,7 +461,5 @@ namespace Mercator  {
 
   };  // end Node class
 }  // end Mercator namespace
-
-#include "Channel.cuh"
 
 #endif
