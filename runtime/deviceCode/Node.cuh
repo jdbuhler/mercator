@@ -19,8 +19,6 @@
 
 #include "Queue.cuh"
 
-#include "Scheduler.cuh"
-
 #include "device_config.cuh"
 
 #include "options.cuh"
@@ -108,13 +106,9 @@ namespace Mercator  {
     //
     __device__
     Node(const unsigned int queueSize,
-	 Scheduler *ischeduler)
-      : queue(queueSize),
-	scheduler(ischeduler),
-	parent(nullptr),
-	isActive(false),
-	nDSActive(0),
-	isFlushing(false)
+	 Scheduler *scheduler)
+      : NodeBase(scheduler),
+	queue(queueSize)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -203,75 +197,6 @@ namespace Mercator  {
     Queue<T> *getQueue()
     { 
       return &queue; 
-    }
-
-
-    //
-    // @brief set the parent of this node (the node at the upstream
-    // end of is incoming edge).
-    //
-    // @param iparent parent node
-    ///
-    __device__
-    void setParent(NodeBase *iparent)
-    { 
-      parent = iparent;
-    }
-
-
-    //
-    // @brief indicate that node is in flush mode
-    //
-    __device__
-    void setFlushing()
-    {
-      isFlushing = true;
-    }
-
-    //
-    // @brief set node to be active for scheduling purposes;
-    // if this makes node fireable, schedule it for execution.
-    //
-    __device__
-    void activate()
-    {
-      assert(IS_BOSS());
-
-      // do not reschedule already-active nodes -- we can activate
-      // an active node when we put it into flush mode
-      if (!isActive)
-	{
-	  isActive = true;
-	  if (nDSActive == 0) // node is eligible for firing
-	    scheduler->addFireableNode(this);
-	}   
-    }
-
-    //
-    // @brief set node to be inactive for scheduling purposes;
-    //
-    __device__
-    void deactivate()
-    {
-      assert(IS_BOSS());
-      
-      isActive = false;
-      if (parent)  // source has no parent
-	parent->decrDSActive();
-    }
-    
-    //
-    // @brief decrement node's count of active downstream children;
-    // if this makes the node fireable, schedule it for execution.
-    //
-    __device__
-    void decrDSActive()
-    {
-      assert(IS_BOSS());
-      
-      nDSActive--;
-      if (nDSActive == 0 && isActive) // node is eligible for firing
-	scheduler->addFireableNode(this);
     }
     
     //
@@ -374,14 +299,6 @@ namespace Mercator  {
     ChannelBase* channels[numChannels];  // node's output channels
     NodeBase *dsNodes[numChannels];      // node's downstream neighbors
     
-    Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    
-    NodeBase *parent;          // parent of this node in dataflow graph
-    
-    bool isActive;             // is node in active
-    unsigned int nDSActive;    // # of active downstream children of node
-    bool isFlushing;           // is node in flushing mode?
-
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
     DeviceTimer runTimer;
@@ -463,7 +380,8 @@ namespace Mercator  {
       
       channel->push(item);
     }
-
+    
+    
   };  // end Node class
 }  // end Mercator namespace
 

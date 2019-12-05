@@ -130,8 +130,8 @@ namespace Mercator  {
     //
     __device__
       void dsWrite(const T &item, 
-		       unsigned int base,
-		       unsigned int offset) const
+		   unsigned int base,
+		   unsigned int offset) const
     {
       dsQueue->putElt(base, offset, item);
     }

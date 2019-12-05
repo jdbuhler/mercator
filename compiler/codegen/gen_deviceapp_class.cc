@@ -546,6 +546,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     f.add("");
   }
   
+  f.add(genUserInclude("deviceCode/Scheduler_impl.cuh"));
+  f.add("");
+  
   // begin device app class
   f.add("class " + DeviceAppClass +
 	" : public Mercator::DeviceApp<" 

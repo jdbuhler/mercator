@@ -72,7 +72,6 @@ namespace Mercator  {
     using BaseType::getDSNode;
     using BaseType::maxRunSize; 
     
-    using BaseType::nDSActive;
     using BaseType::isFlushing;
     
     // make these downwardly available to the user
@@ -121,15 +120,16 @@ namespace Mercator  {
       
       // unless we are flushing, round # to consume down to a multiple
       // of ensemble width.
-      if (!isFlushing)
+      if (!isFlushing())
 	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
             
       // # of items already consumed from queue
       unsigned int nConsumed = 0;
       
-      unsigned int mynDSActive = 0;
+      // is at least one downstream queue full?
+      bool dsFull = false;
       
-      while (nConsumed < nToConsume && mynDSActive == 0)
+      while (nConsumed < nToConsume && !dsFull)
 	{
 	  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
 	  
@@ -159,13 +159,14 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // check whether each channel's downstream node should
-	      // be activated
+	      // be activated.  If so, its queue is full, and we
+	      // need to stop firing.
 	      if (getChannel(c)->checkDSFull(maxRunSize))
 		{
+		  dsFull = true;
+		  
 		  if (IS_BOSS())
 		    getDSNode(c)->activate();
-		  
-		  mynDSActive++;
 		}
 	    }
 	  
@@ -179,14 +180,12 @@ namespace Mercator  {
 	  COUNT_ITEMS(nConsumed);  // instrumentation
 	  queue.release(nConsumed);
 	  
-	  nDSActive = mynDSActive;
-
 	  if (nConsumed == nToConsume)
 	    {
 	      // less than a full ensemble remains, or 0 if flushing
 	      this->deactivate(); 
 	      
-	      if (isFlushing)
+	      if (isFlushing())
 		{
 		  // no more inputs to read -- force downstream nodes
 		  // into flushing mode and activte them (if not
