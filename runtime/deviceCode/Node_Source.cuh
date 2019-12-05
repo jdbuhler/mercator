@@ -191,7 +191,7 @@ namespace Mercator  {
 	      const Channel<T> *channel = 
 		static_cast<Channel<T> *>(getChannel(tid));
 	      
-	      dsBase = channel->directReserve(numToWrite);
+	      dsBase = channel->dsReserve(numToWrite);
 	    }
 	  
 	  // use every thread to copy from source to downstream queues
@@ -209,7 +209,7 @@ namespace Mercator  {
 			static_cast<Channel<T> *>(getChannel(c));
 		      
 		      unsigned int dsb = __shfl_sync(0xffffffff, dsBase, c);
-		      channel->directWrite(myData, dsb, srcIdx);
+		      channel->dsWrite(myData, dsb, srcIdx);
 		    }
 		}
 	    }

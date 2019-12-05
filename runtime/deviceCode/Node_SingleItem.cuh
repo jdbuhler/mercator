@@ -18,9 +18,6 @@
 
 #include "timing_options.cuh"
 
-#include "Queue.cuh"
-
-
 namespace Mercator  {
 
   //

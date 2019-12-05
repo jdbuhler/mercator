@@ -180,21 +180,19 @@ namespace Mercator  {
     //
     // @param channelIdx channel that holds edge
     // @param dsNode node at downstream end of edge
-    // @param reservedSlots reserved slot count for edge's queue
     //
     template <typename DSP>
     __device__
     void setDSEdge(unsigned int channelIdx,
-		   Node<DSP> *dsNode,
-		   unsigned int)
+		   Node<DSP> *dsNode)
     { 
       dsNodes[channelIdx] = dsNode;
       dsNode->setParent(this);
       
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
-
-      channel->setDSEdge(dsNode->getQueue(), 0);
+      
+      channel->setDSQueue(dsNode->getQueue());
     }
 
 

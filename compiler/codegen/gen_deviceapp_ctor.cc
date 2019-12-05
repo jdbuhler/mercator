@@ -111,8 +111,7 @@ void genEdgeInitStmts(const App *app,
 		  f.add(usNodeObj + "->setDSEdge(" +
 			deviceModuleType +
 			"::Out::" + channelName + ", " +
-			dsNodeObj + ", " +
-			to_string(dsEdge->dsReservedSlots) +  ");");
+			dsNodeObj +  ");");
 		}
 	    }
 	  

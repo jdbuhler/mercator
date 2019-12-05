@@ -63,8 +63,9 @@ namespace Mercator  {
     // this channel.
     //
     // @param idsQueue downstream edge's queue
+    //
     __device__
-      void setDSEdge(Queue<T> *idsQueue, int)
+      void setDSQueue(Queue<T> *idsQueue)
     {
       dsQueue = idsQueue;
     }
@@ -89,10 +90,10 @@ namespace Mercator  {
       if (g.thread_rank() == 0)
 	{
 	  COUNT_ITEMS(g.size());  // instrumentation
-	  dsBase = directReserve(g.size());
+	  dsBase = dsReserve(g.size());
 	}
       
-      directWrite(item, g.shfl(dsBase, 0), g.thread_rank());
+      dsWrite(item, g.shfl(dsBase, 0), g.thread_rank());
     }
     
     //
@@ -114,7 +115,7 @@ namespace Mercator  {
     // @return starting index of reserved segment.
     //
     __device__
-      unsigned int directReserve(unsigned int nToWrite) const
+      unsigned int dsReserve(unsigned int nToWrite) const
     {
       return dsQueue->reserve(nToWrite);
     }
@@ -128,7 +129,7 @@ namespace Mercator  {
     // @param offset offset at which to write item
     //
     __device__
-      void directWrite(const T &item, 
+      void dsWrite(const T &item, 
 		       unsigned int base,
 		       unsigned int offset) const
     {
