@@ -196,33 +196,6 @@ namespace Mercator  {
     const T &getDummy() const
     { return data[0]; }
     
-    
-    //
-    // @brief reserve and put an element at the tail of the queue in a
-    // single call.
-    //
-    __device__
-    void enqueue(const T &v)
-    {
-      assert(getOccupancy() < getCapacity());
-      
-      data[tail] = v;
-      tail = addModulo(tail, 1, dataSize);
-    }
-
-    //
-    // @brief get an element and release its space in a single call.
-    //
-    __device__
-    T dequeue()
-    {
-      assert(getOccupancy() > 0);
-      
-      T &v = data[head];
-      head = addModulo(head, 1, dataSize);
-      return v;
-    }
-    
   private:
 
     T* data;

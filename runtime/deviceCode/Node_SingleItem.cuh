@@ -161,7 +161,7 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // check whether each channel's downstream node was activated
-	      mynDSActive += getChannel(c)->checkDSFull();
+	      mynDSActive += getChannel(c)->checkDSFull(maxRunSize);
 	    }
 	  
 	  TIMER_STOP(output);

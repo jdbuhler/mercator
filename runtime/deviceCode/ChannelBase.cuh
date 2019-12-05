@@ -53,7 +53,7 @@ namespace Mercator  {
     
     __device__
     virtual
-    bool checkDSFull() const = 0;
+    bool checkDSFull(int size) const = 0;
 
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel

@@ -16,8 +16,6 @@
 
 #include "device_config.cuh"
 
-#include "Queue.cuh"
-
 #include "NodeBase.cuh"
 
 #include "instrumentation/device_timer.cuh"
@@ -40,8 +38,10 @@ namespace Mercator  {
     // 
     __device__
     Scheduler(unsigned int numNodes)
-      : workQueue(numNodes)
-    {}
+    {
+      workList = new NodeBase * [numNodes];
+      top = -1;
+    }
     
     //
     // @brief destructor
@@ -67,7 +67,7 @@ namespace Mercator  {
 	  
 	  if (IS_BOSS())
 	    {
-	      nextNode = (workQueue.empty() ? nullptr : workQueue.dequeue());
+	      nextNode = ( top < 0 ? nullptr : workList[top--]);
 	    }
 	  unsigned long long v = (unsigned long long) nextNode;
 	  nextNode = (NodeBase *) __shfl_sync(0xffffffff, v, 0);
@@ -90,7 +90,7 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
 
-      workQueue.enqueue(node);
+      workList[++top] = node;
     }
     
     
@@ -112,7 +112,8 @@ namespace Mercator  {
     
   private:
     
-    Queue<NodeBase *> workQueue;
+    NodeBase **workList;
+    int top;
         
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;

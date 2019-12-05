@@ -48,8 +48,7 @@ namespace Mercator  {
     //
     __device__
       Channel(unsigned int ioutputsPerInput)
-      : outputsPerInput(ioutputsPerInput),
-      numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
+      : outputsPerInput(ioutputsPerInput)
 	{
 	  dsQueue = nullptr;
 	}
@@ -79,12 +78,10 @@ namespace Mercator  {
     // @param idsNode downstream node
     //
     __device__
-      void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue,
-		     unsigned int ireservedSlots)
+      void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue, int)
     {
       dsNode = idsNode;
       dsQueue = idsQueue;
-      reservedQueueEntries = ireservedSlots;
     }
     
     //
@@ -114,12 +111,13 @@ namespace Mercator  {
     }
     
     __device__
-      bool checkDSFull() const
+      bool checkDSFull(int size) const
     {
-            // If we've managed to fill the downstream queue, activate its
+      // If we've managed to fill the downstream queue so that it
+      // cannot hold outputs for 'size' inputs, activate its
       // target node. Let our caller know if we activated the ds node.
       //
-      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
+      if (dsQueue->getFreeSpace() < size * outputsPerInput)
 	{
 	  if (IS_BOSS())
 	    dsNode->activate();
@@ -130,33 +128,6 @@ namespace Mercator  {
 	return false;
     }
     
-
-#if 0    
-    //
-    // @brief move items in each (live) thread to the output buffer
-    // 
-    // @param item item to be pushed
-    // @param isWriter true iff thread is the writer for its group
-    //
-    __device__
-      void push(const T &item, bool isWriter)
-    {
-      if (isWriter)
-	{
-	  int groupId = threadIdx.x / threadGroupSize;
-	  
-	  assert(nextSlot[groupId] < numSlotsPerGroup);
-	  
-	  unsigned int slotIdx =
-	    groupId * numSlotsPerGroup + nextSlot[groupId];
-	  
-	  data[slotIdx] = item;
-	  
-	  nextSlot[groupId]++;
-	}
-    }
-#endif
-
     //
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
@@ -189,7 +160,6 @@ namespace Mercator  {
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
-    const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
     
     //
     // target (edge) for scattering items from output buffer
@@ -197,7 +167,7 @@ namespace Mercator  {
 
     Queue<T> *dsQueue;
     NodeBase *dsNode;
-    unsigned int reservedQueueEntries; // NB: will be used for cycles
+
   }; // end Channel class
 }  // end Mercator namespace
 
