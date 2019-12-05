@@ -19,7 +19,7 @@ namespace Mercator  {
   
   //
   // @class NodeBase
-  // @brief A fairly pure virtual base class for nodes
+  // @brief An untyped base class for nodes
   //
   
   class NodeBase {
@@ -101,6 +101,11 @@ namespace Mercator  {
 	parent->decrDSActive();
     }
 
+    // for debugging only
+    __device__
+    virtual
+    unsigned int numPending() = 0;
+
     __device__
     virtual
     void fire() = 0;
@@ -113,12 +118,6 @@ namespace Mercator  {
     virtual
     void cleanup() {}
     
-    // for debugging only
-    __device__
-    virtual
-    unsigned int numPending() = 0;
-
-
     //////////////////////////////////////////////////////////////
     // INSTRUMENTATION PRINTING (see Node.h for details)
     //////////////////////////////////////////////////////////////

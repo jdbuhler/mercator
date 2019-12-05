@@ -191,7 +191,7 @@ namespace Mercator  {
 
 
     //
-    // @brief return our queue (needed for setDSEdge().
+    // @brief return our queue (needed for setDSEdge()).
     //
     __device__
     Queue<T> *getQueue()
