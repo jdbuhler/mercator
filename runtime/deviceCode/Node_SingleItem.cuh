@@ -113,7 +113,6 @@ namespace Mercator  {
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
-      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
       
       // # of items available to consume from queue
       unsigned int nToConsume = queue.getOccupancy();
@@ -143,11 +142,12 @@ namespace Mercator  {
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
-
+	  
 	  if (runWithAllThreads || tid < nItems)
 	    {
-	      n->run(myData);
+	      static_cast<DerivedNodeType *>(this)->run(myData);
 	    }
+	  
 	  nConsumed += nItems;
 	  
 	  TIMER_STOP(run);

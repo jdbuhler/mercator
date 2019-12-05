@@ -381,7 +381,6 @@ namespace Mercator  {
       channel->push(item);
     }
     
-    
   };  // end Node class
 }  // end Mercator namespace
 
