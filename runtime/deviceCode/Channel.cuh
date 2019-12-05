@@ -14,7 +14,6 @@
 #include <cooperative_groups.h>
 
 #include "ChannelBase.cuh"
-#include "NodeBase.cuh"
 #include "Queue.cuh"
 
 #include "options.cuh"
@@ -44,18 +43,9 @@ namespace Mercator  {
     //
     __device__
       Channel(unsigned int ioutputsPerInput)
-      : outputsPerInput(ioutputsPerInput)
-	{
-	  dsQueue = nullptr;
-	}
-    
-    //
-    // @brief Destructor.
-    //
-    __device__
-      virtual
-      ~Channel()
-    {}
+      : ChannelBase(ioutputsPerInput),
+      dsQueue(nullptr)
+      {}
     
     
     //
@@ -68,16 +58,8 @@ namespace Mercator  {
       void setDSQueue(Queue<T> *idsQueue)
     {
       dsQueue = idsQueue;
-    }
-    
-    //
-    // @brief get the number of inputs whose output could
-    // be safely written to this channel's downstream queue.
-    //
-    __device__
-      unsigned int dsCapacity() const
-    {
-      return dsQueue->getFreeSpace() / outputsPerInput;
+      
+      ChannelBase::setDSQueue(dsQueue);
     }
      
     
@@ -96,16 +78,6 @@ namespace Mercator  {
       dsWrite(item, g.shfl(dsBase, 0), g.thread_rank());
     }
     
-    //
-    // @brief determine whether the downstream queue for this channel
-    // has enough space to hold the max possible # of outputs that
-    // could be produced by 'size' inputs.
-    //
-    __device__
-      bool checkDSFull(unsigned int size) const
-    {
-      return (dsQueue->getFreeSpace() < size * outputsPerInput);
-    }
     
     //
     // @brief prepare for a direct write to the downstream queue(s)
@@ -137,8 +109,7 @@ namespace Mercator  {
     }
     
   private:
-    
-    const unsigned int outputsPerInput;  // max # outputs per input to node
+
     
     //
     // target (edge) for scattering items from output buffer
