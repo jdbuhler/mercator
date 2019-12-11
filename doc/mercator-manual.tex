@@ -12,7 +12,7 @@
 
 \maketitle
 
-Copyright (C) 2018 Washington University in St. Louis.  All rights
+Copyright (C) 2019 Washington University in St. Louis.  All rights
 reserved.
 
 MERCATOR is licensed under the Apache License, Version 2.0 (the
@@ -47,11 +47,11 @@ pp. 727-736.
 Build requirements for MERCATOR include:
 \begin{itemize}
 
-\item CUDA 9.0 or higher
+\item CUDA 10.2 or higher
 
 \item The CUB (CUDA Unbound) library, 1.8.0 or higher
 
-\item LLVM/Clang libraries v5 or higher (for type-checking)
+\item LLVM/Clang libraries v9 or higher (for type-checking)
 
 \item GNU Flex 2.5.37 or higher (older versions might work)
 
@@ -60,6 +60,11 @@ Build requirements for MERCATOR include:
 \item CMake 3.8 or higher
 
 \end{itemize}
+Older versions of some of these tools may still work, but the CUDA
+installation and C++ compiler must fully support C++14.  MERCATOR has
+been tested with GCC 8.3 as the host compiler.  GCC earlier than v6
+and LLVM prior to v8 may cause problems.
+
 MERCATOR applications will run on devices with CUDA architecture 3.0
 (Kepler) or higher.
 
