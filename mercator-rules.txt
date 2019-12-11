@@ -3,7 +3,7 @@
 # CMake rules for building MERCATOR applications
 #
 # MERCATOR
-# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+# Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 
 set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
 
@@ -78,7 +78,7 @@ function(add_mercator_app)
 			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
 		              PRIVATE ${CUB_ROOT_DIR})
 
-  target_compile_features(${appname} PUBLIC cxx_std_11)
+  target_compile_features(${appname} PUBLIC cxx_std_14)
 
 endfunction(add_mercator_app)
 
@@ -110,7 +110,7 @@ function(add_mercator_executable)
 
   add_executable(${ADD_MERCATOR_EXE_TARGET} ${alldeps})
 
-  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_11)
+  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_14)
 
   target_include_directories(${ADD_MERCATOR_EXE_TARGET}
 			     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}

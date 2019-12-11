@@ -5,7 +5,7 @@
 cmake_policy(SET CMP0048 NEW)
 
 project(MERCATOR
-        VERSION 0.9.5
+        VERSION 0.9.8
         LANGUAGES CUDA CXX)
 
 cmake_minimum_required(VERSION 3.8)
@@ -21,7 +21,7 @@ set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
 ######################################################################
 
 # Point to the LLVM installation's path (required) 
-set(LLVM_PATH /project/cassini/llvm)
+set(LLVM_PATH /project/cassini/llvm-9.0.0)
 
 ######################################################################
 # MAKE CONFIGURATION

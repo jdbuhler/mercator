@@ -35,7 +35,7 @@ add_executable(mercator
 # Compilation flags
 #######################################################################
 
-set_property(TARGET mercator PROPERTY CXX_STANDARD 11)
+set_property(TARGET mercator PROPERTY CXX_STANDARD 14)
 
 set (CMAKE_CXX_FLAGS_DEBUG   
      "${CMAKE_CXX_FLAGS_DEBUG} -O0 -UNDEBUG -Wall -DVERBOSE")

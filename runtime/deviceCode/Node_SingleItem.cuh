@@ -134,7 +134,7 @@ namespace Mercator  {
 	  
 	  NODE_OCC_COUNT(nItems);
 	  
-	  const T &myData = 
+	  const T &data = 
 	    (tid < nItems
 	     ? queue.getElt(nConsumed + tid)
 	     : queue.getDummy()); // don't create a null reference
@@ -145,14 +145,14 @@ namespace Mercator  {
 	  
 	  if (runWithAllThreads || tid < nItems)
 	    {
-	      static_cast<DerivedNodeType *>(this)->run(myData);
+	      static_cast<DerivedNodeType *>(this)->run(data);
 	    }
-	  
-	  nConsumed += nItems;
-	  
+
 	  TIMER_STOP(run);
 	  
 	  TIMER_START(output);
+
+	  nConsumed += nItems;
 	  
 	  __syncthreads(); // all threads can see ds queue state
 	  

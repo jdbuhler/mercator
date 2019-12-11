@@ -80,11 +80,12 @@ namespace Mercator  {
       if (!isActive)
 	{
 	  isActive = true;
-	  if (nDSActive == 0) // node is eligible for firing
-	    scheduler->addFireableNode(this);
 
 	  if (parent)
 	    parent->incrDSActive();
+	  
+	  if (nDSActive == 0) // node is eligible for firing
+	    scheduler->addFireableNode(this);
 	}   
     }
     
@@ -97,6 +98,7 @@ namespace Mercator  {
       assert(IS_BOSS());
       
       isActive = false;
+      
       if (parent)  // source has no parent
 	parent->decrDSActive();
     }

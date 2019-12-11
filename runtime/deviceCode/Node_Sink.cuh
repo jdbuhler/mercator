@@ -127,7 +127,7 @@ namespace Mercator  {
       Queue<T> &queue = this->queue; 
       
       unsigned int numToWrite = queue.getOccupancy();
-            
+      
       // unless we are flushing all our input, round down to a full
       // ensemble.  Since we are active, if we aren't flushing, we
       // have at least one full ensemble to write.
