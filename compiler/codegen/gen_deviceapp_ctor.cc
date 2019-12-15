@@ -108,10 +108,11 @@ void genEdgeInitStmts(const App *app,
 		  string usNodeObj = "d" + usNode->get_name();
 		  string dsNodeObj = "d" + dsEdge->dsNode->get_name();
 		  
-		  f.add(usNodeObj + "->setDSEdge(" +
+		  f.add(usNodeObj + "->setDSEdge<" +
 			deviceModuleType +
-			"::Out::" + channelName + ", " +
-			dsNodeObj +  ", " +
+			"::Out::" + channelName + ">" 
+			"(" +
+			dsNodeObj + "," +
 			dsNodeObj + "->getQueue());");
 		}
 	    }
@@ -148,8 +149,6 @@ void genDeviceAppConstructor(const App *app,
   
   for (const ModuleType *mod : app->modules)
     {
-      string deviceModuleType = mod->get_name();
-
       for (const Node *node : mod->nodes)
 	{
 	  string nodeObj = "d" + node->get_name();

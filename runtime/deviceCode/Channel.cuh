@@ -26,7 +26,7 @@ namespace Mercator  {
   // @class Channel
   // @brief Holds all data associated with an output stream from a node.
   //
-  template <typename T>
+  template <typename... Ts>
   class Channel final 
     : public ChannelBase {
 
@@ -55,7 +55,7 @@ namespace Mercator  {
     // @param idsQueue downstream edge's queue
     //
     __device__
-      void setDSQueue(Queue<T> *idsQueue)
+      void setDSQueue(Queue<Ts...> *idsQueue)
     {
       dsQueue = idsQueue;
       
@@ -64,7 +64,7 @@ namespace Mercator  {
      
     
     __device__
-      void push(const T &item)
+      void push(const Ts&... item)
     {
       coalesced_group g = coalesced_threads();
       
@@ -75,7 +75,7 @@ namespace Mercator  {
 	  dsBase = dsReserve(g.size());
 	}
       
-      dsWrite(g.shfl(dsBase, 0), g.thread_rank(), item);
+      dsWrite(g.shfl(dsBase, 0), g.thread_rank(), item...);
     }
     
     
@@ -103,9 +103,9 @@ namespace Mercator  {
     __device__
       void dsWrite(unsigned int base,
 		   unsigned int offset,
-		   const T &item) const
+		   const Ts&... item) const
     {
-      dsQueue->putElt(base, offset, item);
+      dsQueue->putElt(base, offset, item...);
     }
     
   private:
@@ -115,7 +115,7 @@ namespace Mercator  {
     // target (edge) for scattering items from output buffer
     //
 
-    Queue<T> *dsQueue;
+    Queue<Ts...> *dsQueue;
     
   }; // end Channel class
 }  // end Mercator namespace

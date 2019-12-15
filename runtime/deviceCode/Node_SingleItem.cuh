@@ -28,13 +28,13 @@ namespace Mercator  {
   // nod, so that the run() function can be inlined in fire().
   // The expected signature of run is
   //
-  //   __device__ void run(const T &data)
+  //   __device__ void run(const Ts&... data)
   //
   // @tparam numChannels  number of output channels 
   // @tparam runWithAllThreads call run with all threads, or just as many
   //           as have inputs?
   // @tparam DerivedNodeType subtype that defines the run() functio
-  // @tparam T type of input item
+  // @tparam Ts types of elements of input item
   //
   template<unsigned int numChannels,
 	   unsigned int threadGroupSize,
@@ -42,7 +42,7 @@ namespace Mercator  {
 	   bool runWithAllThreads,
 	   unsigned int THREADS_PER_BLOCK,
 	   typename DerivedNodeType,
-	   typename T>
+	   typename... Ts>
   class Node_SingleItem
     : public Node<numChannels,
 		  1, 
@@ -50,7 +50,7 @@ namespace Mercator  {
 		  maxActiveThreads,
 		  runWithAllThreads,
 		  THREADS_PER_BLOCK,
-		  T> {
+		  Ts...> {
     
     using BaseType = Node<numChannels,
 			  1, 
@@ -58,7 +58,7 @@ namespace Mercator  {
 			  maxActiveThreads,
 			  runWithAllThreads,
 			  THREADS_PER_BLOCK,
-			  T>;
+			  Ts...>;
   public:
     
     __device__
@@ -113,7 +113,7 @@ namespace Mercator  {
       
       TIMER_START(input);
       
-      Queue<T> &queue = this->queue; 
+      Queue<Ts...> &queue = this->queue; 
       
       // # of items available to consume from queue
       unsigned int nToConsume = queue.getOccupancy();
@@ -135,10 +135,10 @@ namespace Mercator  {
 
 	  NODE_OCC_COUNT(nItems);
 
-	  const T &data =
-	    std::get<0>(tid < nItems 
-			? queue.getElt(nConsumed + tid)
-			: queue.getDummy()); // don't create a null reference
+	  std::tuple<const Ts&...> data =
+	    (tid < nItems 
+	     ? queue.getElt(nConsumed + tid)
+	     : queue.getDummy()); // don't create a null reference
 	  
 	  TIMER_STOP(input);
 	  
@@ -146,7 +146,8 @@ namespace Mercator  {
 	  
 	  if (runWithAllThreads || tid < nItems)
 	    {
-	      static_cast<DerivedNodeType *>(this)->run(data);
+	      call_run(data,
+		       std::make_index_sequence< std::tuple_size< decltype(data) >() >());
 	    }
 
 	  TIMER_STOP(run);
@@ -205,6 +206,18 @@ namespace Mercator  {
       
       TIMER_STOP(input);
     }
+    
+    //
+    // @brief helper function to call run() on the contents of a
+    // tuple.
+    //
+    template <typename Tuple, size_t... index>
+    __device__
+    void call_run(const Tuple &data, std::index_sequence<index...>)
+    {
+      static_cast<DerivedNodeType *>(this)->run(std::get<index>(data)...);
+    }
+    
   };
 }  // end Mercator namespace
 

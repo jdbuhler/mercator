@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <sstream>
 
 #include "gen_deviceapp_class.h"
 #include "gen_deviceapp_ctor.h"
@@ -104,35 +105,6 @@ string genDeviceModuleBaseType(const ModuleType *mod)
   return baseType;
 }
 
-
-//
-// @brief generate statements that initialize the channels of
-//   a node, for use inside its constructor
-//
-// @param node node whose code is being generated
-// @param mod type of node whose code is being generated
-// @param f Formatter to receive generated code
-static
-void genDeviceModuleChannelInitStmts(const ModuleType *mod,
-				     Formatter &f)
-{
-  // create output channels
-  int nChannels = mod->get_nChannels();
-  if (nChannels > 0) // false for SINK modules
-    {
-      // init output channels
-      for (int j=0; j < nChannels; ++j)
-	{
-	  const Channel *channel = mod->get_channel(j);
-
-	  // format: initChannel<type>(outstream-enum, outputsPerInput)
-	  f.add("initChannel<"
-		+ channel->type->name + ">("
-		+ "Out::" + channel->name + ", "
-		+ to_string(channel->maxOutputs) + ");");
-	}
-    }
-}
 
 
 //
@@ -284,13 +256,55 @@ void genDeviceModuleConstructor(const App *app,
   f.add("{");
   f.indent();
   
-  // initialize device module's output channels
-  genDeviceModuleChannelInitStmts(mod, f);
+  // emit initialization of channels with outputs per input
+  if (!mod->isSink())
+    {
+      for (int j = 0; j < mod->get_nChannels(); j++)
+	{
+	  string jstr = to_string(j);
+	  f.add("std::get<" + jstr + ">(channels) = "
+		"new Chan" + jstr + "(" + 
+		to_string(mod->get_channel(j)->maxOutputs) + ");");
+	}
+    }
   
   f.unindent();
   f.add("}");
 }
 
+//
+// @brief generate constructor for device-side module
+//
+// @param app app being codegen'd
+// @param mod module whose code is being generated
+// @param f Formatter to receive result
+//
+static
+void genDeviceModuleDestructor(const App *app,
+			       const ModuleType *mod,
+			       Formatter &f)
+{
+    // emit function declaration
+  f.add("__device__");  
+  f.add("virtual ~" + mod->get_name() + "()");
+  f.add("{");
+  f.indent();
+  
+  // emit initialization of channels with outputs per input
+  if (!mod->isSink())
+    {
+      for (int j = 0; j < mod->get_nChannels(); j++)
+	{
+	  string jstr = to_string(j);
+	  f.add("delete std::get<" + jstr + ">(channels);");
+	}
+    }
+  
+  f.unindent();
+  f.add("}");
+  
+  
+}
 
 //
 // @brief generate a device-side node class
@@ -320,8 +334,10 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
-  // constructor
+  // constructor and destructor
   genDeviceModuleConstructor(app, mod, f);
+  f.add("");
+  genDeviceModuleDestructor(app, mod, f);
   f.add("");
   
   if (!mod->isSource() && !mod->isSink())
@@ -334,8 +350,58 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
-  f.add("private:", true);
+  // see note below on push() regarding use of generics in subclass
+  if (!mod->isSink())
+    {
+      //
+      // add code to set queue in a channel
+      //
+      
+      f.add("template <size_t N, typename... DSTs>");
+      f.add("__device__");
+      f.add(genFcnHeader("void", "setDSEdge", 
+			 "Mercator::NodeBase *dsNode, "
+			 "Mercator::Queue<DSTs...> *q"));
+      f.add("{");
+      f.indent();
+      
+      f.add("std::get<N>(channels)->setDSQueue(q);");
+      f.add("setDSEdgeGeneric(N, dsNode, std::get<N>(channels));");
+      
+      f.unindent();
+      f.add("}");
+      
+      f.add("");
+    }
+ 
+ f.add("private:", true);
   f.add("");
+  
+  if (!mod->isSink())
+    {
+      ostringstream chantypes;
+      
+      // declare the type of each output channel
+      for (int j = 0; j < mod->get_nChannels(); j++)
+	{
+	  const Channel *channel = mod->get_channel(j);
+	  
+	  string ctname = "Chan" + to_string(j);
+	  
+	  f.add("using " + ctname + " = "
+		"Mercator::Channel<" + channel->type->name + ">;");
+	  
+	  if (j > 0)
+	    chantypes << ',';
+	  chantypes << ctname << "*";
+	}
+      f.add("");
+      
+      // declare the channels tuple
+      f.add("std::tuple<" + chantypes.str() + "> channels;");
+      f.add("");
+      
+    }
   
   if (!mod->isSource() && !mod->isSink())
     {
@@ -445,6 +511,43 @@ void genDeviceModuleClass(const App *app,
 	}
     }
   
+  //
+  // The following functions are generic to all non-source/sink nodes,
+  // but they depend on type-safe access to the node's channel objects. 
+  // We don't declare the strongly typed channel tuple in the generic
+  // Node class because it is too painful to pass all the relevant
+  // type information and initializers into its template.  Hence,
+  // they must be redeclared in each derived class.
+  //
+  if (!mod->isSource() && !mod->isSink())
+    {
+      // push to a specified channel
+      f.add("template <size_t N, typename... DSTs>");
+      f.add("__device__");
+      f.add(genFcnHeader("void", "push", "DSTs... args"));
+      f.add("{");
+      f.indent();
+      
+      f.add("std::get<N>(channels)->push(args...);");
+      
+      f.unindent();
+      f.add("}");
+      
+      f.add("");
+      
+      // default push is to channel 0
+      f.add("template <typename... DSTs>");
+      f.add("__device__");
+      f.add(genFcnHeader("void", "push", "DSTs... args"));
+      f.add("{");
+      f.indent();
+      
+      f.add("push<0>(args...);");
+      
+      f.unindent();
+      f.add("}");
+    }
+  
   if (mod->isSource())
     {
       // initialize the source from the data passed down from the host
@@ -515,6 +618,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     f.add("#define " + incGuard);
     f.add("");    
   }
+  
+  f.add(genSystemInclude("tuple"));
+  f.add("");
   
   f.add(genUserInclude(app->name + ".cuh"));
   f.add("");

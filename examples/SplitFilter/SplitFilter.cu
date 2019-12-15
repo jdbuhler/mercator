@@ -31,5 +31,8 @@ Filter::run(const uint32_t& inputItem)
 {
   uint32_t v = munge(inputItem);
   
-  push(v, (v % 2 == 0 ? Out::accept : Out::reject));
+  if (v % 2 == 0)
+    push<Out::accept>(v);
+  else
+    push<Out::reject>(v);
 }

@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.8)
 #set(CMAKE_BUILD_TYPE debug)
 set(CMAKE_BUILD_TYPE release)
 
-#set(CMAKE_VERBOSE_MAKEFILE on)
+set(CMAKE_VERBOSE_MAKEFILE on)
 
 ######################################################################
 # PACKAGE DEPENDENCIES
@@ -67,8 +67,8 @@ add_subdirectory(ModFilter)
 
 add_subdirectory(SplitFilter)
 
-add_subdirectory(LoopFilter)
-
 add_subdirectory(AsyncFilter)
 
-add_subdirectory(Mandelbrot)
+#add_subdirectory(LoopFilter)
+
+#add_subdirectory(Mandelbrot)

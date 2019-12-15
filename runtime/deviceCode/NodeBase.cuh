@@ -141,7 +141,7 @@ namespace Mercator  {
     virtual
     void printCountsCSV(unsigned int nodeId, bool inputOnly = false) const = 0;
 #endif
-    
+        
   private:
     
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
@@ -151,8 +151,7 @@ namespace Mercator  {
     bool isActive;             // is node in active
     unsigned int nDSActive;    // # of active downstream children of node
     bool _isFlushing;          // is node in flushing mode?
-
-
+    
     //
     // @brief increment node's count of active downstream children.
     //

@@ -43,7 +43,7 @@ namespace Mercator  {
 	    unsigned int maxActiveThreads,
 	    bool runWithAllThreads,
 	    unsigned int THREADS_PER_BLOCK,
-	    typename T>
+	    typename... Ts>
   class Node : public NodeBase {
     
     // actual maximum # of possible active threads in this block
@@ -92,82 +92,28 @@ namespace Mercator  {
       occCounter.setMaxRunSize(maxRunSize);
 #endif
     }
-
-
+    
+    
     //
-    // @brief Destructor
+    // @brief set the generic channel object and downstream node ptrs
+    // for a given channel.
     //
     __device__
-    virtual
-    ~Node()
+    void setDSEdgeGeneric(unsigned int c,
+			  NodeBase *dsNode,
+			  ChannelBase *channel)
     {
-      for (unsigned int c = 0; c < numChannels; ++c)
-	{
-	  ChannelBase *channel = channels[c];
-	  if (channel)
-	    delete channel;
-	}
-    }
-
-    //
-    // @brief Create and initialize an output channel.
-    //
-    // @param c index of channel to initialize
-    // @param outputsPerInput Num outputs/input for the channel
-    //
-    template<typename DST>
-    __device__
-    void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput)
-    {
-      assert(c < numChannels);
-      assert(outputsPerInput > 0);
-
-      // init the output channel -- should only happen once!
-      assert(channels[c] == nullptr);
-
-      channels[c] = new Channel<DST>(outputsPerInput);
-
-      // make sure alloc succeeded
-      if (channels[c] == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-
-	  crash();
-	}
-    }
-
-
-    //
-    // @brief Construct the edge between this node and a downstream
-    // neighbor on a partrcular channel.
-    //
-    // @param channelIdx channel that holds edge
-    // @param dsNode node at downstream end of edge
-    // @param dsQueue downstream queue
-    //
-    template <typename DST>
-    __device__
-    void setDSEdge(unsigned int channelIdx,
-		   NodeBase *dsNode,
-		   Queue<DST> *dsQueue)
-    { 
-      dsNodes[channelIdx] = dsNode;
       dsNode->setParent(this);
-      
-      Channel<DST> *channel = 
-	static_cast<Channel<DST> *>(channels[channelIdx]);
-      
-      channel->setDSQueue(dsQueue);
+      dsNodes[c] = dsNode;
+      channels[c] = channel;
     }
-
-
+    
+		   
     //
     // @brief return our queue (needed for setDSEdge()).
     //
     __device__
-    Queue<T> *getQueue()
+    Queue<Ts...> *getQueue()
     { 
       return &queue; 
     }
@@ -268,9 +214,7 @@ namespace Mercator  {
   
   protected:
 
-    Queue<T> queue;                      // node's input queue
-    ChannelBase* channels[numChannels];  // node's output channels
-    NodeBase *dsNodes[numChannels];      // node's downstream neighbors
+    Queue<Ts...> queue;                  // node's input queue
     
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -285,7 +229,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     ItemCounter itemCounter; // counts inputs to node
 #endif
-  
+
     //
     // @brief inspector for the channels array (for subclasses)
     // @param c index of channel to get
@@ -336,23 +280,10 @@ namespace Mercator  {
     bool isThreadGroupLeader() const
     { return (threadIdx.x % threadGroupSize == 0); }
     
-    //
-    // @brief Write an output item to the indicated channel.
-    //
-    // @tparam DST Type of item to be written
-    // @param item Item to be written
-    // @param channelIdx channel to which to write the item
-    //
-    template<typename DST>
-    __device__
-    void push(const DST &item, 
-	      unsigned int channelIdx = 0) const
-    {
-      Channel<DST>* channel = 
-	static_cast<Channel<DST> *>(channels[channelIdx]);
-      
-      channel->push(item);
-    }
+  private:
+    
+    ChannelBase* channels[numChannels];  // node's output channels
+    NodeBase *dsNodes[numChannels];      // node's downstream neighbors
     
   };  // end Node class
 }  // end Mercator namespace

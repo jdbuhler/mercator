@@ -25,12 +25,13 @@ namespace Mercator  {
   //
   class ChannelBase {
   public:
-    
+
     __device__
     ChannelBase(unsigned int ioutputsPerInput)
       : outputsPerInput(ioutputsPerInput),
 	dsQueue(nullptr)
     {}
+
     
     __device__
     virtual
