@@ -63,9 +63,9 @@ string genDeviceModuleBaseType(const ModuleType *mod)
     {
       baseType =
 	"Node_Source"
-	"<" + mod->get_channel(0)->type->name
-	+ ", " + to_string(mod->get_nChannels())
-	+ ", THREADS_PER_BLOCK>";
+	"<" + to_string(mod->get_nChannels())
+	+ ", THREADS_PER_BLOCK, " 
+	+ mod->get_channel(0)->type->name + ">";
     }
   else
     {
@@ -76,8 +76,8 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	{
 	  baseType =
 	    "Node_Sink"
-	    "<" + inTypeString 
-	    + ", THREADS_PER_BLOCK>";
+	    "<THREADS_PER_BLOCK, " 
+	    + inTypeString + ">"; 
 	}
       else // regular node
 	{
@@ -90,13 +90,13 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	  
 	  baseType =
 	    moduleTypeVariant
-	    + "<" + inTypeString 
-	    + ", " + to_string(mod->get_nChannels())
+	    + "<"  + to_string(mod->get_nChannels())
 	    + ", " + to_string(mod->get_nThreads())
 	    + ", " + to_string(mod->get_inputLimit())
 	    + ", " + to_string(mod->get_useAllThreads()) //runWithAllThreads
 	    + ", THREADS_PER_BLOCK"
 	    ", " + mod->get_name() // for CRTP
+	    + ", " + inTypeString 
 	    + ">";
 	}
     }

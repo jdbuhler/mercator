@@ -24,27 +24,26 @@ namespace Mercator  {
   // @brief Contains all functions and datatype-dependent info
   //         for a "source" node.
   //
-  // @tparam T type of input item
   // @tparam numChannels  number of output channels
+  // @tparam T type of input item
   //
-  template<typename T, 
-	   unsigned int numChannels,
-	   unsigned int THREADS_PER_BLOCK>
+  template<unsigned int numChannels,
+	   unsigned int THREADS_PER_BLOCK,
+	   typename T>
   class Node_Source : 
-    public Node< 
-    NodeProperties<T,
-		   numChannels,
-		   1, 1,              // no run/scatter functions
-		   THREADS_PER_BLOCK, // use all threads
-		   true,              
-		   THREADS_PER_BLOCK> > { 
+    public Node<numChannels,
+		1, 1,              // no run/scatter functions
+		THREADS_PER_BLOCK, // use all threads
+		true,              
+		THREADS_PER_BLOCK,
+		T> { 
     
-    typedef Node< NodeProperties<T,
-				 numChannels,
-				 1, 1,
-				 THREADS_PER_BLOCK,
-				 true,
-				 THREADS_PER_BLOCK> > BaseType;
+    using BaseType = Node<numChannels,
+			  1, 1,
+			  THREADS_PER_BLOCK,
+			  true,
+			  THREADS_PER_BLOCK,
+			  T>;
     
   public: 
     
@@ -207,7 +206,7 @@ namespace Mercator  {
 			static_cast<Channel<T> *>(getChannel(c));
 		      
 		      unsigned int dsb = __shfl_sync(0xffffffff, dsBase, c);
-		      channel->dsWrite(myData, dsb, srcIdx);
+		      channel->dsWrite(dsb, srcIdx, myData);
 		    }
 		}
 	    }

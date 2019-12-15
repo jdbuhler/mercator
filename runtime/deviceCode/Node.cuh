@@ -26,59 +26,30 @@
 namespace Mercator  {
 
   //
-  // @class NodeProperties
-  // @brief properties of a MERCATOR node known at compile time
+  // @class Node
+  // @brief MERCATOR most general node type
   //
-  // @tparam T type of input
   // @tparam numChannels  number of channels
   // @tparam numEltsPerGroup number of input elements/thread
   // @tparam threadGroupSize  number of threads in a thread group
   // @tparam maxActiveThreads max # of live threads in any call to run()
   // @tparam runWithAllThreads call run() with all threads, or just as many
   //           as have inputs?
+  // @tparam T type of input
   //
-  template <typename _T, 
-	    unsigned int _numChannels,
-	    unsigned int _numEltsPerGroup,
-	    unsigned int _threadGroupSize,
-	    unsigned int _maxActiveThreads,
-	    bool _runWithAllThreads,
-	    unsigned int _THREADS_PER_BLOCK>
-  struct NodeProperties {
-    typedef _T T;
-    static const unsigned int numChannels      = _numChannels;
-    static const unsigned int numEltsPerGroup  = _numEltsPerGroup;
-    static const unsigned int threadGroupSize  = _threadGroupSize;
-    static const unsigned int maxActiveThreads = _maxActiveThreads;
-    static const bool runWithAllThreads        = _runWithAllThreads;
-    static const unsigned int THREADS_PER_BLOCK= _THREADS_PER_BLOCK;  
-  };
-
-
-  //
-  // @class Node
-  // @brief MERCATOR most general node type
-  //
-  // This class implements most of the interface in NodeBase,
-  // but it leaves the fire() function to subclasses (and hence is
-  // still pure virtual).
-  //
-  // @tparam Props properties structure for node
-  //
-  template<typename Props>
+  template <unsigned int numChannels,
+	    unsigned int numEltsPerGroup,
+	    unsigned int threadGroupSize,
+	    unsigned int maxActiveThreads,
+	    bool runWithAllThreads,
+	    unsigned int THREADS_PER_BLOCK,
+	    typename T>
   class Node : public NodeBase {
-
-    using                                    T = typename Props::T;
-    static const unsigned int numChannels      = Props::numChannels;
-    static const unsigned int numEltsPerGroup  = Props::numEltsPerGroup;
-    static const unsigned int threadGroupSize  = Props::threadGroupSize;
-    static const unsigned int maxActiveThreads = Props::maxActiveThreads;
-    static const bool runWithAllThreads        = Props::runWithAllThreads;
-
+    
     // actual maximum # of possible active threads in this block
     static const unsigned int deviceMaxActiveThreads =
-      (maxActiveThreads > Props::THREADS_PER_BLOCK 
-       ? Props::THREADS_PER_BLOCK 
+      (maxActiveThreads > THREADS_PER_BLOCK 
+       ? THREADS_PER_BLOCK 
        : maxActiveThreads);
 
     // number of thread groups (no partial groups allowed!)
@@ -169,24 +140,26 @@ namespace Mercator  {
 
 
     //
-    // @brief Construc tthe edge between this node and a downstream
+    // @brief Construct the edge between this node and a downstream
     // neighbor on a partrcular channel.
     //
     // @param channelIdx channel that holds edge
     // @param dsNode node at downstream end of edge
+    // @param dsQueue downstream queue
     //
-    template <typename DSP>
+    template <typename DST>
     __device__
     void setDSEdge(unsigned int channelIdx,
-		   Node<DSP> *dsNode)
+		   NodeBase *dsNode,
+		   Queue<DST> *dsQueue)
     { 
       dsNodes[channelIdx] = dsNode;
       dsNode->setParent(this);
       
-      Channel<typename DSP::T> *channel = 
-	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
+      Channel<DST> *channel = 
+	static_cast<Channel<DST> *>(channels[channelIdx]);
       
-      channel->setDSQueue(dsNode->getQueue());
+      channel->setDSQueue(dsQueue);
     }
 
 

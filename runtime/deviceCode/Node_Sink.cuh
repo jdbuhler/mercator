@@ -23,25 +23,23 @@ namespace Mercator  {
   //         for a "sink" node.
   //
   // @tparam T type of input item
-
   //
-  template<typename T, 
-	   unsigned int THREADS_PER_BLOCK>
+  template<unsigned int THREADS_PER_BLOCK,
+	   typename T> 
   class Node_Sink : 
-    public Node< 
-    NodeProperties<T,
-		   0,                 // no output channels
-		   1, 1,              // no run/scatter functions
-		   THREADS_PER_BLOCK, // use all threads
-		   true,
-		   THREADS_PER_BLOCK> > {
+    public Node<0,                 // no output channels
+		1, 1,              // no run/scatter functions
+		THREADS_PER_BLOCK, // use all threads
+		true,
+		THREADS_PER_BLOCK,
+		T> {
     
-    typedef Node< NodeProperties<T,
-				 0,
-				 1, 1,
-				 THREADS_PER_BLOCK,
-				 true,
-				 THREADS_PER_BLOCK> > BaseType;
+    using BaseType = Node<0,
+			  1, 1,
+			  THREADS_PER_BLOCK,
+			  true,
+			  THREADS_PER_BLOCK,
+			  T>;
   public: 
     
     //
@@ -152,7 +150,7 @@ namespace Mercator  {
 	      
 	      if (srcIdx < numToWrite)
 		{
-		  const T &myData = queue.getElt(srcIdx);
+		  const T &myData = std::get<0>(queue.getElt(srcIdx));
 		  sink->put(basePtr, srcIdx, myData);
 		}
 	    }

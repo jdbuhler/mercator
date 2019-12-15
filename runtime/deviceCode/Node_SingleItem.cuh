@@ -20,6 +20,7 @@
 
 namespace Mercator  {
 
+  
   //
   // @class Node_SingleItem
   // @brief MERCATOR node whose run() fcn takes one input per thread group
@@ -29,35 +30,35 @@ namespace Mercator  {
   //
   //   __device__ void run(const T &data)
   //
-  // @tparam T type of input item
   // @tparam numChannels  number of output channels 
   // @tparam runWithAllThreads call run with all threads, or just as many
   //           as have inputs?
-  // @tparam DerivedNodeType subtype that defines the run() function
-  template<typename T, 
-	   unsigned int numChannels,
+  // @tparam DerivedNodeType subtype that defines the run() functio
+  // @tparam T type of input item
+  //
+  template<unsigned int numChannels,
 	   unsigned int threadGroupSize,
 	   unsigned int maxActiveThreads,
 	   bool runWithAllThreads,
 	   unsigned int THREADS_PER_BLOCK,
-	   typename DerivedNodeType>
+	   typename DerivedNodeType,
+	   typename T>
   class Node_SingleItem
-    : public Node< NodeProperties<T, 
-				  numChannels,
-				  1, 
-				  threadGroupSize,
-				  maxActiveThreads,
-				  runWithAllThreads,
-				  THREADS_PER_BLOCK> > {
+    : public Node<numChannels,
+		  1, 
+		  threadGroupSize,
+		  maxActiveThreads,
+		  runWithAllThreads,
+		  THREADS_PER_BLOCK,
+		  T> {
     
-    typedef Node< NodeProperties<T,
-				 numChannels,
-				 1,
-				 threadGroupSize,
-				 maxActiveThreads,
-				 runWithAllThreads,
-				 THREADS_PER_BLOCK> > BaseType;
-    
+    using BaseType = Node<numChannels,
+			  1, 
+			  threadGroupSize,
+			  maxActiveThreads,
+			  runWithAllThreads,
+			  THREADS_PER_BLOCK,
+			  T>;
   public:
     
     __device__
@@ -131,13 +132,13 @@ namespace Mercator  {
       while (nConsumed < nToConsume && !dsFull)
 	{
 	  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
-	  
+
 	  NODE_OCC_COUNT(nItems);
-	  
-	  const T &data = 
-	    (tid < nItems
-	     ? queue.getElt(nConsumed + tid)
-	     : queue.getDummy()); // don't create a null reference
+
+	  const T &data =
+	    std::get<0>(tid < nItems 
+			? queue.getElt(nConsumed + tid)
+			: queue.getDummy()); // don't create a null reference
 	  
 	  TIMER_STOP(input);
 	  

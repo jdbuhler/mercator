@@ -75,7 +75,7 @@ namespace Mercator  {
 	  dsBase = dsReserve(g.size());
 	}
       
-      dsWrite(item, g.shfl(dsBase, 0), g.thread_rank());
+      dsWrite(g.shfl(dsBase, 0), g.thread_rank(), item);
     }
     
     
@@ -101,15 +101,15 @@ namespace Mercator  {
     // @param offset offset at which to write item
     //
     __device__
-      void dsWrite(const T &item, 
-		   unsigned int base,
-		   unsigned int offset) const
+      void dsWrite(unsigned int base,
+		   unsigned int offset,
+		   const T &item) const
     {
       dsQueue->putElt(base, offset, item);
     }
     
   private:
-
+    
     
     //
     // target (edge) for scattering items from output buffer
