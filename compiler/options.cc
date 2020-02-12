@@ -18,7 +18,7 @@
 
 using namespace std;
 
-const char OptionList[] = ":a:DhH:I:Ko:S:t:v";
+const char OptionList[] = ":Q:a:DhH:I:Ko:S:t:v";
 
 CommandOptions options;
 
@@ -136,7 +136,7 @@ bool parseCommandLine(int argc, char **argv)
 
 	    case 'Q':
 	      options.queueScaler = stoi(optarg);
-	      if (options.deviceStackSize < 2)
+	      if (options.queueScaler < 2)
 		{
 		  cerr << "ERROR: queue scaler must be greater then 2"
 		       << endl;
