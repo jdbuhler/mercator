@@ -48,6 +48,10 @@ static void printUsage()
        << "   number of threads per block for the generated application\n"
        << "    (default " << options.threadsPerBlock << ")\n"
        << "\n"
+       << " -Q <#>\n"
+       << "   queue scaling mulitpler for each node\n"
+       << "    (default " << options.queueScaler << ", minimum 2)\n"
+       << "\n"
        << " -H <#>\n"
        << "   size of the device heap in MEGAbytes\n"
        << "    (default " << options.deviceHeapSize/(1024*1024) << " MB)\n"
@@ -125,6 +129,16 @@ bool parseCommandLine(int argc, char **argv)
 	      if (options.deviceHeapSize < 1024 * 1024)
 		{
 		  cerr << "ERROR: device heap must be >= 1 MB"
+		       << endl;
+		  return false;
+		}
+	      break;
+
+	    case 'Q':
+	      options.queueScaler = stoi(optarg);
+	      if (options.deviceStackSize < 2)
+		{
+		  cerr << "ERROR: queue scaler must be greater then 2"
 		       << endl;
 		  return false;
 		}
