@@ -13,10 +13,10 @@
 //
 
 //count trips thru sched loop
-#define INSTRUMENT_SCHED_COUNTS
+//#define INSTRUMENT_SCHED_COUNTS
 
 // instrument code timing for performance model parameters?
-#define INSTRUMENT_TIME
+//#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
 //#define INSTRUMENT_COUNTS
@@ -24,7 +24,7 @@
 // instrument code for occupancy of each node firing?
 // NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
 //       set to 1 causes interference with this option.
-//#define INSTRUMENT_OCC
+#define INSTRUMENT_OCC
 
 // collect data from tail of app's execution?
 // 1 = collect data from all firings
@@ -54,23 +54,12 @@
 // Misc runtime options
 //
 //how many blocks to run with
-//#define USE_MAX_BLOCKS
+#define USE_MAX_BLOCKS
 //#define USE_ONE_BLOCKS
-//#define USE_X_BLOCKS 100
-#define USE_SM_BLOCKS
+//#define USE_X_BLOCKS 16*15
+//#define USE_SM_BLOCKS
 
 //use random thread to record timings 
 #define RAND_TIMING_THREAD
-
-
-
-// try to avoid calling run() on a node when there are not enough
-// inputs to fill all threads
-#define PREFER_FULL_ENSEMBLES true
-
-// Scheduling algorithms
-//#define SCHEDULER_MAXOCC    // choose queue with max fireable occupancy
-//#define SCHEDULER_LOTTERY // choose queue probabilistically
-#define SCHEDULER_MINSWITCHES //schedule with new policy
 
 #endif
