@@ -14,7 +14,8 @@ cmake_minimum_required(VERSION 3.8)
 # INSTALL TARGETS
 ######################################################################
 
-set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
+#set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
+set(CMAKE_INSTALL_PREFIX /export/project/hondius/stimcheck/umercator/mercator-${PROJECT_VERSION})
 
 ######################################################################
 # PACKAGE DEPENDENCIES

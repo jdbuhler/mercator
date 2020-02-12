@@ -17,7 +17,8 @@ set(CMAKE_BUILD_TYPE release)
 ######################################################################
 
 #set(MERCATOR_ROOT_DIR /project/cassini/m-node/mercator)
-set(MERCATOR_ROOT_DIR /home/research/planot/mercator)
+#set(MERCATOR_ROOT_DIR /home/research/planot/mercator)
+set(MERCATOR_ROOT_DIR /export/project/hondius/stimcheck/umercator/mercator)
 
 set(CUB_ROOT_DIR /project/cassini/cub)
 
