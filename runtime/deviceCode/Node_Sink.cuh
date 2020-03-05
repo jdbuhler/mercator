@@ -134,10 +134,55 @@ namespace Mercator  {
       if (!isFlushing)
 	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
       
+      // # of total items that need to be written
+      unsigned int numTotalToWrite = 0;
+
       TIMER_STOP(input);
       
       TIMER_START(output);
       
+      while(this->numSignalsPending() > 0)
+	{
+		numToWrite = this->currentCreditCounter;
+	      if (numToWrite > 0)
+		{
+		  __shared__ unsigned int basePtr;
+		  if (IS_BOSS())
+		    basePtr = sink->reserve(numToWrite);
+		  __syncthreads(); // make sure all threads see base ptr
+		  
+		  // use every thread to copy from our queue to sink
+		  for (int base = 0; base < numToWrite; base += maxRunSize)
+		    {
+		      int srcIdx = base + tid;
+		      
+		      if (srcIdx < numToWrite)
+			{
+			  const T &myData = queue.getElt(srcIdx);
+			  sink->put(basePtr, srcIdx, myData);
+			}
+		    }
+		numTotalToWrite += numToWrite;
+		}
+
+		__syncthreads();
+
+		//stimcheck: We don't care about the ds signal queues being full here, since there are no ds signal queues.
+		this->signalHandler();	
+	}
+	
+
+	__syncthreads();
+
+      numToWrite = queue.getOccupancy();
+            
+      // unless we are flushing all our input, round down to a full
+      // ensemble.  Since we are active, if we aren't flushing, we
+      // have at least one full ensemble to write.
+      if (!isFlushing)
+	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
+
+	//Perform normal AFIE Scheduling once all signals are processed.
       if (numToWrite > 0)
 	{
 	  __shared__ unsigned int basePtr;
@@ -156,8 +201,11 @@ namespace Mercator  {
 		  sink->put(basePtr, srcIdx, myData);
 		}
 	    }
+	    numTotalToWrite += numToWrite;
 	}
-      
+
+	//numTotalToWrite += numToWrite;
+
       TIMER_STOP(output);
       
       TIMER_START(input);
@@ -165,8 +213,10 @@ namespace Mercator  {
       // we consumed enough input that we are no longer active
       if (IS_BOSS())
 	{
-	  COUNT_ITEMS(numToWrite);
-	  queue.release(numToWrite);
+	  //COUNT_ITEMS(numToWrite);
+	  //queue.release(numToWrite);
+	  COUNT_ITEMS(numTotalToWrite);
+	  queue.release(numTotalToWrite);
 	  
 	  this->deactivate();
 	}

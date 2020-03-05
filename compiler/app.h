@@ -106,15 +106,18 @@ struct Channel {
   DataType *type;     // output type of channel
   int  maxOutputs;    // max outputs/input on channel
   bool isVariable;    // is outputs/input fixed or variable?
+  bool isAggregate;   // is the channel used for aggregates?
   
   Channel(const std::string &iname,
 	  DataType *itype,
 	  int imaxOutputs,
-	  int iisVariable)
+	  int iisVariable,
+          int iisAggregate)
     : name(iname),
       type(itype),
       maxOutputs(imaxOutputs),
-      isVariable(iisVariable)
+      isVariable(iisVariable),
+      isAggregate(iisAggregate)
   {}
   
   ~Channel()
@@ -145,6 +148,9 @@ public:
   
   int get_idxInModuleType() const
   { return mIdx; }
+
+  int get_enumerateId() const
+  { return eId; }
   
   int get_queueSize() const
   { return queueSize; }
@@ -152,6 +158,8 @@ public:
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
   
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
+
+  void set_enumerateId(int e) { eId = e; }
   
   void print() const;
   
@@ -179,6 +187,8 @@ private:
   
   DfsStatus dfsStatus;
   long multiplier;
+
+  int eId;
 };
 
 
@@ -192,8 +202,9 @@ public:
     F_isSource      = 0x01,
     F_isSink        = 0x02,
     F_isEnumerate   = 0x04,
-    F_isAggregate   = 0x08,
-    F_useAllThreads = 0x10
+    //F_isAggregate   = 0x08,	//UNUSED, Aggregate is associated with Channel not ModuleType
+    F_useAllThreads = 0x10,
+    F_isUserEnumerate = 0x20
   };
   
   ModuleType(const std::string &iname,
@@ -228,9 +239,18 @@ public:
   
   int get_nThreads() const
   { return nThreads; }
+
+  bool get_isEnumerate() const
+  { return (flags & F_isEnumerate); }
+
+  bool get_isSink() const
+  { return (flags & F_isSink); }
   
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
+
+  bool get_isUserEnumerate() const
+  { return (flags & F_isUserEnumerate); }
   
   Channel *get_channel(int cId) const
   { 
@@ -327,6 +347,10 @@ struct App {
   
   std::vector<DataItem *> params;
   
+  std::vector<int> refCounts; // maps enumerateId to reference count
+
+  std::vector<bool> isPropagate;
+
   SymbolTable moduleNames;  // maps module name -> idx in modules
   
   SymbolTable nodeNames;    // maps node names -> idx in nodes

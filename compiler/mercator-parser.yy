@@ -98,7 +98,8 @@ class mercator_driver;
 %type <std::string> typename_string channelname modulename sourcefilename
 %type <std::string> appname nodename varscope edgechannelspec
 %type <input::NodeType *> nodetype
-%type <int> maxoutput mappingspec qualifier
+//%type <int> maxoutput mappingspec qualifier
+%type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
 %type <input::ChannelSpec *> channel 
 %type <std::vector<input::ChannelSpec *> *> channels
@@ -108,7 +109,7 @@ class mercator_driver;
 
 // expected shift-reduce conflicts:
 //   node <nodename> : <modulename> vs node <nodename> : <moduletype> 
-%expect 1
+//%expect 1
 
 //////////////////////////////////////////////////////////////////
 // GRAMMAR RULES
@@ -352,17 +353,22 @@ vartype: basetypename
 /////////////////////////////
 
 moduletype:
-qualifier inputtype "->" outputtype 
+inputtype "->" outputtype 
+{
+  $$ = new input::ModuleTypeStmt($1, $3);
+  $$->flags |= 0;
+}
+| "enumerate" inputtype "->" outputtype
 { 
   $$ = new input::ModuleTypeStmt($2, $4); 
-  $$->flags |= $1;
+  $$->flags |= input::ModuleTypeStmt::isEnumerate;
 };
 
-qualifier:
-  %empty                 { $$ = 0; }
-| "enumerate"            { $$ = input::ModuleTypeStmt::isEnumerate; }
-| "aggregate"            { $$ = input::ModuleTypeStmt::isAggregate; }
-;
+//qualifier:
+//  %empty                 { $$ = 0; }
+//| "enumerate"            { $$ = input::ModuleTypeStmt::isEnumerate; }
+//| "aggregate"            { $$ = input::ModuleTypeStmt::isAggregate; }
+//;
 
 inputtype:
  typename                { $$ = $1; }
@@ -375,7 +381,7 @@ outputtype:
 { 
   // a single channel does not need a name
   auto v = new std::vector<input::ChannelSpec *>;
-  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0));
+  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0), 0);
   v->push_back(c);
   $$ = new input::OutputSpec(v);
 }
@@ -393,7 +399,9 @@ channels:
 // an output channel of a module has a name and a type
 channel:
 channelname "<" typename  maxoutput ">" 
-{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0)); };
+{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0), 0); }
+| "aggregate" channelname "<" typename  maxoutput ">"
+{ $$ = new input::ChannelSpec($2, $4, std::abs($5), ($5 > 0), 1); };
 
 maxoutput:
   %empty              { $$ =   1; }

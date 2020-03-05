@@ -71,9 +71,18 @@ using namespace std;
  * are heads of cycles also hold their cycle predecessor.
  */
 
+int TopologyVerifier::currentId = 1;
+
 void TopologyVerifier::verifyTopology(App *app)
 {
-  dfsVisit(app->sourceNode, nullptr, 1);
+  app->refCounts.push_back(0); //Init refCounts vector for later, index 0 is invalid enumId
+
+  for(unsigned int i = 0; i < app->modules.size(); ++i)
+    {
+	app->isPropagate.push_back(0);
+    }
+
+  dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
     {
@@ -117,6 +126,20 @@ void TopologyVerifier::verifyTopology(App *app)
 	node->queueSize                += dsReservedSlots;
       }
     }
+
+    // Check to make sure that no enumerates are unclosed,
+    // that is, check to see if any Sinks have an enumerateId.
+    for(Node* node : app->nodes) {
+	if(node->get_moduleType()->get_isSink() && node->get_enumerateId() > 0) {
+		cerr << "ERROR: Sink node "
+		     << node->get_name()
+		     << " has an enumerate ID. "
+		     << "Missing an aggregate channel "
+		     << "before this node."
+		     << endl;
+		abort();
+	}
+    }
 }
     
 
@@ -125,7 +148,9 @@ void TopologyVerifier::verifyTopology(App *app)
 
 Node *TopologyVerifier::dfsVisit(Node *node,
 				 Edge *parentEdge,
-				 long multiplier)
+				 long multiplier,
+				 int enumId,
+				 App *app)
 {
   if (node->dfsStatus == Node::InProgress)
     {
@@ -161,6 +186,25 @@ Node *TopologyVerifier::dfsVisit(Node *node,
       node->multiplier = multiplier;
       
       const ModuleType *mod = node->get_moduleType();
+
+      if(node->get_moduleType()->get_isEnumerate())
+	{
+	  if(enumId != 0)
+	    {
+		  cerr << "ERROR: node " << node->get_name()
+		       << " is nested within another enumerate," << endl
+		       << "nesting of enumerates is currently unsupported!"
+		       << endl;
+		  abort();
+	    }
+	  node->set_enumerateId(currentId);
+	  app->refCounts.push_back(0);
+	  currentId += 1;
+	}
+      else
+	{
+	  node->set_enumerateId(enumId);
+	}
       
       Node *head = nullptr;
       for (int j = 0; j < mod->get_nChannels(); j++)
@@ -170,10 +214,20 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	    continue;
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
+
+	  bool resetEnumID = false;
+	  if(e->usChannel->isAggregate) {
+	    app->refCounts.at(enumId) += 1;
+	    resetEnumID = true;
+	    app->isPropagate.at(mod->get_idx()) = true;
+	    //node->set_enumerateId(0);
+	  }
 	  
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
-				    multiplier * nextAmpFactor);
+				    multiplier * nextAmpFactor,
+				    (resetEnumID ? 0 : node->get_enumerateId()),
+				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)
 	    {
@@ -190,6 +244,14 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 
 	}
       
+      node->dfsStatus = Node::Finished;
+
+      // Set whther or not the module index needs begin/end stubs
+      if((node->get_enumerateId() > 0 && !(node->get_moduleType()->get_isEnumerate())))
+	{
+	  app->isPropagate.at(mod->get_idx()) = true;
+	}
+
       node->dfsStatus = Node::Finished;
       
       return head;

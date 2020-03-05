@@ -19,11 +19,15 @@ public:
   void verifyTopology(App *app);
   
 private:
+
+  static int currentId;
   
   static
   Node *dfsVisit(Node *node,
 		 Edge *parentEdge,
-		 long multiplier);
+		 long multiplier,
+		 int enumId,
+		 App *app);
   
 };
 

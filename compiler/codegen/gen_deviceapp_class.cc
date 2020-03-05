@@ -82,8 +82,10 @@ string genDeviceModuleBaseType(const ModuleType *mod)
       else // regular node
 	{
 	  string moduleTypeVariant;
-	  
-	  if (mod->get_nElements() > 1)
+
+	  if (mod->get_isEnumerate())
+	    moduleTypeVariant = "Node_Enumerate";
+	  else if (mod->get_nElements() > 1)
 	    moduleTypeVariant = "Node_ManyItems";
 	  else
 	    moduleTypeVariant = "Node_SingleItem";
@@ -324,13 +326,94 @@ void genDeviceModuleClass(const App *app,
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
   
-  if (!mod->isSource() && !mod->isSink())
+  if (!mod->isSource() && !mod->isSink() && !mod->get_isEnumerate())
     {
       // run function (public because of CRTP)
       f.add("__device__");
       f.add(genFcnHeader("void",
 			 "run", 
 			 genDeviceModuleRunFcnParams(mod)) + ";");
+      f.add("");
+    }
+
+  // stimcheck: Add begin and end functions to the codegened headers, make
+  // them blank stubs as necessary too (when unused).
+  if (!mod->isSource() && !mod->isSink())
+    {
+      // begin and end functions (public because of CRTP)
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	   // create headers for begin and end
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "begin",
+			      "") +";");
+           f.add("");
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "end", 
+			      "") +";");
+           f.add("");
+   	   f.add("__device__");
+		//printf("FROM NAME: %s\n", mod->get_inputType()->from->name.c_str());
+		cout << "BEFORE PRINT" << endl;
+		if(mod->get_inputType()->from == nullptr)
+			cout << "NULL FROM" << endl;
+		if(mod->get_inputType()->from->name.empty())
+			cout << "EMPTY FROM TYPE" << endl;
+		cout << "FROM NAME: " << mod->get_inputType()->from->name << endl;
+           f.add(genFcnHeader(mod->get_inputType()->from->name + "*",
+			      "getParent",
+			      ""));
+	   f.add("{ return static_cast< " + mod->get_inputType()->from->name + "* >(currentParent); }");
+           f.add("");
+	}
+      else
+	{
+	   // create empty stubs for modules without enumIds.
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "begin", 
+			      "") + "{ }");
+           f.add("");
+   	   f.add("__device__");
+           f.add(genFcnHeader("void",
+			      "end", 
+			      "") + "{ }");
+           f.add("");
+	}
+
+	
+	if(mod->get_isUserEnumerate())
+	{
+   	   f.add("__device__");
+		//printf("FROM NAME: %s\n", mod->get_inputType()->from->name.c_str());
+		cout << "BEFORE PRINT" << endl;
+		if(mod->get_inputType()->from == nullptr)
+			cout << "NULL FROM" << endl;
+		//if(mod->get_inputType()->from->name.empty())
+		//	cout << "EMPTY FROM TYPE" << endl;
+		//cout << "FROM NAME: " << mod->get_inputType()->from->name << endl;
+           f.add(genFcnHeader(mod->get_inputType()->name + "*",
+			      "getParent", 
+			      ""));
+	   f.add("{ return static_cast< " + mod->get_inputType()->name + "* >(currentParent); }");
+           f.add("");
+	}
+	
+    }
+	cout << "FINISHED ENUM STUB GEN. . ." << endl;
+
+  // stimcheck: Add findCount function header to the codegened headers of
+  // enumerate modules.
+  if (!mod->isSource() && !mod->isSink() && mod->get_isEnumerate())
+    {
+      // findCount function (public because of CRTP)
+      f.add("__device__");
+      f.add(genFcnHeader("unsigned int",
+			 "findCount", 
+			 "") + ";");
+
       f.add("");
     }
   
@@ -617,6 +700,76 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add("");
 	}
       
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	  //generate begin function
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::begin", 
+			     ""));
+	  
+	  f.add("{");
+	  f.add("");
+	  f.add("}");
+	  
+	  f.add("");
+	}
+      
+      // stimcheck: Generate run functions for every module EXCEPT ENUMERATES.
+      if (!(mod->get_isEnumerate()))
+	{
+          // generate run function
+          f.add("__device__");
+          f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::run", 
+			     genDeviceModuleRunFcnParams(mod)));
+      
+          f.add("{");
+          f.indent();
+      
+          f.add("");
+      
+          f.unindent();
+          f.add("}");
+      
+          f.add("");
+	}
+
+      if (mod->get_isEnumerate())
+	{
+	  //generate findCount function
+	  f.add("__device__");
+	  f.add(genFcnHeader("unsigned int",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::findCount", 
+			     ""));
+	  
+	  f.add("{");
+	  f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");
+	  f.add("}");
+	  
+	  f.add("");
+	}
+      
+      if (app->isPropagate.at(mod->get_idx()))
+	{
+	  //generate end function
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     DeviceAppClass + "::\n" + 
+			     mod->get_name() + "::end", 
+			     ""));
+	  
+	  f.add("{");
+	  f.add("");
+	  f.add("}");
+	  
+	  f.add("");
+	}
+
+	/*
       // generate run function
       f.add("__device__");
       f.add(genFcnHeader("void",
@@ -633,7 +786,8 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
       f.add("}");
       
       f.add("");
-      
+	*/      
+
       if (mod->hasState())
 	{
 	  // generate cleanup function

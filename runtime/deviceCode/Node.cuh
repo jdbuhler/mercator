@@ -15,6 +15,8 @@
 
 #include "NodeBase.cuh"
 
+#include "Signal.cuh"
+
 #include "Queue.cuh"
 
 #include "Scheduler.cuh"
@@ -115,11 +117,13 @@ namespace Mercator  {
     Node(const unsigned int queueSize,
 	 Scheduler *ischeduler)
       : queue(queueSize),
+        signalQueue(queueSize),	//stimcheck: Currently use data queue size for signal queue size.
 	scheduler(ischeduler),
 	parent(nullptr),
 	isActive(false),
 	nDSActive(0),
-	isFlushing(false)
+	isFlushing(false),
+	currentCreditCounter(0)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -194,7 +198,7 @@ namespace Mercator  {
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
 
       dsNode->setParent(this);
-      channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots);
+      channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots, dsNode->getSignalQueue());
     }
 
 
@@ -207,6 +211,14 @@ namespace Mercator  {
       return &queue; 
     }
 
+    //
+    // @brief return our signal queue (needed for setDSEdge().
+    //
+    __device__
+    Queue<Signal> *getSignalQueue()
+    { 
+      return &signalQueue; 
+    }
 
     //
     // @brief set the parent of this node (the node at the upstream
@@ -285,7 +297,42 @@ namespace Mercator  {
     {
       return queue.getOccupancy();
     }
+
+
+    /*
+    // 
+    // @brief set the current credit counter for the node.
+    // 
+    // @param ccc The value to set the current credit counter to
+    // 
+    __device__
+    void setCurrentCreditCounter(unsigned int ccc)
+    {
+	currentCreditCounter = ccc;
+    }
 	  
+    // 
+    // @brief set the current credit counter for the node.
+    // 
+    // @return unsigned int The current credit counter value of the node
+    // 
+    __device__
+    unsigned int getCurrentCreditCounter()
+    {
+	return currentCreditCounter;
+    }
+    */
+
+    // 
+    // @brief The main signal handler function for nodes.  Perform signal
+    // actions and create new signals here.  This IS multithreaded.
+    // 
+    __device__
+    bool signalHandler()
+    {
+	return false;	
+    }
+
     ///////////////////////////////////////////////////////////////////
     // OUTPUT CODE FOR INSTRUMENTATION
     ///////////////////////////////////////////////////////////////////
@@ -369,11 +416,22 @@ namespace Mercator  {
     }
   
 #endif
-  
+
+  //stimcheck: Begin and end stubs for enumeration and aggregation 
+  public: 
+    __device__
+    virtual
+    void begin() {}
+
+    __device__
+    virtual
+    void end() {}
+
   protected:
 
     Queue<T> queue;                     // node's input queue
-    ChannelBase* channels[numChannels];  // node's output channels
+    Queue<Signal> signalQueue;          // node's input signal queue
+    ChannelBase* channels[numChannels]; // node's output channels
 
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
     
@@ -382,6 +440,9 @@ namespace Mercator  {
     bool isActive;             // is node in active
     unsigned int nDSActive;    // # of active downstream children of node
     bool isFlushing;           // is node in flushing mode?
+
+    int currentCreditCounter;  // the current credit available to a node
+    void* currentParent;       // the current parent object of the current enumeration if applicable
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -418,7 +479,28 @@ namespace Mercator  {
       return queue.getOccupancy();
     }
   
+    //
+    // @brief number of signals currently enqueued for this node.
+    //
+    __device__
+    virtual
+    unsigned int numSignalsPending() const
+    {
+      return signalQueue.getOccupancy();
+    }
   
+    //
+    // @brief Sets the currentParent pointer to a specified pointer, which should only be from a Signal.
+    //
+    // @param v The pointer of the new parent object
+    //
+    __device__
+    virtual
+    void setParent(void* v)
+    {
+      currentParent = v;
+    }
+
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 

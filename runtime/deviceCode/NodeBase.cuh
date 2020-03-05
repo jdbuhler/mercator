@@ -50,6 +50,10 @@ namespace Mercator  {
     __device__
     virtual
     void fire() = 0;
+
+    __device__
+    virtual
+    void setParent(void* v) = 0;
     
     __device__
     virtual

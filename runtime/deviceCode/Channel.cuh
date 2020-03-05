@@ -14,6 +14,8 @@
 
 #include "ChannelBase.cuh"
 
+#include "Signal.cuh"
+
 #include "options.cuh"
 
 #include "Queue.cuh"
@@ -61,6 +63,7 @@ namespace Mercator  {
 	    }
 	  
 	  dsQueue = nullptr;
+	  dsSignalQueue = nullptr;
 	  
 	  for (unsigned int j = 0; j < numThreadGroups; j++)
 	    nextSlot[j] = 0;
@@ -94,10 +97,12 @@ namespace Mercator  {
     //
     __device__
       void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue,
-		     unsigned int ireservedSlots)
+		     unsigned int ireservedSlots,
+		     Queue<Signal> *idsSignalQueue)
     {
       dsNode = idsNode;
       dsQueue = idsQueue;
+      dsSignalQueue = idsSignalQueue;
       reservedQueueEntries = ireservedSlots;
     }
     
@@ -203,7 +208,7 @@ namespace Mercator  {
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
     //
-    // @param number of slots to reserve for next write9
+    // @param number of slots to reserve for next write
     // @return starting index of reserved segment.
     //
     __device__
@@ -226,6 +231,35 @@ namespace Mercator  {
 		       unsigned int offset) const
     {
       dsQueue->putElt(base, offset, item);
+    }
+
+    //
+    // @brief prepare for a direct write to the downstream signal queue(s)
+    // by reserving space for the signal to write.
+    //
+    // @param number of slots to reserve for next write
+    // @return starting index of reserved segment.
+    //
+    __device__
+      unsigned int directSignalReserve(unsigned int nToWrite) const
+    {
+      return dsSignalQueue->reserve(nToWrite);
+    }
+    
+    
+    //
+    // @brief Write signals directly to the downstream queue.
+    //
+    // @param sig signal to be written
+    // @param base base pointer to writable block in queue
+    // @param offset offset at which to write item
+    //
+    __device__
+      void directSignalWrite(const Signal &sig, 
+		             unsigned int base,
+		             unsigned int offset) const
+    {
+      dsSignalQueue->putElt(base, offset, sig);
     }
     
   private:
@@ -251,6 +285,7 @@ namespace Mercator  {
     //
 
     Queue<T> *dsQueue;
+    Queue<Signal> *dsSignalQueue;
     NodeBase *dsNode;
     unsigned int reservedQueueEntries; // NB: will be used for cycles
   }; // end Channel class

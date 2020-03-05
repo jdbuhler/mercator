@@ -43,15 +43,18 @@ namespace input {
     DataType *type;   // type of values emitted on channel
     int maxOutputs;   // max outputs per input
     bool isVariable;  // is outputs/input fixed or variable?
+    bool isAggregate;
     
     ChannelSpec(const std::string &name,
 		DataType *type,
 		int maxOutputs,
-		bool isVariable)
+		bool isVariable,
+		bool isAggregate)
       : name(name),
 	type(type),
 	maxOutputs(maxOutputs),
-	isVariable(isVariable)
+	isVariable(isVariable),
+	isAggregate(isAggregate)
     {}
     
     ~ChannelSpec()
@@ -102,8 +105,8 @@ namespace input {
     
     // flags set when parsing module type spec
     enum { 
-      isEnumerate = 0x01,
-      isAggregate = 0x02 
+      isEnumerate = 0x04,
+      isAggregate = 0x08 
     };
     
     std::string name;                     // name of module
@@ -330,6 +333,33 @@ namespace input {
 
       for (DataStmt *var : vars)
 	delete var;
+    }
+
+    void printAll()
+    {
+	printf("+++++++++++++++++++++++++++++++++++++\n");
+	printf("APP NAME: %s\n", name.c_str());
+	printf("MODULES:\n");
+      for (ModuleTypeStmt *module : modules) {
+	printf("\t%s\tchannels: %d\n", module->name.c_str(), (unsigned int)(module->channels.size()));
+	for(ChannelSpec* channel : module->channels)
+		printf("\t\t%s\n", channel->name.c_str());
+	printf("\t\tInput type: %s\t", module->inputType->name.c_str());
+	if(module->inputType->from)
+		printf("from type: %s\n", module->inputType->from->name.c_str());
+	else
+		printf("\n");
+	}
+
+	printf("NODES:\n");
+      for (NodeStmt *node : nodes)
+	printf("\t%s\n", node->name.c_str());
+
+	printf("EDGES:\n");
+      for (EdgeStmt edge : edges)
+	printf("\t%s -> %s\tchannel: %s\n", edge.from.c_str(), edge.to.c_str(), edge.fromchannel.c_str());
+
+	printf("+++++++++++++++++++++++++++++++++++++\n");
     }
   };  
 }

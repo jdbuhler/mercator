@@ -1,30 +1,16 @@
-#ifndef __NODE_SINGLEITEM_CUH
-#define __NODE_SINGLEITEM_CUH
+#ifndef __NODE_ENUMERATE_CUH
+#define __NODE_ENUMERATE_CUH
 
-//
-// @file Node_SingleItem.cuh
-// @brief general MERCATOR node that assumes that each thread
-//        group processes a single input per call to run()
-//
-// MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
-//
-
-#include <cassert>
-
+#inlcude <cassert>
 #include "Node.cuh"
-
 #include "ChannelBase.cuh"
-
 #include "timing_options.cuh"
-
 #include "Queue.cuh"
-
 
 namespace Mercator  {
 
   //
-  // @class Node_SingleItem
+  // @class Node_Enumerate
   // @brief MERCATOR node whose run() fcn takes one input per thread group
   // We use CRTP rather than virtual functions to derive subtypes of this
   // nod, so that the run() function can be inlined in fire().
@@ -44,7 +30,7 @@ namespace Mercator  {
 	   bool runWithAllThreads,
 	   unsigned int THREADS_PER_BLOCK,
 	   typename DerivedNodeType>
-  class Node_SingleItem
+  class Node_Enumerate
     : public Node< NodeProperties<T, 
 				  numChannels,
 				  1, 
@@ -64,7 +50,7 @@ namespace Mercator  {
   public:
     
     __device__
-    Node_SingleItem(unsigned int queueSize,
+    Node_Enumerate(unsigned int queueSize,
 		    Scheduler *scheduler)
       : BaseType(queueSize, scheduler)
     {}
@@ -172,7 +158,7 @@ namespace Mercator  {
 	
 		  if (runWithAllThreads || tid < nItems)
 		    {
-		      n->run(myData);
+		      //n->run(myData);
 		    }
 		  nConsumed += nItems;
 		  

@@ -99,7 +99,8 @@ App *buildApp(const input::AppSpec *appSpec)
 	  Channel *channel = new Channel(cs->name,
 					 new DataType(cs->type),
 					 cs->maxOutputs,
-					 cs->isVariable);
+					 cs->isVariable,
+					 cs->isAggregate);
 	  
 	  module->set_channel(cId++, channel);
 	}
@@ -232,7 +233,7 @@ App *buildApp(const input::AppSpec *appSpec)
 		  
 		  Channel *channel = new Channel(channelName,
 						 new DataType(typeStr),
-						 1, false);
+						 1, false, 0);
 		  
 		  module->set_channel(0, channel);
 		  
