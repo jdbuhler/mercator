@@ -37,13 +37,13 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
     {
       runFcnParams = 
 //	"const " + inputType + "* inputItems";
-	inputType + "const * inputItems";
+	inputType + " const * inputItems";
     }
   else
     {
       runFcnParams = 
 //	"const " + inputType + "& inputItem";
-	inputType + "const & inputItem";
+	inputType + " const & inputItem";
     }
   
   return runFcnParams;
