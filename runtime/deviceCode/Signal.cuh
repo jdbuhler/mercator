@@ -13,18 +13,18 @@ public:
 	__device__ ~Signal() { }
 
 	__device__ void setCredit(int c) { credit = c; }
-	__device__ int getCredit() { return credit; }
+	__device__ int getCredit() const { return credit; }
 
 private:
 	SignalTag tag;
 
 public:
 	__device__ void setTag(SignalTag t) { tag = t; }
-	__device__ SignalTag getTag() { return tag; }
+	__device__ SignalTag getTag() const { return tag; }
 	__device__ void setParent(void* p) { parent = p; }
-	__device__ void* getParent() { return parent; }
+	__device__ void* getParent() const { return parent; }
 	__device__ void setRefCount(void* rc) { refCount = static_cast<unsigned int*>(rc); }
-	__device__ unsigned int* getRefCount() { return refCount; }
+	__device__ unsigned int* getRefCount() const { return refCount; }
 };
 
 #endif

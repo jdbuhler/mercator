@@ -50,6 +50,15 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int dsCapacity() const = 0;
+
+    //
+    // @brief get # of signals whose outputs can safely be written
+    // to channel's downstream signal queue
+    //
+    
+    __device__
+    virtual
+    unsigned int dsSignalCapacity() const = 0;
         
     //
     // @brief After a call to run(), move node's output
@@ -59,6 +68,48 @@ namespace Mercator  {
     __device__
     virtual
     bool moveOutputToDSQueue() = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    unsigned int getNumItemsProduced() const = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    void resetNumItemsProduced() = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    bool isAggregate() const = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    void setAggregate() = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    bool dsSignalQueueHasPending() const = 0;
+
+    //
+    //
+    //
+    __device__
+    virtual
+    unsigned int dsPendingOccupancy() const = 0;
 
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel

@@ -283,6 +283,7 @@ public:
   
   bool isSource() const { return flags & F_isSource; }
   bool isSink()   const { return flags & F_isSink; }
+  bool isEnumerate()   const { return flags & F_isEnumerate; }
   
   bool hasNodeParams() const 
   {

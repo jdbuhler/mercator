@@ -116,6 +116,15 @@ namespace Mercator  {
       return dsQueue->getFreeSpace() / outputsPerInput;
     }
      
+    //
+    // @brief get the number of signals whose output could
+    // be safely written to this channel's downstream signal queue.
+    //
+    __device__
+      unsigned int dsSignalCapacity() const
+    {
+      return dsSignalQueue->getFreeSpace();
+    }
     
     //
     // @brief move items in each (live) thread to the output buffer
@@ -173,6 +182,8 @@ namespace Mercator  {
 	  dsBase = directReserve(agg);
 	}
       __syncthreads(); // all threads must see updates to dsBase
+
+      numItemsProduced += agg;	//Add to the number of items produced since last signal
       
       // for each thread group, copy all generated outputs downstream
       if (tid < numThreadGroups)
@@ -261,7 +272,65 @@ namespace Mercator  {
     {
       dsSignalQueue->putElt(base, offset, sig);
     }
+
+    //
+    //
+    //
+    __device__
+    unsigned int getNumItemsProduced() const
+    {
+	return numItemsProduced;
+    }
+
+    //
+    //
+    //
+    __device__
+    void resetNumItemsProduced()
+    {
+	numItemsProduced = 0;
+    }
+
+    //
+    //
+    //
+    __device__
+    bool isAggregate() const
+    {
+	return (propFlags & 0x01 ? true : false);
+    }
+
+    //
+    //
+    //
+    __device__
+    void setAggregate()
+    {
+	propFlags |= 0x01;
+    }
+
+    //
+    //
+    //
+    __device__
+    bool dsSignalQueueHasPending() const
+    {
+	//if(dsSignalQueue == nullptr)
+	//	return false;
+	if(dsSignalQueue->getOccupancy() > 0)
+		return true;
+	return false;
+    }
     
+    //
+    //
+    //
+    __device__
+    unsigned int dsPendingOccupancy() const
+    {
+	return dsQueue->getOccupancy();
+    }
+
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
@@ -279,6 +348,7 @@ namespace Mercator  {
     
     // next buffer slot avail for thread to push output
     unsigned char nextSlot[numThreadGroups];
+    unsigned int numItemsProduced;	//Number of items produced since last signal
     
     //
     // target (edge) for scattering items from output buffer
@@ -288,6 +358,8 @@ namespace Mercator  {
     Queue<Signal> *dsSignalQueue;
     NodeBase *dsNode;
     unsigned int reservedQueueEntries; // NB: will be used for cycles
+
+    unsigned int propFlags;	//Signal propagation flags for this channel
   }; // end Channel class
 }  // end Mercator namespace
 

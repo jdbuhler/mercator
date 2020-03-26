@@ -123,7 +123,9 @@ namespace Mercator  {
 	isActive(false),
 	nDSActive(0),
 	isFlushing(false),
-	currentCreditCounter(0)
+	enumId(0),
+	currentCreditCounter(0),
+	currentParent(nullptr)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -159,7 +161,8 @@ namespace Mercator  {
     template<typename DST>
     __device__
     void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput)
+		     unsigned int outputsPerInput,
+		     bool isAgg = false)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
@@ -177,6 +180,9 @@ namespace Mercator  {
 
 	  crash();
 	}
+
+      if(isAgg)
+	channels[c]->setAggregate();
     }
 
 
@@ -232,6 +238,27 @@ namespace Mercator  {
       parent = iparent;
     }
 
+    //
+    // @brief set the enumeration region Id of the node
+    //
+    // @param e The enumeration region id to set the node to
+    //
+    __device__
+    void setEnumId(unsigned int e)
+    {
+      enumId = e;
+    }
+
+    //
+    // @brief get the enumeration region Id of the node
+    //
+    // @return unsigned int The enumeration region Id of the node
+    //
+    __device__
+    unsigned int getEnumId()
+    {
+      return enumId;
+    }
 
     //
     // @brief indicate that node is in flush mode
@@ -330,7 +357,161 @@ namespace Mercator  {
     __device__
     bool signalHandler()
     {
-	return false;	
+	while(this->numSignalsPending() > 0)
+	{
+		/////////////////////////////
+		// FULL SIGNAL QUEUE CHECK
+		/////////////////////////////
+		bool hasFullDSSignalQueue = false;
+		for(unsigned int c = 0; c < numChannels; ++c)
+		{
+			//Downstream signal queue is full, return true to indicate as such,
+			//and activate the respective downstream nodes.
+			if(getChannel(c)->dsSignalCapacity() <= 2)
+			{
+				if(IS_BOSS())
+					getChannel(c)->getDSNode()->activate();
+				hasFullDSSignalQueue = true;
+			}
+		}
+		
+		//Short circut here when we have a full signal queue.
+		if(hasFullDSSignalQueue)
+		{
+			return true;
+		}
+
+
+		/////////////////////////////
+		// CREDIT ASSIGNMENT & CHECK
+		/////////////////////////////
+		Queue<Signal> &signalQueue = this->signalQueue;
+
+		const Signal& s = signalQueue.getElt(0);	//0th element is always the head of signal queue
+		if(!hasSignal)
+		{
+			currentCreditCounter = s.getCredit();
+			hasSignal = true;
+		}
+
+		if(hasSignal && currentCreditCounter > 0)
+		{
+			//Nothing to do here, we still have credit available
+			return false;
+		}
+
+
+		/////////////////////////////
+		// SIGNAL HANDLING SWITCH
+		/////////////////////////////
+		const Signal::SignalTag t = signalQueue.getElt(0).getTag();	//0th element is always the head of signal queue
+
+		switch(t)
+		{
+			case Signal::SignalTag::Enum:
+			{
+				//Call the begin stub of this node
+				this->begin();
+
+				if(IS_BOSS())
+				{
+					//Create new Enum signal to send downstream
+					Signal s_new;
+					s_new.setTag(Signal::SignalTag::Enum);
+					s_new.setParent(s.getParent());	//Set the parent for the new signal
+					setCurrentParent(s.getParent());	//Set the new parent for the node
+	
+					//Reserve space downstream for the new signal
+					for(unsigned int c = 0; c < numChannels; ++c)
+					{
+						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
+	
+						//If the channel is NOT an aggregate channel, send the new signal downstream
+						if(!(channel->isAggregate()))
+						{
+							if(channel->dsSignalQueueHasPending())
+							{
+								s_new.setCredit(channel->getNumItemsProduced());
+							}
+							else
+							{
+								s_new.setCredit(channel->dsPendingOccupancy());
+							}
+							pushSignal(s_new, channel);
+						}
+					}
+				}
+				break;
+			}
+
+			case Signal::SignalTag::Agg:
+			{
+				//Call the end stub of this node
+				this->end();
+
+				if(IS_BOSS())
+				{
+					//Create new Enum signal to send downstream
+					Signal s_new;
+					s_new.setTag(Signal::SignalTag::Agg);
+					s_new.setRefCount(s.getRefCount());	//Set the parent for the new signal
+	
+					//Reserve space downstream for the new signal
+					for(unsigned int c = 0; c < numChannels; ++c)
+					{
+						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
+	
+						//If the channel is NOT an aggregate channel, send the new signal downstream
+						if(!(channel->isAggregate()))
+						{
+							if(channel->dsSignalQueueHasPending())
+							{
+								s_new.setCredit(channel->getNumItemsProduced());
+							}
+							else
+							{
+								s_new.setCredit(channel->dsPendingOccupancy());
+							}
+							pushSignal(s_new, channel);
+						}
+						else
+						{
+							//Subtract from the current node's enumeration region ID's reference count
+							s.getRefCount()[0] -= 1;
+						}
+					}
+				}
+				break;
+			}
+
+			default:
+			{
+				assert(false && "Signal without tag found, aborting. . .");
+			}
+		}
+		__syncthreads();	//Make sure we are done with the current signal . . .
+		if(IS_BOSS())
+			signalQueue.release(1);	//Release the one signal we just processed.
+		__syncthreads();	//Make sure everyone sees the updated signal queue . . .
+
+		hasSignal = false;	//Cannot get here unless we processed a signal.
+	}
+	__syncthreads();	//Make sure everyone got to the end of signal handling . . .
+	return false;		//No more signals to process, can break here
+    }
+
+    //
+    //
+    //
+    __device__
+    void pushSignal(Signal& s,
+	            Channel<void*>* channel) const
+    {
+	unsigned int dsSignalBase = channel->directSignalReserve(1);
+
+	channel->directSignalWrite(s, dsSignalBase, 0);
+
+	channel->resetNumItemsProduced();
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -442,7 +623,9 @@ namespace Mercator  {
     bool isFlushing;           // is node in flushing mode?
 
     int currentCreditCounter;  // the current credit available to a node
+    bool hasSignal;  	       // whether or not the current credit is valid (has a signal)
     void* currentParent;       // the current parent object of the current enumeration if applicable
+    unsigned int enumId;       // the enumeration region Id of the node, needed for flushing state
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -496,7 +679,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    void setParent(void* v)
+    void setCurrentParent(void* v)
     {
       currentParent = v;
     }

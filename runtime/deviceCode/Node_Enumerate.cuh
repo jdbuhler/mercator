@@ -1,7 +1,7 @@
 #ifndef __NODE_ENUMERATE_CUH
 #define __NODE_ENUMERATE_CUH
 
-#inlcude <cassert>
+#include <cassert>
 #include "Node.cuh"
 #include "ChannelBase.cuh"
 #include "timing_options.cuh"
@@ -52,7 +52,12 @@ namespace Mercator  {
     __device__
     Node_Enumerate(unsigned int queueSize,
 		    Scheduler *scheduler)
-      : BaseType(queueSize, scheduler)
+      : BaseType(queueSize, scheduler),
+	dataCount(0),
+	currentCount(0),
+	refCount(1),	//stimcheck: DEFAULT VALUE FOR REF COUNT IS 1
+	parentBuffer(queueSize),
+	refCounts(queueSize)
     {}
     
   protected:
@@ -67,6 +72,9 @@ namespace Mercator  {
     using BaseType::getNumActiveThreads;
     using BaseType::getThreadGroupSize;
     using BaseType::isThreadGroupLeader;
+
+    //stimcheck: Add base type for setParent
+    using BaseType::setCurrentParent;
     
   #ifdef INSTRUMENT_TIME
       using BaseType::inputTimer;
@@ -81,7 +89,29 @@ namespace Mercator  {
   #ifdef INSTRUMENT_COUNTS
       using BaseType::itemCounter;
   #endif
+  
+    unsigned int dataCount;		// # of data items already enumerated from the node
+    unsigned int currentCount;		// # of data items needed to be enumerated from the node
     
+    unsigned int refCount;		// # of aggregate nodes that must be reached before freeing a parent, NOT YET IMPLEMENTED, DEFAULT IS 1
+
+    Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
+    Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
+    
+
+   __device__
+   virtual
+   unsigned int findCount() {
+	assert(false && "FindCount base called");
+	return 0;
+   }
+
+
+   __device__
+   bool isParentBufferFull() {
+	return (parentBuffer.getCapacity() - parentBuffer.getOccupancy() == 0);
+   }
+
     //
     // @brief fire a node, consuming as much input 
     // from its queue as possible
@@ -98,12 +128,206 @@ namespace Mercator  {
     void fire()
     {
       unsigned int tid = threadIdx.x;
+      Queue<T> &queue = this->queue; 
+      unsigned int mynDSActive = 0;
+
+      do
+      {
+
+      ////////////////////////////////////////////
+      // FULL PARENT BUFFER CHECK
+      ////////////////////////////////////////////
+      if(isParentBufferFull()) {
+	this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
+	return;			//Short circut ourselves since we don't have any more space to put our stuff
+      }
+
+      ////////////////////////////////////////////
+      // EMIT ENUMERATE SIGNAL IF NEEDED
+      ////////////////////////////////////////////
+      if(dataCount == 0) {
+	//Get a new parent object from the data queue
+	if(IS_BOSS())
+	{
+		if(!(isParentBufferFull()))
+		{
+			unsigned int parentBase = parentBuffer.reserve(1);
+			unsigned int refBase = refCounts.reserve(1);
+			unsigned int offset = 0;
+
+			const T &elt = queue.getElt(offset);
+			const unsigned int &refelt = refCount;
+
+			parentBuffer.putElt(parentBase, offset, elt);
+			refCounts.putElt(refBase, offset, refelt);
+
+			void* s;
+			void* rc;
+
+			s = parentBuffer.getVoidTail();
+			rc = refCounts.getVoidHead();
+
+			setCurrentParent(s);
+			//setCurrentRefCount(rc);
+
+			dataCount = this->findCount();
+			currentCount = 0;
+			//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
+		}
+	}
+
+	//Emit Enumerate Signal
+		if(IS_BOSS())
+		{
+			//Create new Enum signal to send downstream
+			Signal s_new;
+			s_new.setTag(Signal::SignalTag::Enum);	
+			s_new.setParent(parentBuffer.getVoidHead());	//Set the parent for the new signal
+			setCurrentParent(queue.getVoidHead());	//Set the new parent for the node
+			using Channel = typename BaseType::Channel<void*>;
+	
+			//Reserve space downstream for the new signal
+			for(unsigned int c = 0; c < numChannels; ++c)
+			{
+				Channel *channel = static_cast<Channel*>(getChannel(c));
+	
+				//If the channel is NOT an aggregate channel, send the new signal downstream
+				if(!(channel->isAggregate()))
+				{
+					if(channel->dsSignalQueueHasPending())
+					{
+						s_new.setCredit(channel->getNumItemsProduced());
+					}
+					else
+					{
+						s_new.setCredit(channel->dsPendingOccupancy());
+					}
+					pushSignal(s_new, channel);
+				}
+			}
+		}
+      }
       
+      unsigned int nConsumed = 0;
+
+      while (mynDSActive == 0 && dataCount != currentCount)
+	{
+	  unsigned int nItems = min(dataCount - currentCount, maxRunSize);
+	  
+	  NODE_OCC_COUNT(nItems);
+	  
+	  //const T &myData = 
+	  //  (tid < nItems
+	  //   //? queue.getElt(nConsumed + tid)
+	  //   ? queue.getElt(nTotalConsumed + nConsumed + tid)
+	  //   : queue.getDummy()); // don't create a null reference
+	  
+	  TIMER_STOP(input);
+	  
+	  TIMER_START(run);
+
+	  if (runWithAllThreads || tid < nItems)
+	    {
+	      //n->run(myData);
+	      this->push(currentCount + tid);
+	    }
+	  nConsumed += nItems;
+
+	  //Add the number of items we just sent downstream to the current counter
+	  currentCount += nItems;
+
+	  TIMER_STOP(run);
+	  
+	  TIMER_START(output);
+	  
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      // check whether each channel's downstream node was activated
+	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+	    }
+	  
+	  TIMER_STOP(output);
+	  
+	  TIMER_START(input);
+	}
+
+	if(dataCount == currentCount)
+	{
+		//Emit Agg Signal
+		if(IS_BOSS())
+		{
+			//Create new Enum signal to send downstream
+			Signal s_new;
+			s_new.setTag(Signal::SignalTag::Agg);	
+			s_new.setRefCount(refCounts.getVoidTail());	//Set the refCount to default 1 TODO
+			using Channel = typename BaseType::Channel<void*>;
+	
+			//Reserve space downstream for the new signal
+			for(unsigned int c = 0; c < numChannels; ++c)
+			{
+				Channel *channel = static_cast<Channel*>(getChannel(c));
+	
+				//If the channel is NOT an aggregate channel, send the new signal downstream
+				if(!(channel->isAggregate()))
+				{
+					if(channel->dsSignalQueueHasPending())
+					{
+						s_new.setCredit(channel->getNumItemsProduced());
+					}
+					else
+					{
+						s_new.setCredit(channel->dsPendingOccupancy());
+					}
+					pushSignal(s_new, channel);
+				}
+				else
+				{
+					//Subtract from the current node's enumeration region ID's reference count
+					s_new.getRefCount()[0] -= 1;
+				}
+			}
+		}
+
+		//release 1 data item from queue
+		if(IS_BOSS())
+		{
+			COUNT_ITEMS(1);
+			queue.release(1);
+		}
+
+		//if had credit, subtract 1
+		if(this->numSignalsPending() > 0)
+		{
+			this->currentCreditCounter -= 1;
+		}
+
+		//Reset dataCount and currentCount to 0
+		dataCount = 0;
+		currentCount = 0;
+	}
+
+	bool dsSignalQueueFull = false;
+	if(this->numSignalsPending() > 0)
+	{
+		dsSignalQueueFull = this->signalHandler();
+	}
+
+	//Signal Queue is full, short circut here
+	if(dsSignalQueueFull)
+	{
+	//	this->deactivate();
+		this->activate();	//NEED TO RE-ENQUEUE OURSELVES
+		return;
+	}
+
+      }
+      while(mynDSActive == 0);
+#if 0
       TIMER_START(input);
-      
+
       Queue<T> &queue = this->queue; 
       DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-      
+
       // # of items available to consume from queue
       unsigned int nToConsume = queue.getOccupancy();
       
@@ -128,8 +352,47 @@ namespace Mercator  {
       bool dsSignalFull = false;
       
 	//Perform SAFIrE scheduling while we have signals.
-      while (this->numSignalsPending() > 0 && !dsSignalFull)
+      while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
+	      //Step 1: Determine if we need to get the next object on the queue
+	      // This SHOULD only be when the dataCount is equal to the currentCount
+	      // Base case: Default of 0 is set for both dataCount and currentCount
+	      // so will call on first run.
+	      // All subsequent calls to get the next data element are done when we
+	      // have exhausted all enumerated elements of that object.
+	      // NOTE: Setting of parent in the fire function is only done in
+	      // enumerate nodes.  All other setting of parents MUST be done
+	      // in the signal handler.
+	      if(dataCount == currentCount)
+	      {
+		//if(parentBuffer.getCapacity() - parentBuffer.getOccupancy() > 0)
+		if(!(isParentBufferFull()))
+		{
+			unsigned int parentBase = parentBuffer.reserve(1);
+			unsigned int refBase = refCounts.reserve(1);
+			unsigned int offset = 0;
+
+			const T &elt = queue.getElt(offset);
+			const unsigned int &refelt = refCount;
+
+			parentBuffer.putElt(parentBase, offset, elt);
+			refCounts.putElt(refBase, offset, refelt);
+
+			void* s;
+			void* rc;
+
+			s = parentBuffer.getVoidTail();
+			rc = refCounts.getVoidTail();
+
+			setCurrentParent(s);
+			//setCurrentRefCount(rc);
+
+			dataCount = this->findCount();
+			currentCount = 0;
+			//this->setParent(static_cast<void*>(queue.getElt(0)));
+		}
+	      }
+
 	      // # of items already consumed from queue
 	      unsigned int nConsumed = 0;
 	      nToConsume = this->currentCreditCounter;
@@ -218,7 +481,7 @@ namespace Mercator  {
 	
 		  if (runWithAllThreads || tid < nItems)
 		    {
-		      n->run(myData);
+		      //n->run(myData);
 		    }
 		  nConsumed += nItems;
 		  
@@ -271,6 +534,7 @@ namespace Mercator  {
 	}
       
       TIMER_STOP(input);
+#endif
     }
   };
 }  // end Mercator namespace

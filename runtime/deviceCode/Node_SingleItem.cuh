@@ -142,7 +142,7 @@ namespace Mercator  {
       bool dsSignalFull = false;
       
 	//Perform SAFIrE scheduling while we have signals.
-      while (this->numSignalsPending() > 0 && !dsSignalFull)
+      while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
 	      // # of items already consumed from queue
 	      unsigned int nConsumed = 0;
@@ -191,6 +191,7 @@ namespace Mercator  {
 		  TIMER_START(input);
 		}
 		nTotalConsumed += nConsumed;	//nConsumed Should be the same as nToConsume here
+		this->currentCreditCounter -= nConsumed;
 
 		//Syncthreads before entering the signal handeler, need to make sure that every
 		//thread knows the current consumed totals.

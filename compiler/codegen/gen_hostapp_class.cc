@@ -437,7 +437,6 @@ void genHostAppHeader(const string &hostClassFileName,
   f.emit(hostClassFileName);
 }
 
-
 //
 // @brief generate the constructor for the host app in its own file
 //   (to avoid contaminating the host app header with device code)

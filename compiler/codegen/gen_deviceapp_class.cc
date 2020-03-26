@@ -131,7 +131,8 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
 	  f.add("initChannel<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
-		+ to_string(channel->maxOutputs) + ");");
+		+ to_string(channel->maxOutputs)
+		+ (channel->isAggregate ? ", true);" : ");"));
 	}
     }
 }
@@ -606,7 +607,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   
   {
     // include only the module type specializations needed by the app
-    bool needsSingleItem = false, needsMultiItem = false;
+    bool needsSingleItem = false, needsMultiItem = false, needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
       {
@@ -616,6 +617,8 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  needsMultiItem = true;
 	else 
 	  needsSingleItem = true;
+	if (mod->isEnumerate())
+	  needsEnumerate = true;
       }
     
     if (needsSingleItem)
@@ -623,6 +626,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     
     if (needsMultiItem)
       f.add(genUserInclude("deviceCode/Node_MultiItem.cuh"));
+
+    if (needsEnumerate)
+      f.add(genUserInclude("deviceCode/Node_Enumerate.cuh"));
     
     f.add(genUserInclude("deviceCode/Node_Source.cuh"));
     f.add(genUserInclude("deviceCode/Node_Sink.cuh"));
