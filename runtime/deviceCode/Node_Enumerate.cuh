@@ -207,12 +207,18 @@ namespace Mercator  {
 			}
 		}
       }
+
+      __syncthreads();
       
       unsigned int nConsumed = 0;
 
       while (mynDSActive == 0 && dataCount != currentCount)
 	{
 	  unsigned int nItems = min(dataCount - currentCount, maxRunSize);
+	  if(IS_BOSS())
+		printf("nItems %d\t\tDC %d\t\tCC %d\t\tMRS %d\n", nItems, dataCount, currentCount, maxRunSize);
+	  assert(dataCount > currentCount);
+	  __syncthreads();
 	  
 	  NODE_OCC_COUNT(nItems);
 	  
@@ -226,15 +232,19 @@ namespace Mercator  {
 	  
 	  TIMER_START(run);
 
-	  if (runWithAllThreads || tid < nItems)
+	  if (tid < nItems)
 	    {
 	      //n->run(myData);
 	      this->push(currentCount + tid);
 	    }
 	  nConsumed += nItems;
 
+	  __syncthreads();
+
 	  //Add the number of items we just sent downstream to the current counter
 	  currentCount += nItems;
+
+	  __syncthreads();
 
 	  TIMER_STOP(run);
 	  
@@ -250,6 +260,8 @@ namespace Mercator  {
 	  
 	  TIMER_START(input);
 	}
+
+	__syncthreads();
 
 	if(dataCount == currentCount)
 	{
@@ -306,11 +318,15 @@ namespace Mercator  {
 		currentCount = 0;
 	}
 
+	__syncthreads();
+
 	bool dsSignalQueueFull = false;
 	if(this->numSignalsPending() > 0)
 	{
 		dsSignalQueueFull = this->signalHandler();
 	}
+
+	__syncthreads();
 
 	//Signal Queue is full, short circut here
 	if(dsSignalQueueFull)
@@ -320,8 +336,40 @@ namespace Mercator  {
 		return;
 	}
 
+	__syncthreads();
+
       }
-      while(mynDSActive == 0);
+      while(mynDSActive == 0 && queue.getOccupancy() > 0);
+
+      if (IS_BOSS())
+	{
+	  //COUNT_ITEMS(nTotalConsumed);  // instrumentation
+	  //queue.release(nTotalConsumed);
+	  
+	  nDSActive = mynDSActive;
+
+	  if (queue.getOccupancy() == 0)
+	  //if (nTotalConsumed == nToConsume)
+	    {
+	      // less than a full ensemble remains, or 0 if flushing
+	      this->deactivate(); 
+	      
+	      if (isFlushing)
+		{
+		  // no more inputs to read -- force downstream nodes
+		  // into flushing mode and activte them (if not
+		  // already active).  Even if they have no input,
+		  // they must fire once to propagate flush mode and
+		  // activate *their* downstream nodes.
+		  for (unsigned int c = 0; c < numChannels; c++)
+		    {
+		      NodeBase *dsNode = getChannel(c)->getDSNode();
+		      dsNode->setFlushing();
+		      dsNode->activate();
+		    }
+		}
+	    }
+	}
 #if 0
       TIMER_START(input);
 
