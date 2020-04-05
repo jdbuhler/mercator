@@ -236,6 +236,7 @@ namespace Mercator  {
 	    {
 	      //n->run(myData);
 	      this->push(currentCount + tid);
+		printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
 	    }
 	  nConsumed += nItems;
 
@@ -255,6 +256,8 @@ namespace Mercator  {
 	      // check whether each channel's downstream node was activated
 	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
 	    }
+
+	  __syncthreads();
 	  
 	  TIMER_STOP(output);
 	  

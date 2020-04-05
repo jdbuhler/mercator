@@ -140,12 +140,13 @@ namespace Mercator  {
 
       // True when a downstream signal queue is full, so we stop firing.
       bool dsSignalFull = false;
+      unsigned int nConsumed = 0;
       
 	//Perform SAFIrE scheduling while we have signals.
       while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
 	      // # of items already consumed from queue
-	      unsigned int nConsumed = 0;
+	      nConsumed = 0;
 	      nToConsume = this->currentCreditCounter;
 
 		//Can ignore flushing here, since we need to get to signal boundary.
@@ -198,19 +199,30 @@ namespace Mercator  {
 		__syncthreads();
 
 		dsSignalFull = this->signalHandler();
+
+		__syncthreads();
 	}
 
 	//Use normal nConsumed and nToConsume values after signals are all handled.
-      unsigned int nConsumed = 0;
+      //unsigned int nConsumed = 0;
 
-      nToConsume = queue.getOccupancy();
+      __syncthreads();
+      nToConsume = queue.getOccupancy()- nTotalConsumed;
+
+      nConsumed = 0;
+
+      __syncthreads();
 
       // unless we are flushing, round # to consume down to a multiple
       // of ensemble width.
       if (!isFlushing)
 	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
 
+      __syncthreads();
+
       nTotalToConsume += nToConsume;
+
+      __syncthreads();
 
 	//Resume normal AFIE scheduling once we have no signals remaining.
       while (nConsumed < nToConsume && mynDSActive == 0 && !dsSignalFull)
@@ -252,7 +264,9 @@ namespace Mercator  {
 		  TIMER_START(input);
 		}
 	}
+	__syncthreads();
       nTotalConsumed += nConsumed;
+	__syncthreads();
       
 	//Release items as normal.
       if (IS_BOSS())
