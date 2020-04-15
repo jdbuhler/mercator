@@ -6,6 +6,7 @@
 # Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
+set(MERCATOR_FLAGS )
 
 # add_mercator_app()
 # Construct a MERCATOR application from sources

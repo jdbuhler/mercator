@@ -52,6 +52,21 @@ string(APPEND CMAKE_CUDA_FLAGS ${NVCCFLAGS})
 
 include(${MERCATOR_ROOT_DIR}/mercator-rules.txt)
 
+#env Q_SIZE=X H_SIZE=Y S_SIZE=Z cmake3 .
+set(MERCATOR_FLAGS )
+#set queue size
+if(DEFINED ENV{Q_SIZE})
+set(MERCATOR_FLAGS -Q$ENV{Q_SIZE})
+endif()
+#set heap size
+if(DEFINED ENV{H_SIZE})
+set(MERCATOR_FLAGS ${MERCATOR_FLAGS} -H$ENV{H_SIZE})
+endif()
+#set stack size
+if(DEFINED ENV{S_SIZE})
+set(MERCATOR_FLAGS ${MERCATOR_FLAGS} -S$ENV{S_SIZE})
+endif()
+
 if(${BUILDING_IN_TREE})
   # Override default path to MERCATOR compiler to allow build from
   # non-installed version
