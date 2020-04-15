@@ -24,7 +24,7 @@
 // instrument code for occupancy of each node firing?
 // NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
 //       set to 1 causes interference with this option.
-#define INSTRUMENT_OCC
+//#define INSTRUMENT_OCC
 
 // collect data from tail of app's execution?
 // 1 = collect data from all firings

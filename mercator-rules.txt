@@ -41,7 +41,7 @@ function(add_mercator_app)
 
    # teach cmake how to build the genenerated files from the spec
    add_custom_command(OUTPUT ${GENERATED_CUFILES} ${GENERATED_CUHFILES}
-	COMMAND ${MERCATOR_CC} -a ${appname} ${CMAKE_CURRENT_SOURCE_DIR}/${ADD_MERCATOR_SPECFILE}
+	COMMAND ${MERCATOR_CC} ${MERCATOR_FLAGS} -a ${appname} ${CMAKE_CURRENT_SOURCE_DIR}/${ADD_MERCATOR_SPECFILE}
 	DEPENDS ${ADD_MERCATOR_SPECFILE}
         COMMENT "Compiling MERCATOR spec file ${ADD_MERCATOR_SPECFILE}"
    )
