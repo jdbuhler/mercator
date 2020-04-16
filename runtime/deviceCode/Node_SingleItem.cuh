@@ -184,7 +184,7 @@ namespace Mercator  {
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
 		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+		      mynDSActive += getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
 		    }
 		  
 		  TIMER_STOP(output);
@@ -256,7 +256,7 @@ namespace Mercator  {
 		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
 		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+		      mynDSActive += getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
 		    }
 		  
 		  TIMER_STOP(output);

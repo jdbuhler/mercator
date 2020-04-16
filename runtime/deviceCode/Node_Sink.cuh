@@ -170,6 +170,8 @@ namespace Mercator  {
 
 		//stimcheck: We don't care about the ds signal queues being full here, since there are no ds signal queues.
 		this->signalHandler();	
+
+		__syncthreads();
 	}
 	
 

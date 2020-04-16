@@ -138,7 +138,21 @@ namespace Mercator  {
       // FULL PARENT BUFFER CHECK
       ////////////////////////////////////////////
       if(isParentBufferFull()) {
-	this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
+	if(IS_BOSS())
+	{
+		printf("[%d] PARENT BUFFER FULL\n", blockIdx.x);
+		this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
+	
+		for (unsigned int c = 0; c < numChannels; c++)
+		{
+			NodeBase *dsNode = getChannel(c)->getDSNode();
+			dsNode->setWriteThruId(this->getEnumId());	//Set the writeThru ID of the downstream nodes to that of this node
+			dsNode->activate();				//Activate the downstream nodes to pass the local flush mode
+		}
+
+		this->scheduler->setLocalFlush(this->getEnumId());
+	}
+	__syncthreads();
 	return;			//Short circut ourselves since we don't have any more space to put our stuff
       }
 
@@ -177,35 +191,35 @@ namespace Mercator  {
 	}
 
 	//Emit Enumerate Signal
-		if(IS_BOSS())
+	if(IS_BOSS())
+	{
+		//Create new Enum signal to send downstream
+		Signal s_new;
+		s_new.setTag(Signal::SignalTag::Enum);	
+		s_new.setParent(parentBuffer.getVoidHead());	//Set the parent for the new signal
+		setCurrentParent(queue.getVoidHead());	//Set the new parent for the node
+		using Channel = typename BaseType::Channel<void*>;
+	
+		//Reserve space downstream for the new signal
+		for(unsigned int c = 0; c < numChannels; ++c)
 		{
-			//Create new Enum signal to send downstream
-			Signal s_new;
-			s_new.setTag(Signal::SignalTag::Enum);	
-			s_new.setParent(parentBuffer.getVoidHead());	//Set the parent for the new signal
-			setCurrentParent(queue.getVoidHead());	//Set the new parent for the node
-			using Channel = typename BaseType::Channel<void*>;
+			Channel *channel = static_cast<Channel*>(getChannel(c));
 	
-			//Reserve space downstream for the new signal
-			for(unsigned int c = 0; c < numChannels; ++c)
+			//If the channel is NOT an aggregate channel, send the new signal downstream
+			if(!(channel->isAggregate()))
 			{
-				Channel *channel = static_cast<Channel*>(getChannel(c));
-	
-				//If the channel is NOT an aggregate channel, send the new signal downstream
-				if(!(channel->isAggregate()))
+				if(channel->dsSignalQueueHasPending())
 				{
-					if(channel->dsSignalQueueHasPending())
-					{
-						s_new.setCredit(channel->getNumItemsProduced());
-					}
-					else
-					{
-						s_new.setCredit(channel->dsPendingOccupancy());
-					}
-					pushSignal(s_new, channel);
+					s_new.setCredit(channel->getNumItemsProduced());
 				}
+				else
+				{
+					s_new.setCredit(channel->dsPendingOccupancy());
+				}
+				pushSignal(s_new, channel);
 			}
 		}
+	}
       }
 
       __syncthreads();
@@ -214,9 +228,10 @@ namespace Mercator  {
 
       while (mynDSActive == 0 && dataCount != currentCount)
 	{
+	  assert(dataCount < currentCount);
 	  unsigned int nItems = min(dataCount - currentCount, maxRunSize);
 	  if(IS_BOSS())
-		printf("nItems %d\t\tDC %d\t\tCC %d\t\tMRS %d\n", nItems, dataCount, currentCount, maxRunSize);
+		printf("[%d]\t\tnItems %d\t\tDC %d\t\tCC %d\t\tMRS %d\n", blockIdx.x, nItems, dataCount, currentCount, maxRunSize);
 	  assert(dataCount > currentCount);
 	  __syncthreads();
 	  
@@ -236,7 +251,7 @@ namespace Mercator  {
 	    {
 	      //n->run(myData);
 	      this->push(currentCount + tid);
-		printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
+		//printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
 	    }
 	  nConsumed += nItems;
 
@@ -254,7 +269,7 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // check whether each channel's downstream node was activated
-	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+	      mynDSActive += getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
 	    }
 
 	  __syncthreads();

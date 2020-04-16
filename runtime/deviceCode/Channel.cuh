@@ -157,7 +157,7 @@ namespace Mercator  {
     // RETURNS: true iff downstream node is active after copy
     //
     __device__
-      bool moveOutputToDSQueue()
+      bool moveOutputToDSQueue(unsigned int wtid)
     {
       int tid = threadIdx.x;
       
@@ -205,8 +205,11 @@ namespace Mercator  {
       //
       if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
 	{
-	  if (IS_BOSS())
+	  if (IS_BOSS()) {
 	    dsNode->activate();
+	    //stimcheck: In addition to activating, pass the writeThruId
+	    dsNode->setWriteThruId(wtid);
+	  }
 	  
 	  return true;
 	}

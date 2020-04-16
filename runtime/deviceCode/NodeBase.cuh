@@ -62,6 +62,14 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int getEnumId() = 0;
+
+    __device__
+    virtual
+    void setWriteThruId(unsigned int w) = 0;
+
+    __device__
+    virtual
+    unsigned int getWriteThruId() = 0;
     
     __device__
     virtual

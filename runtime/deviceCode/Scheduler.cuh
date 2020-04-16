@@ -40,8 +40,17 @@ namespace Mercator  {
     // 
     __device__
     Scheduler(unsigned int numNodes)
-      : workQueue(numNodes)
-    {}
+      : workQueue(numNodes),
+	localFlushSize(numNodes + 1)
+    {
+	localFlush = new bool [numNodes + 1];
+	//stimcheck: TODO need to get the number of enumIds set here, not numNodes
+	//just using numNodes instead for now since enumIds is strictly less than
+	//numNodes + 1.  The 0th position is the default flag, and is never modified.
+	for(unsigned int i = 0; i < numNodes + 1; ++i) {
+		localFlush[i] = false;
+	}
+    }
     
     //
     // @brief destructor
@@ -73,10 +82,25 @@ namespace Mercator  {
 	  
 	  if (!nextNode) // queue is empty -- terminate
 	    break;
+
+	  __syncthreads();
 	  
 	  NODE_TIMER_STOP(scheduler);
-	  
-	  nextNode->fire();
+
+	  if(nextNode) { //stimcheck: No idea why this has to be here, but otherwise we get an illegal address access
+	  	if(nextNode->getWriteThruId() > 0) {
+		    assert(nextNode->getWriteThruId() < localFlushSize);
+		    if(!(localFlush[nextNode->getWriteThruId()])) {
+			//remove local write thru id and DO NOT fire node
+			nextNode->setWriteThruId(0);
+		    }
+		  }
+		  else {
+		  	nextNode->fire();
+		  }
+	  }
+
+	  __syncthreads();
 	  
 	  NODE_TIMER_START(scheduler);
 	}
@@ -90,6 +114,24 @@ namespace Mercator  {
       assert(IS_BOSS());
 
       workQueue.enqueue(node);
+    }
+
+    __device__
+    void setLocalFlush(unsigned int i)
+    {
+      assert(IS_BOSS());
+      assert(i < localFlushSize);
+
+      localFlush[i] = true;
+    }
+
+    __device__
+    void removeLocalFlush(unsigned int i)
+    {
+      assert(IS_BOSS());
+      assert(i < localFlushSize);
+
+      localFlush[i] = false;
     }
     
     
@@ -112,6 +154,9 @@ namespace Mercator  {
   private:
     
     Queue<NodeBase *> workQueue;
+
+    bool* localFlush;
+    unsigned int localFlushSize;
         
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;

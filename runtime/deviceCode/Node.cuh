@@ -125,7 +125,8 @@ namespace Mercator  {
 	isFlushing(false),
 	enumId(0),
 	currentCreditCounter(0),
-	currentParent(nullptr)
+	currentParent(nullptr),
+	writeThruId(0)
     {
       // init channels array
       for(unsigned int c = 0; c < numChannels; ++c)
@@ -258,6 +259,30 @@ namespace Mercator  {
     unsigned int getEnumId()
     {
       return enumId;
+    }
+
+    //
+    // @brief set the write through enumeration region Id of the node
+    //
+    // @param e The enumeration region id to set the write through of
+    // the node to
+    //
+    __device__
+    void setWriteThruId(unsigned int w)
+    {
+      writeThruId = w;
+    }
+
+    //
+    // @brief get the write through enumeration region Id of the node
+    //
+    // @return unsigned int The enumeration region id to set the write
+    // through of the node to
+    //
+    __device__
+    unsigned int getWriteThruId()
+    {
+      return writeThruId;
     }
 
     //
@@ -626,6 +651,8 @@ namespace Mercator  {
     bool hasSignal;  	       // whether or not the current credit is valid (has a signal)
     void* currentParent;       // the current parent object of the current enumeration if applicable
     unsigned int enumId;       // the enumeration region Id of the node, needed for flushing state
+
+    unsigned int writeThruId;	// highest priority localFlush tag seen of this enumeration region Id
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
