@@ -145,6 +145,7 @@ namespace Mercator  {
 	//Perform SAFIrE scheduling while we have signals.
       while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
+	      assert(this->currentCreditCounter <= queue.getOccupancy());
 	      // # of items already consumed from queue
 	      nConsumed = 0;
 	      nToConsume = this->currentCreditCounter;

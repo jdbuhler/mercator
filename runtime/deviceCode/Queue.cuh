@@ -196,7 +196,7 @@ namespace Mercator  {
     __device__
     void* getVoidTail() const
     {
-      assert(getOccupancy() > offset);
+      //assert(getOccupancy() > offset);
       
       unsigned int myIdx = addModulo(head, getOccupancy() - 1, dataSize);
       
@@ -214,7 +214,7 @@ namespace Mercator  {
     __device__
     void* getVoidHead() const
     {
-      assert(getOccupancy() > offset);
+      //assert(getOccupancy() > offset);
       
       unsigned int myIdx = addModulo(head, 0, dataSize);
       

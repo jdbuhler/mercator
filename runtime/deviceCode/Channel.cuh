@@ -199,6 +199,13 @@ namespace Mercator  {
 	  // clear nextSlot for this thread group
 	  nextSlot[tid] = 0;
 	}
+
+	//DEBUG
+	//__syncthreads();
+	//if(IS_BOSS()) {
+	//	printf("numItemsProduced = %d\n", numItemsProduced);
+	//}
+	__syncthreads();
       
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.

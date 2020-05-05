@@ -188,11 +188,9 @@ namespace Mercator  {
 			currentCount = 0;
 			//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
 		}
-	}
 
-	//Emit Enumerate Signal
-	if(IS_BOSS())
-	{
+		//Emit Enumerate Signal
+
 		//Create new Enum signal to send downstream
 		Signal s_new;
 		s_new.setTag(Signal::SignalTag::Enum);	
@@ -228,11 +226,11 @@ namespace Mercator  {
 
       while (mynDSActive == 0 && dataCount != currentCount)
 	{
-	  assert(dataCount < currentCount);
+	  assert(currentCount < dataCount);
 	  unsigned int nItems = min(dataCount - currentCount, maxRunSize);
 	  if(IS_BOSS())
 		printf("[%d]\t\tnItems %d\t\tDC %d\t\tCC %d\t\tMRS %d\n", blockIdx.x, nItems, dataCount, currentCount, maxRunSize);
-	  assert(dataCount > currentCount);
+	  //assert(dataCount > currentCount);
 	  __syncthreads();
 	  
 	  NODE_OCC_COUNT(nItems);
@@ -251,7 +249,7 @@ namespace Mercator  {
 	    {
 	      //n->run(myData);
 	      this->push(currentCount + tid);
-		//printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
+		printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
 	    }
 	  nConsumed += nItems;
 
@@ -286,6 +284,7 @@ namespace Mercator  {
 		//Emit Agg Signal
 		if(IS_BOSS())
 		{
+			printf("EMITTING AGG SIGNAL\n");
 			//Create new Enum signal to send downstream
 			Signal s_new;
 			s_new.setTag(Signal::SignalTag::Agg);	

@@ -399,6 +399,8 @@ namespace Mercator  {
 				hasFullDSSignalQueue = true;
 			}
 		}
+
+		__syncthreads();
 		
 		//Short circut here when we have a full signal queue.
 		if(hasFullDSSignalQueue)
@@ -419,12 +421,15 @@ namespace Mercator  {
 			hasSignal = true;
 		}
 
+		__syncthreads();
+
 		if(hasSignal && currentCreditCounter > 0)
 		{
 			//Nothing to do here, we still have credit available
 			return false;
 		}
 
+		__syncthreads();
 
 		/////////////////////////////
 		// SIGNAL HANDLING SWITCH
