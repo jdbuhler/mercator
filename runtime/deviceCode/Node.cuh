@@ -227,6 +227,7 @@ namespace Mercator  {
     __device__
     void setFlushing()
     {
+      //printf("BLK %d NODE %lu setFlushing\n", blockIdx.x, this);
       isFlushing = true;
     }
 
@@ -238,17 +239,18 @@ namespace Mercator  {
     void activate()
     {
       assert(IS_BOSS());
-
+      //printf("BLK %d NODE %lu activate\n", blockIdx.x, this);
       // do not reschedule already-active nodes -- we can activate
       // an active node when we put it into flush mode
       if (!isActive)
 	{
 	  isActive = true;
+	  
 	  if (nDSActive == 0) // node is eligible for firing
 	    scheduler->addFireableNode(this);
 	}   
     }
-
+    
     //
     // @brief set node to be inactive for scheduling purposes;
     //
@@ -256,7 +258,7 @@ namespace Mercator  {
     void deactivate()
     {
       assert(IS_BOSS());
-      
+      //printf("BLK %d NODE %lu deactivate\n", blockIdx.x, this);
       isActive = false;
       if (parent)  // source has no parent
 	parent->decrDSActive();
@@ -270,6 +272,11 @@ namespace Mercator  {
     void decrDSActive()
     {
       assert(IS_BOSS());
+      //printf("BLK %d NODE %lu decrDSActive\n", blockIdx.x, this);
+      
+      if (nDSActive == 0)
+	printf("FAILURE BLK %d NODE %lu\n", blockIdx.x, this);
+      assert(nDSActive > 0);
       
       nDSActive--;
       if (nDSActive == 0 && isActive) // node is eligible for firing

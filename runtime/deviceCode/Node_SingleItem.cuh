@@ -192,6 +192,8 @@ namespace Mercator  {
 		      dsNode->setFlushing();
 		      dsNode->activate();
 		    }
+		  
+		  nDSActive = numChannels;
 		}
 	    }
 	}
