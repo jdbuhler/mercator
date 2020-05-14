@@ -41,7 +41,7 @@ namespace Mercator  {
     
     __device__
     virtual
-    void setFlushing() = 0;
+    void setFlushing(bool) = 0;
     
     __device__
     virtual

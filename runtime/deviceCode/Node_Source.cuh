@@ -237,11 +237,12 @@ namespace Mercator  {
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
-		  dsNode->setFlushing();
+		  dsNode->setFlushing(true);
 		  dsNode->activate();
 		}
 	      
 	      nDSActive = numChannels;
+	      this->setFlushing(false);
 	    }
 	  else
 	    {

@@ -220,15 +220,15 @@ namespace Mercator  {
       parent = iparent;
     }
 
-
+    
     //
     // @brief indicate that node is in flush mode
     //
     __device__
-    void setFlushing()
+    void setFlushing(bool v = true)
     {
       //printf("BLK %d NODE %lu setFlushing\n", blockIdx.x, this);
-      isFlushing = true;
+      isFlushing = v;
     }
 
     //

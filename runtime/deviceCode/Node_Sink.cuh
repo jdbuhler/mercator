@@ -121,13 +121,13 @@ namespace Mercator  {
     void fire()
     {
       unsigned int tid = threadIdx.x;
-
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
       
       unsigned int numToWrite = queue.getOccupancy();
-            
+      
       // unless we are flushing all our input, round down to a full
       // ensemble.  Since we are active, if we aren't flushing, we
       // have at least one full ensemble to write.
@@ -169,6 +169,7 @@ namespace Mercator  {
 	  queue.release(numToWrite);
 	  
 	  this->deactivate();
+	  this->setFlushing(false);
 	}
       
       TIMER_STOP(input);
