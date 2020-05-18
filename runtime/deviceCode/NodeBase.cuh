@@ -70,6 +70,10 @@ namespace Mercator  {
     __device__
     virtual
     unsigned int getWriteThruId() = 0;
+
+    __device__
+    virtual
+    void freeParent() = 0;
     
     __device__
     virtual

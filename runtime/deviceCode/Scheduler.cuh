@@ -87,18 +87,19 @@ namespace Mercator  {
 	  
 	  NODE_TIMER_STOP(scheduler);
 
-	  if(nextNode) { //stimcheck: No idea why this has to be here, but otherwise we get an illegal address access
+	  //if(nextNode) { //stimcheck: No idea why this has to be here, but otherwise we get an illegal address access
 	  	if(nextNode->getWriteThruId() > 0) {
 		    assert(nextNode->getWriteThruId() < localFlushSize);
 		    if(!(localFlush[nextNode->getWriteThruId()])) {
 			//remove local write thru id and DO NOT fire node
 			nextNode->setWriteThruId(0);
+			//deactivate?
 		    }
 		  }
 		  else {
 		  	nextNode->fire();
 		  }
-	  }
+	  //}
 
 	  __syncthreads();
 	  

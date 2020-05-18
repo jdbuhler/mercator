@@ -112,6 +112,23 @@ namespace Mercator  {
 	return (parentBuffer.getCapacity() - parentBuffer.getOccupancy() == 0);
    }
 
+   //
+   // @brief release an element from the parent buffer,
+   // used by signal handler signals to free entries
+   //
+   // NOTE: Must be called single-threaded.
+   //
+   __device__
+   virtual
+   void freeParent() {
+	//Should only be called when refCounts of first element is 0.
+	assert(refCounts.getElt(0) == 0);
+
+	//Release from both the refCounts and parentBuffer
+	refCounts.release(1);
+	parentBuffer.release(1);
+   }
+
     //
     // @brief fire a node, consuming as much input 
     // from its queue as possible
@@ -138,22 +155,56 @@ namespace Mercator  {
       // FULL PARENT BUFFER CHECK
       ////////////////////////////////////////////
       if(isParentBufferFull()) {
+	__shared__ bool parentBufferReleased;
 	if(IS_BOSS())
 	{
 		printf("[%d] PARENT BUFFER FULL\n", blockIdx.x);
-		this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
-	
-		for (unsigned int c = 0; c < numChannels; c++)
-		{
-			NodeBase *dsNode = getChannel(c)->getDSNode();
-			dsNode->setWriteThruId(this->getEnumId());	//Set the writeThru ID of the downstream nodes to that of this node
-			dsNode->activate();				//Activate the downstream nodes to pass the local flush mode
+		parentBufferReleased = false;
+		/*
+		while(refCounts.getElt(0) == 0) {
+			freeParent();
+			printf("[%d] PARENT BUFFER RELEASED\n", blockIdx.x);
+			parentBufferReleased = true;
 		}
+		*/
+		for(unsigned int i = 0; i < parentBuffer.getCapacity(); ++i) {
+			if(refCounts.getElt(i) != 0) {
+				if(i > 0) {
+					refCounts.release(i);
+					parentBuffer.release(i);
+					parentBufferReleased = true;
+					printf("[%d] PARENT BUFFER RELEASED\n", blockIdx.x);
+				}
+				break;
+			}
+		}
+	
+		if(!parentBufferReleased) {
+			this->deactivate();
+			this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
+	
+			for (unsigned int c = 0; c < numChannels; c++)
+			{
+				NodeBase *dsNode = getChannel(c)->getDSNode();
+				dsNode->setWriteThruId(this->getEnumId());	//Set the writeThru ID of the downstream nodes to that of this node
+				dsNode->activate();				//Activate the downstream nodes to pass the local flush mode
+			}
 
-		this->scheduler->setLocalFlush(this->getEnumId());
+			this->scheduler->setLocalFlush(this->getEnumId());
+			printf("[%d] LOCAL FLUSH SET\n", blockIdx.x);
+		}
 	}
 	__syncthreads();
-	return;			//Short circut ourselves since we don't have any more space to put our stuff
+	if(!parentBufferReleased)
+		return;		//Short circut ourselves since we don't have any more space to put our stuff
+	__syncthreads();
+	if(parentBufferReleased) {
+		if(IS_BOSS()) {
+			printf("[%d] LOCAL FLUSH REMOVED\n", blockIdx.x);
+			this->scheduler->removeLocalFlush(this->getEnumId());
+		}
+	}
+	__syncthreads();
       }
 
       ////////////////////////////////////////////
@@ -163,8 +214,8 @@ namespace Mercator  {
 	//Get a new parent object from the data queue
 	if(IS_BOSS())
 	{
-		if(!(isParentBufferFull()))
-		{
+		//if(!(isParentBufferFull()))
+		//{
 			unsigned int parentBase = parentBuffer.reserve(1);
 			unsigned int refBase = refCounts.reserve(1);
 			unsigned int offset = 0;
@@ -187,7 +238,7 @@ namespace Mercator  {
 			dataCount = this->findCount();
 			currentCount = 0;
 			//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
-		}
+		//}
 
 		//Emit Enumerate Signal
 

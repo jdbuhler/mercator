@@ -145,6 +145,7 @@ namespace Mercator  {
 	//Perform SAFIrE scheduling while we have signals.
       while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
+	      assert(this->currentCreditCounter >= 0);
 	      assert(this->currentCreditCounter <= queue.getOccupancy());
 	      // # of items already consumed from queue
 	      nConsumed = 0;
@@ -276,6 +277,15 @@ namespace Mercator  {
 	  queue.release(nTotalConsumed);
 	  
 	  nDSActive = mynDSActive;
+
+	  //Send the write thru ID you have if you have one
+	  if(this->getWriteThruId() > 0) {
+		for(unsigned int c = 0; c < numChannels; ++c) {
+		      NodeBase *dsNode = getChannel(c)->getDSNode();
+		      dsNode->setWriteThruId(this->getWriteThruId());
+		      dsNode->activate();
+		}
+	  }
 
 	  if (nTotalConsumed == nTotalToConsume)
 	  //if (nTotalConsumed == nToConsume)
