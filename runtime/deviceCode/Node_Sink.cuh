@@ -222,6 +222,7 @@ namespace Mercator  {
 	  queue.release(numTotalToWrite);
 	  
 	  this->deactivate();
+	  this->setFlushing(false);
 	}
       
       TIMER_STOP(input);

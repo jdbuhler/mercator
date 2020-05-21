@@ -289,9 +289,9 @@ namespace Mercator  {
     // @brief indicate that node is in flush mode
     //
     __device__
-    void setFlushing()
+    void setFlushing(bool v = true)
     {
-      isFlushing = true;
+      isFlushing = v;
     }
 
     //
@@ -335,6 +335,10 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
+      if (nDSActive == 0)
+	printf("FAILURE BLK %d NODE %lu\n", blockIdx.x, this);
+      assert(nDSActive > 0);
+
       nDSActive--;
       if (nDSActive == 0 && isActive) // node is eligible for firing
 	scheduler->addFireableNode(this);
