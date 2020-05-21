@@ -541,6 +541,8 @@ namespace Mercator  {
     void pushSignal(Signal& s,
 	            Channel<void*>* channel) const
     {
+	assert(channel->dsSignalCapacity() >= 1);
+
 	unsigned int dsSignalBase = channel->directSignalReserve(1);
 
 	channel->directSignalWrite(s, dsSignalBase, 0);

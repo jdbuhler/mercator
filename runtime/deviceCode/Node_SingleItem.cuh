@@ -145,6 +145,8 @@ namespace Mercator  {
 	//Perform SAFIrE scheduling while we have signals.
       while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
+	      if(IS_BOSS())
+		printf("[%d] CURRENT CREDIT COUNTER = %d\n", blockIdx.x, this->currentCreditCounter);
 	      assert(this->currentCreditCounter >= 0);
 	      assert(this->currentCreditCounter <= queue.getOccupancy());
 	      // # of items already consumed from queue
@@ -193,6 +195,8 @@ namespace Mercator  {
 		  
 		  TIMER_START(input);
 		}
+
+		__syncthreads();
 		nTotalConsumed += nConsumed;	//nConsumed Should be the same as nToConsume here
 		this->currentCreditCounter -= nConsumed;
 

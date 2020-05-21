@@ -57,7 +57,8 @@ namespace Mercator  {
 	currentCount(0),
 	refCount(1),	//stimcheck: DEFAULT VALUE FOR REF COUNT IS 1
 	parentBuffer(queueSize),
-	refCounts(queueSize)
+	refCounts(queueSize),
+	processedParents(0)	//stimcheck: DEBUG INFO
     {}
     
   protected:
@@ -98,6 +99,7 @@ namespace Mercator  {
     Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
     Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
     
+    unsigned int processedParents;	//stimcheck: DEBUG INFO
 
    __device__
    virtual
@@ -265,6 +267,7 @@ namespace Mercator  {
 				{
 					s_new.setCredit(channel->dsPendingOccupancy());
 				}
+				printf("[%d] ENUMERATE SIGNAL PUSHED\t\tCredit: %d\t\tItemProduced: %d\t\tPendingOcc: %d\t\tHasPendingDSSignal: %d\t\tProcessedParents: %d\n", blockIdx.x, s_new.getCredit(), channel->getNumItemsProduced(), channel->dsPendingOccupancy(), channel->dsSignalQueueHasPending() ? 1 : 0, processedParents);
 				pushSignal(s_new, channel);
 			}
 		}
@@ -300,7 +303,7 @@ namespace Mercator  {
 	    {
 	      //n->run(myData);
 	      this->push(currentCount + tid);
-		printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
+		//printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
 	    }
 	  nConsumed += nItems;
 
@@ -335,8 +338,8 @@ namespace Mercator  {
 		//Emit Agg Signal
 		if(IS_BOSS())
 		{
-			printf("EMITTING AGG SIGNAL\n");
-			//Create new Enum signal to send downstream
+			//printf("EMITTING AGG SIGNAL\n");
+			//Create new Agg signal to send downstream
 			Signal s_new;
 			s_new.setTag(Signal::SignalTag::Agg);	
 			s_new.setRefCount(refCounts.getVoidTail());	//Set the refCount to default 1 TODO
@@ -346,7 +349,7 @@ namespace Mercator  {
 			for(unsigned int c = 0; c < numChannels; ++c)
 			{
 				Channel *channel = static_cast<Channel*>(getChannel(c));
-	
+
 				//If the channel is NOT an aggregate channel, send the new signal downstream
 				if(!(channel->isAggregate()))
 				{
@@ -358,6 +361,8 @@ namespace Mercator  {
 					{
 						s_new.setCredit(channel->dsPendingOccupancy());
 					}
+					++processedParents;
+					printf("[%d] AGGREGATE SIGNAL PUSHED\t\tCredit: %d\t\tItemProduced: %d\t\tPendingOcc: %d\t\tHasPendingDSSignal: %d\t\tProcessedParents: %d\n", blockIdx.x, s_new.getCredit(), channel->getNumItemsProduced(), channel->dsPendingOccupancy(), channel->dsSignalQueueHasPending() ? 1 : 0, processedParents);
 					pushSignal(s_new, channel);
 				}
 				else
