@@ -73,10 +73,6 @@ namespace Mercator  {
 
     __device__
     virtual
-    void freeParent() = 0;
-    
-    __device__
-    virtual
     void init() {}
 
     __device__

@@ -121,20 +121,16 @@ namespace Mercator  {
       // # of items available to consume from queue
       unsigned int nToConsume = queue.getOccupancy();
       
-      // unless we are flushing, round # to consume down to a multiple
+      // Unless we are flushing, round # to consume down to a multiple
       // of ensemble width.
-      //if (!isFlushing)
-	//nToConsume = (nToConsume / maxRunSize) * maxRunSize;
+      // Set further downstream depending on if we have singals
       
       // # total of items consumed from queue
       unsigned int nTotalConsumed = 0;
 
       // # total of items to consume from the queue
-      //unsigned int nTotalToConsume = queue.getOccupancy();
+      // Set further downstream depending on whether or not we have signals
       unsigned int nTotalToConsume = 0;
-
-      //if (!isFlushing)
-	//nTotalToConsume = (nToConsume / maxRunSize) * maxRunSize;
 
       unsigned int mynDSActive = 0;
 
@@ -145,17 +141,14 @@ namespace Mercator  {
 	//Perform SAFIrE scheduling while we have signals.
       while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
 	{
-	      if(IS_BOSS())
-		printf("[%d] CURRENT CREDIT COUNTER = %d\n", blockIdx.x, this->currentCreditCounter);
 	      assert(this->currentCreditCounter >= 0);
 	      assert(this->currentCreditCounter <= queue.getOccupancy());
+
 	      // # of items already consumed from queue
 	      nConsumed = 0;
 	      nToConsume = this->currentCreditCounter;
 
-		//Can ignore flushing here, since we need to get to signal boundary.
-	      //if (!isFlushing)
-		//nToConsume = (this->currentCreditCounter / maxRunSize) * maxRunSize;
+	      //Can ignore flushing here, since we need to get to signal boundary.
 
 	      nTotalToConsume += nToConsume;
 
@@ -196,6 +189,7 @@ namespace Mercator  {
 		  TIMER_START(input);
 		}
 
+		//Syncthreads so we have the correct nConsumed listed here
 		__syncthreads();
 		nTotalConsumed += nConsumed;	//nConsumed Should be the same as nToConsume here
 		this->currentCreditCounter -= nConsumed;
@@ -209,9 +203,7 @@ namespace Mercator  {
 		__syncthreads();
 	}
 
-	//Use normal nConsumed and nToConsume values after signals are all handled.
-      //unsigned int nConsumed = 0;
-
+      //Use normal nConsumed and nToConsume values after signals are all handled.
       __syncthreads();
       nToConsume = queue.getOccupancy()- nTotalConsumed;
 
@@ -271,7 +263,7 @@ namespace Mercator  {
 		}
 	}
 	__syncthreads();
-      nTotalConsumed += nConsumed;
+        nTotalConsumed += nConsumed;
 	__syncthreads();
       
 	//Release items as normal.

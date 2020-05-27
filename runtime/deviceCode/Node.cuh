@@ -722,10 +722,6 @@ namespace Mercator  {
       currentParent = v;
     }
 
-    __device__
-    virtual
-    void freeParent() {}
-
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 

@@ -57,8 +57,7 @@ namespace Mercator  {
 	currentCount(0),
 	refCount(1),	//stimcheck: DEFAULT VALUE FOR REF COUNT IS 1
 	parentBuffer(queueSize),
-	refCounts(queueSize),
-	processedParents(0)	//stimcheck: DEBUG INFO
+	refCounts(queueSize)
     {}
     
   protected:
@@ -99,8 +98,6 @@ namespace Mercator  {
     Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
     Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
     
-    unsigned int processedParents;	//stimcheck: DEBUG INFO
-
    __device__
    virtual
    unsigned int findCount() {
@@ -112,23 +109,6 @@ namespace Mercator  {
    __device__
    bool isParentBufferFull() {
 	return (parentBuffer.getCapacity() - parentBuffer.getOccupancy() == 0);
-   }
-
-   //
-   // @brief release an element from the parent buffer,
-   // used by signal handler signals to free entries
-   //
-   // NOTE: Must be called single-threaded.
-   //
-   __device__
-   virtual
-   void freeParent() {
-	//Should only be called when refCounts of first element is 0.
-	assert(refCounts.getElt(0) == 0);
-
-	//Release from both the refCounts and parentBuffer
-	refCounts.release(1);
-	parentBuffer.release(1);
    }
 
     //
@@ -160,27 +140,23 @@ namespace Mercator  {
 	__shared__ bool parentBufferReleased;
 	if(IS_BOSS())
 	{
-		printf("[%d] PARENT BUFFER FULL\n", blockIdx.x);
 		parentBufferReleased = false;
-		/*
-		while(refCounts.getElt(0) == 0) {
-			freeParent();
-			printf("[%d] PARENT BUFFER RELEASED\n", blockIdx.x);
-			parentBufferReleased = true;
-		}
-		*/
 		for(unsigned int i = 0; i < parentBuffer.getCapacity(); ++i) {
 			if(refCounts.getElt(i) != 0) {
 				if(i > 0) {
+					//Release all parents that were found to have 0 references remaining.
 					refCounts.release(i);
 					parentBuffer.release(i);
 					parentBufferReleased = true;
-					printf("[%d] PARENT BUFFER RELEASED\n", blockIdx.x);
 				}
 				break;
 			}
 		}
 	
+		//If we did not release from the parent buffer, make sure to re-activate ourselves and
+		//set the local flushing mode for our enumeration region.  Activate downstream node(s)
+		//if they are not already to propagate local flush and eventualy be able to free the
+		//parent buffer once revisited.
 		if(!parentBufferReleased) {
 			this->deactivate();
 			this->activate();	//Re-enqueue and re-activate ourselves since we still have stuff to process
@@ -193,16 +169,16 @@ namespace Mercator  {
 			}
 
 			this->scheduler->setLocalFlush(this->getEnumId());
-			printf("[%d] LOCAL FLUSH SET\n", blockIdx.x);
 		}
 	}
-	__syncthreads();
+	__syncthreads();	//Make sure all threads see whether or not the parent buffer is still full.
 	if(!parentBufferReleased)
-		return;		//Short circut ourselves since we don't have any more space to put our stuff
+		return;		//Short circut ourselves since we don't have any more space to put new parents
+
 	__syncthreads();
 	if(parentBufferReleased) {
+		//Remove the local flush flag from the scheduler if we have space available in our parent buffer
 		if(IS_BOSS()) {
-			printf("[%d] LOCAL FLUSH REMOVED\n", blockIdx.x);
 			this->scheduler->removeLocalFlush(this->getEnumId());
 		}
 	}
@@ -216,39 +192,36 @@ namespace Mercator  {
 	//Get a new parent object from the data queue
 	if(IS_BOSS())
 	{
-		//if(!(isParentBufferFull()))
-		//{
-			unsigned int parentBase = parentBuffer.reserve(1);
-			unsigned int refBase = refCounts.reserve(1);
-			unsigned int offset = 0;
+		unsigned int parentBase = parentBuffer.reserve(1);
+		unsigned int refBase = refCounts.reserve(1);
+		unsigned int offset = 0;
 
-			const T &elt = queue.getElt(offset);
-			const unsigned int &refelt = refCount;
+		const T &elt = queue.getElt(offset);
+		const unsigned int &refelt = refCount;
 
-			parentBuffer.putElt(parentBase, offset, elt);
-			refCounts.putElt(refBase, offset, refelt);
+		parentBuffer.putElt(parentBase, offset, elt);
+		refCounts.putElt(refBase, offset, refelt);
 
-			void* s;
-			void* rc;
+		void* s;
+		void* rc;
 
-			s = parentBuffer.getVoidTail();
-			rc = refCounts.getVoidHead();
+		s = parentBuffer.getVoidTail();
+		rc = refCounts.getVoidHead();
 
-			setCurrentParent(s);
-			//setCurrentRefCount(rc);
+		setCurrentParent(s);
+		//setCurrentRefCount(rc);
 
-			dataCount = this->findCount();
-			currentCount = 0;
-			//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
-		//}
+		dataCount = this->findCount();
+		currentCount = 0;
+		//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
 
 		//Emit Enumerate Signal
 
 		//Create new Enum signal to send downstream
 		Signal s_new;
 		s_new.setTag(Signal::SignalTag::Enum);	
-		s_new.setParent(parentBuffer.getVoidHead());	//Set the parent for the new signal
-		setCurrentParent(queue.getVoidHead());	//Set the new parent for the node
+		s_new.setParent(parentBuffer.getVoidTail());	//Set the parent for the new signal
+		setCurrentParent(queue.getVoidTail());	//Set the new parent for the node
 		using Channel = typename BaseType::Channel<void*>;
 	
 		//Reserve space downstream for the new signal
@@ -267,7 +240,6 @@ namespace Mercator  {
 				{
 					s_new.setCredit(channel->dsPendingOccupancy());
 				}
-				printf("[%d] ENUMERATE SIGNAL PUSHED\t\tCredit: %d\t\tItemProduced: %d\t\tPendingOcc: %d\t\tHasPendingDSSignal: %d\t\tProcessedParents: %d\n", blockIdx.x, s_new.getCredit(), channel->getNumItemsProduced(), channel->dsPendingOccupancy(), channel->dsSignalQueueHasPending() ? 1 : 0, processedParents);
 				pushSignal(s_new, channel);
 			}
 		}
@@ -361,8 +333,6 @@ namespace Mercator  {
 					{
 						s_new.setCredit(channel->dsPendingOccupancy());
 					}
-					++processedParents;
-					printf("[%d] AGGREGATE SIGNAL PUSHED\t\tCredit: %d\t\tItemProduced: %d\t\tPendingOcc: %d\t\tHasPendingDSSignal: %d\t\tProcessedParents: %d\n", blockIdx.x, s_new.getCredit(), channel->getNumItemsProduced(), channel->dsPendingOccupancy(), channel->dsSignalQueueHasPending() ? 1 : 0, processedParents);
 					pushSignal(s_new, channel);
 				}
 				else
