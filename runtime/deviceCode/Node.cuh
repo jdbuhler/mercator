@@ -182,6 +182,7 @@ namespace Mercator  {
 	  crash();
 	}
 
+      // set the aggregate state of the channel
       if(isAgg)
 	channels[c]->setAggregate();
     }
@@ -264,7 +265,7 @@ namespace Mercator  {
     //
     // @brief set the write through enumeration region Id of the node
     //
-    // @param e The enumeration region id to set the write through of
+    // @param w The enumeration region id to set the write through of
     // the node to
     //
     __device__
@@ -354,34 +355,12 @@ namespace Mercator  {
       return queue.getOccupancy();
     }
 
-
-    /*
-    // 
-    // @brief set the current credit counter for the node.
-    // 
-    // @param ccc The value to set the current credit counter to
-    // 
-    __device__
-    void setCurrentCreditCounter(unsigned int ccc)
-    {
-	currentCreditCounter = ccc;
-    }
-	  
-    // 
-    // @brief set the current credit counter for the node.
-    // 
-    // @return unsigned int The current credit counter value of the node
-    // 
-    __device__
-    unsigned int getCurrentCreditCounter()
-    {
-	return currentCreditCounter;
-    }
-    */
-
     // 
     // @brief The main signal handler function for nodes.  Perform signal
-    // actions and create new signals here.  This IS multithreaded.
+    // actions and create new signals here.  This IS multithreaded.   Must
+    // sync all threads before entering and after exiting since state of
+    // data and signal queues change.  Can also cause main firing loop to 
+    // short circut.
     // 
     __device__
     bool signalHandler()
@@ -438,7 +417,7 @@ namespace Mercator  {
 		/////////////////////////////
 		// SIGNAL HANDLING SWITCH
 		/////////////////////////////
-		const Signal::SignalTag t = signalQueue.getElt(0).getTag();	//0th element is always the head of signal queue
+		const Signal::SignalTag t = s.getTag();
 
 		switch(t)
 		{
@@ -488,7 +467,7 @@ namespace Mercator  {
 					//Create new Enum signal to send downstream
 					Signal s_new;
 					s_new.setTag(Signal::SignalTag::Agg);
-					s_new.setRefCount(s.getRefCount());	//Set the parent for the new signal
+					s_new.setRefCount(s.getRefCount());	//Set the parent's ref count for the new signal
 	
 					//Reserve space downstream for the new signal
 					for(unsigned int c = 0; c < numChannels; ++c)
@@ -531,11 +510,15 @@ namespace Mercator  {
 		hasSignal = false;	//Cannot get here unless we processed a signal.
 	}
 	__syncthreads();	//Make sure everyone got to the end of signal handling . . .
-	return false;		//No more signals to process, can break here
+	return false;		//No more signals to process, can break here, no activation requirements set by signal handling
     }
 
     //
+    // @brief push a signal to a specified channel, and reset the number
+    // of items produced on that channel. This function is SINGLE THREADED.
     //
+    // @param s the signal being sent downstream
+    // @param channel the channel on which the signal is being sent
     //
     __device__
     void pushSignal(Signal& s,
@@ -634,7 +617,7 @@ namespace Mercator  {
   
 #endif
 
-  //stimcheck: Begin and end stubs for enumeration and aggregation 
+  //Begin and end stubs for enumeration and aggregation 
   public: 
     __device__
     virtual

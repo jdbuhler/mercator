@@ -203,7 +203,7 @@ namespace Mercator  {
 		__syncthreads();
 	}
 
-      //Use normal nConsumed and nToConsume values after signals are all handled.
+      //Use normal AFIE nConsumed and nToConsume values after signals are all handled.
       __syncthreads();
       nToConsume = queue.getOccupancy()- nTotalConsumed;
 
@@ -233,7 +233,6 @@ namespace Mercator  {
 		  
 		  const T &myData = 
 		    (tid < nItems
-		     //? queue.getElt(nConsumed + tid)
 		     ? queue.getElt(nTotalConsumed + nConsumed + tid)
 		     : queue.getDummy()); // don't create a null reference
 		  
@@ -284,7 +283,6 @@ namespace Mercator  {
 	  }
 
 	  if (nTotalConsumed == nTotalToConsume)
-	  //if (nTotalConsumed == nToConsume)
 	    {
 	      // less than a full ensemble remains, or 0 if flushing
 	      this->deactivate(); 

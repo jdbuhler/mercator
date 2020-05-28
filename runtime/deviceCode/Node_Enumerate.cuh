@@ -98,6 +98,13 @@ namespace Mercator  {
     Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
     Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
     
+   //
+   // @brief find the number of data items that need to be enumerated
+   // from the current parent object.
+   //
+   // Like the run function, this is filled out by the user in the
+   // generated code.  This function is called SINGLE THREADED.
+   //
    __device__
    virtual
    unsigned int findCount() {
@@ -105,7 +112,12 @@ namespace Mercator  {
 	return 0;
    }
 
-
+   //
+   // @brief a check that returns whether or not the parent buffer is full.
+   //
+   // @return bool returns true if the parent buffer is currently full,
+   // false otherwise
+   //
    __device__
    bool isParentBufferFull() {
 	return (parentBuffer.getCapacity() - parentBuffer.getOccupancy() == 0);
@@ -168,7 +180,7 @@ namespace Mercator  {
 				dsNode->activate();				//Activate the downstream nodes to pass the local flush mode
 			}
 
-			this->scheduler->setLocalFlush(this->getEnumId());
+			this->scheduler->setLocalFlush(this->getEnumId());	//Set the local flushing flag for the region in the scheduler
 		}
 	}
 	__syncthreads();	//Make sure all threads see whether or not the parent buffer is still full.
@@ -213,7 +225,6 @@ namespace Mercator  {
 
 		dataCount = this->findCount();
 		currentCount = 0;
-		//this->setCurrentParent(static_cast<void*>(queue.getElt(0)));
 
 		//Emit Enumerate Signal
 
@@ -222,6 +233,7 @@ namespace Mercator  {
 		s_new.setTag(Signal::SignalTag::Enum);	
 		s_new.setParent(parentBuffer.getVoidTail());	//Set the parent for the new signal
 		setCurrentParent(queue.getVoidTail());	//Set the new parent for the node
+
 		using Channel = typename BaseType::Channel<void*>;
 	
 		//Reserve space downstream for the new signal
@@ -254,28 +266,18 @@ namespace Mercator  {
 	{
 	  assert(currentCount < dataCount);
 	  unsigned int nItems = min(dataCount - currentCount, maxRunSize);
-	  if(IS_BOSS())
-		printf("[%d]\t\tnItems %d\t\tDC %d\t\tCC %d\t\tMRS %d\n", blockIdx.x, nItems, dataCount, currentCount, maxRunSize);
-	  //assert(dataCount > currentCount);
 	  __syncthreads();
 	  
 	  NODE_OCC_COUNT(nItems);
-	  
-	  //const T &myData = 
-	  //  (tid < nItems
-	  //   //? queue.getElt(nConsumed + tid)
-	  //   ? queue.getElt(nTotalConsumed + nConsumed + tid)
-	  //   : queue.getDummy()); // don't create a null reference
 	  
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
 
+	  //No call to run here, just push out the ids up to dataCount.
 	  if (tid < nItems)
 	    {
-	      //n->run(myData);
 	      this->push(currentCount + tid);
-		//printf("tid: %d\t\tCC: %d\t\tCC+tid: %d\n", tid, currentCount, currentCount+tid);
 	    }
 	  nConsumed += nItems;
 
@@ -310,7 +312,6 @@ namespace Mercator  {
 		//Emit Agg Signal
 		if(IS_BOSS())
 		{
-			//printf("EMITTING AGG SIGNAL\n");
 			//Create new Agg signal to send downstream
 			Signal s_new;
 			s_new.setTag(Signal::SignalTag::Agg);	
@@ -374,7 +375,6 @@ namespace Mercator  {
 	//Signal Queue is full, short circut here
 	if(dsSignalQueueFull)
 	{
-	//	this->deactivate();
 		this->activate();	//NEED TO RE-ENQUEUE OURSELVES
 		return;
 	}
@@ -415,219 +415,6 @@ namespace Mercator  {
 		}
 	    }
 	}
-#if 0
-      TIMER_START(input);
-
-      Queue<T> &queue = this->queue; 
-      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-
-      // # of items available to consume from queue
-      unsigned int nToConsume = queue.getOccupancy();
-      
-      // unless we are flushing, round # to consume down to a multiple
-      // of ensemble width.
-      //if (!isFlushing)
-	//nToConsume = (nToConsume / maxRunSize) * maxRunSize;
-      
-      // # total of items consumed from queue
-      unsigned int nTotalConsumed = 0;
-
-      // # total of items to consume from the queue
-      //unsigned int nTotalToConsume = queue.getOccupancy();
-      unsigned int nTotalToConsume = 0;
-
-      //if (!isFlushing)
-	//nTotalToConsume = (nToConsume / maxRunSize) * maxRunSize;
-
-      unsigned int mynDSActive = 0;
-
-      // True when a downstream signal queue is full, so we stop firing.
-      bool dsSignalFull = false;
-      
-	//Perform SAFIrE scheduling while we have signals.
-      while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
-	{
-	      //Step 1: Determine if we need to get the next object on the queue
-	      // This SHOULD only be when the dataCount is equal to the currentCount
-	      // Base case: Default of 0 is set for both dataCount and currentCount
-	      // so will call on first run.
-	      // All subsequent calls to get the next data element are done when we
-	      // have exhausted all enumerated elements of that object.
-	      // NOTE: Setting of parent in the fire function is only done in
-	      // enumerate nodes.  All other setting of parents MUST be done
-	      // in the signal handler.
-	      if(dataCount == currentCount)
-	      {
-		//if(parentBuffer.getCapacity() - parentBuffer.getOccupancy() > 0)
-		if(!(isParentBufferFull()))
-		{
-			unsigned int parentBase = parentBuffer.reserve(1);
-			unsigned int refBase = refCounts.reserve(1);
-			unsigned int offset = 0;
-
-			const T &elt = queue.getElt(offset);
-			const unsigned int &refelt = refCount;
-
-			parentBuffer.putElt(parentBase, offset, elt);
-			refCounts.putElt(refBase, offset, refelt);
-
-			void* s;
-			void* rc;
-
-			s = parentBuffer.getVoidTail();
-			rc = refCounts.getVoidTail();
-
-			setCurrentParent(s);
-			//setCurrentRefCount(rc);
-
-			dataCount = this->findCount();
-			currentCount = 0;
-			//this->setParent(static_cast<void*>(queue.getElt(0)));
-		}
-	      }
-
-	      // # of items already consumed from queue
-	      unsigned int nConsumed = 0;
-	      nToConsume = this->currentCreditCounter;
-
-		//Can ignore flushing here, since we need to get to signal boundary.
-	      //if (!isFlushing)
-		//nToConsume = (this->currentCreditCounter / maxRunSize) * maxRunSize;
-
-	      nTotalToConsume += nToConsume;
-
-	      while (nConsumed < nToConsume && mynDSActive == 0)
-		{
-		  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
-		  
-		  NODE_OCC_COUNT(nItems);
-		  
-		  const T &myData = 
-		    (tid < nItems
-		     //? queue.getElt(nConsumed + tid)
-		     ? queue.getElt(nTotalConsumed + nConsumed + tid)
-		     : queue.getDummy()); // don't create a null reference
-		  
-		  TIMER_STOP(input);
-		  
-		  TIMER_START(run);
-	
-		  if (runWithAllThreads || tid < nItems)
-		    {
-		      //n->run(myData);
-		    }
-		  nConsumed += nItems;
-		  
-		  TIMER_STOP(run);
-		  
-		  TIMER_START(output);
-		  
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue();
-		    }
-		  
-		  TIMER_STOP(output);
-		  
-		  TIMER_START(input);
-		}
-		nTotalConsumed += nConsumed;	//nConsumed Should be the same as nToConsume here
-
-		//Syncthreads before entering the signal handeler, need to make sure that every
-		//thread knows the current consumed totals.
-		__syncthreads();
-
-		dsSignalFull = this->signalHandler();
-	}
-
-	//Use normal nConsumed and nToConsume values after signals are all handled.
-      unsigned int nConsumed = 0;
-
-      nToConsume = queue.getOccupancy();
-
-      // unless we are flushing, round # to consume down to a multiple
-      // of ensemble width.
-      if (!isFlushing)
-	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
-
-      nTotalToConsume += nToConsume;
-
-	//Resume normal AFIE scheduling once we have no signals remaining.
-      while (nConsumed < nToConsume && mynDSActive == 0 && !dsSignalFull)
-	{
-	      while (nConsumed < nToConsume && mynDSActive == 0)
-		{
-		  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
-		  
-		  NODE_OCC_COUNT(nItems);
-		  
-		  const T &myData = 
-		    (tid < nItems
-		     //? queue.getElt(nConsumed + tid)
-		     ? queue.getElt(nTotalConsumed + nConsumed + tid)
-		     : queue.getDummy()); // don't create a null reference
-		  
-		  TIMER_STOP(input);
-		  
-		  TIMER_START(run);
-	
-		  if (runWithAllThreads || tid < nItems)
-		    {
-		      //n->run(myData);
-		    }
-		  nConsumed += nItems;
-		  
-		  TIMER_STOP(run);
-		  
-		  TIMER_START(output);
-		  
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue();
-		    }
-		  
-		  TIMER_STOP(output);
-		  
-		  TIMER_START(input);
-		}
-	}
-      nTotalConsumed += nConsumed;
-      
-	//Release items as normal.
-      if (IS_BOSS())
-	{
-	  COUNT_ITEMS(nTotalConsumed);  // instrumentation
-	  queue.release(nTotalConsumed);
-	  
-	  nDSActive = mynDSActive;
-
-	  if (nTotalConsumed == nTotalToConsume)
-	  //if (nTotalConsumed == nToConsume)
-	    {
-	      // less than a full ensemble remains, or 0 if flushing
-	      this->deactivate(); 
-	      
-	      if (isFlushing)
-		{
-		  // no more inputs to read -- force downstream nodes
-		  // into flushing mode and activte them (if not
-		  // already active).  Even if they have no input,
-		  // they must fire once to propagate flush mode and
-		  // activate *their* downstream nodes.
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      NodeBase *dsNode = getChannel(c)->getDSNode();
-		      dsNode->setFlushing();
-		      dsNode->activate();
-		    }
-		}
-	    }
-	}
-      
-      TIMER_STOP(input);
-#endif
     }
   };
 }  // end Mercator namespace
