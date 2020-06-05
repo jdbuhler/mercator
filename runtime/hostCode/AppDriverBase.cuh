@@ -20,6 +20,8 @@ namespace Mercator  {
     virtual void runAsync(const HostParamsT *params) = 0;
     
     virtual void join() = 0;
+
+    virtual void setAppName(char* name, int size) = 0;
     
     // @brief synchronous run in terms of runAsync + join
     void run(const HostParamsT *params)

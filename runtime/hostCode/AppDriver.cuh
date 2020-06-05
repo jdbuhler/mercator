@@ -50,6 +50,14 @@ namespace Mercator  {
     int getNBlocks() const { return nBlocks; }
     
     
+    void setAppName(char* name, int size) { 
+        //memcopy(appName, name, size%20);
+        //doing by hand to not load extra includes
+        nameSet=true;
+        for (int i=0;i<size%20; i++){
+          appName[i]=name[i];
+        }
+    }
     // @brief constructor sets up the device context
     //
     // @param stream CUDA stream in which to run
@@ -311,7 +319,10 @@ namespace Mercator  {
       
       cout.setf(ios::fixed, ios::floatfield);
       int oldPrec = cout.precision(2);
-      cout << "***Application runtimes (ms):" << endl;
+      if (nameSet)
+        printf("*** %s runtimes (ms):\n", appName);
+      else
+        cout << "***Application runtimes (ms):" << endl;
       cout << "\tinit: " 
 	   << elapsedTime_init << "ms ("
 	   << elapsedTime_init*100.0/totalTime
@@ -354,13 +365,16 @@ namespace Mercator  {
     
   private:
 
+
     cudaStream_t stream;
     int deviceId;
     
     DevApp **deviceAppObjs;
     HostParamsT *hostParams;
     int nBlocks;
-    
+    bool nameSet=false;
+    char appName[20];   
+
     size_t *sourceTailPtr;
     
 #ifdef INSTRUMENT_TIME_HOST    

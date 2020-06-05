@@ -386,6 +386,11 @@ void genHostAppHeader(const string &hostClassFileName,
 		     "cudaStream_t stream = 0, int deviceId = -1") + ";");
   f.add("");
 
+  //setAppName function calls the app driver to set the app name
+  f.add(genFcnHeader("void", "setAppName", "char* name, int size"));
+  f.add("{ driver->setAppName(name, size); }");
+  f.add("");
+
   // getNBlocks() function calls the app driver to get # of active blocks
   f.add(genFcnHeader("int", "getNBlocks", ""));
   f.extend(" const");
