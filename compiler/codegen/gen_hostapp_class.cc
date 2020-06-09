@@ -387,8 +387,8 @@ void genHostAppHeader(const string &hostClassFileName,
   f.add("");
 
   //setAppName function calls the app driver to set the app name
-  f.add(genFcnHeader("void", "setAppName", "char* name, int size"));
-  f.add("{ driver->setAppName(name, size); }");
+  f.add(genFcnHeader("void", "setAppName", "const char* name"));
+  f.add("{ driver->setAppName(name); }");
   f.add("");
 
   // getNBlocks() function calls the app driver to get # of active blocks
