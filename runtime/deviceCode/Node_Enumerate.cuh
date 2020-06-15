@@ -145,6 +145,13 @@ namespace Mercator  {
       do
       {
 
+      //Short circut here if there are not inputs to the node.
+      //This is the case when a block has NO INPUTS and is trying to
+      //propagate the flushing mode.
+      //if(queue.getOccupancy() == 0) {
+	//break;
+      //}
+
       ////////////////////////////////////////////
       // FULL PARENT BUFFER CHECK
       ////////////////////////////////////////////
@@ -197,10 +204,17 @@ namespace Mercator  {
 	__syncthreads();
       }
 
+      //Short circut here if there are not inputs to the node.
+      //This is the case when a block has NO INPUTS and is trying to
+      //propagate the flushing mode.
+      if(queue.getOccupancy() == 0) {
+	break;
+      }
+
       ////////////////////////////////////////////
       // EMIT ENUMERATE SIGNAL IF NEEDED
       ////////////////////////////////////////////
-      if(dataCount == 0) {
+      if(dataCount == 0) { //Need to NOT look at element here unconditionally, will be garbage value if there is no data in the queue
 	//Get a new parent object from the data queue
 	if(IS_BOSS())
 	{
@@ -244,14 +258,6 @@ namespace Mercator  {
 			//If the channel is NOT an aggregate channel, send the new signal downstream
 			if(!(channel->isAggregate()))
 			{
-				if(channel->dsSignalQueueHasPending())
-				{
-					s_new.setCredit(channel->getNumItemsProduced());
-				}
-				else
-				{
-					s_new.setCredit(channel->dsPendingOccupancy());
-				}
 				pushSignal(s_new, channel);
 			}
 		}
@@ -326,14 +332,6 @@ namespace Mercator  {
 				//If the channel is NOT an aggregate channel, send the new signal downstream
 				if(!(channel->isAggregate()))
 				{
-					if(channel->dsSignalQueueHasPending())
-					{
-						s_new.setCredit(channel->getNumItemsProduced());
-					}
-					else
-					{
-						s_new.setCredit(channel->dsPendingOccupancy());
-					}
 					pushSignal(s_new, channel);
 				}
 				else

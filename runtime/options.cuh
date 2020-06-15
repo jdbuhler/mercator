@@ -19,12 +19,12 @@
 //#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
-//#define INSTRUMENT_COUNTS
+#define INSTRUMENT_COUNTS
 
 // instrument code for occupancy of each node firing?
 // NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
 //       set to 1 causes interference with this option.
-#define INSTRUMENT_OCC
+//#define INSTRUMENT_OCC
 
 // collect data from tail of app's execution?
 // 1 = collect data from all firings
@@ -54,8 +54,8 @@
 // Misc runtime options
 //
 //how many blocks to run with
-#define USE_MAX_BLOCKS
-//#define USE_ONE_BLOCKS
+//#define USE_MAX_BLOCKS
+#define USE_ONE_BLOCKS
 //#define USE_X_BLOCKS 16*15
 //#define USE_SM_BLOCKS
 
