@@ -399,20 +399,22 @@ namespace Mercator  {
 		Queue<Signal> &signalQueue = this->signalQueue;
 
 		const Signal& s = signalQueue.getElt(0);	//0th element is always the head of signal queue
-		if(!hasSignal)
-		{
-			if(IS_BOSS())
-				printf("[%d] GOT CREDIT %d\n", blockIdx.x, s.getCredit());
-			currentCreditCounter = s.getCredit();
-			hasSignal = true;
+		if(IS_BOSS()) {
+			if(!hasSignal)
+			{
+				//if(IS_BOSS())
+				//	printf("[%d] GOT CREDIT %d\n", blockIdx.x, s.getCredit());
+				currentCreditCounter = s.getCredit();
+				hasSignal = true;
+			}
 		}
 
 		__syncthreads();
 
 		if(hasSignal && currentCreditCounter > 0)
 		{
-			if(IS_BOSS())
-				printf("[%d] HAS SIGNAL AND CREDIT EXISTS, EXITING SIGNAL HANDLER. . .\n", blockIdx.x);
+			//if(IS_BOSS())
+			//	printf("[%d] HAS SIGNAL AND CREDIT EXISTS, EXITING SIGNAL HANDLER. . .\n", blockIdx.x);
 			//Nothing to do here, we still have credit available
 			return false;
 		}
@@ -424,8 +426,8 @@ namespace Mercator  {
 		/////////////////////////////
 		const Signal::SignalTag t = s.getTag();
 
-		if(IS_BOSS())
-			printf("[%d] HANDLING SIGNAL\t\tENUM: %d\t\tAGG: %d\n", blockIdx.x, (t == Signal::SignalTag::Enum ? 1 : 0), (t == Signal::SignalTag::Agg ? 1 : 0));
+		//if(IS_BOSS())
+		//	printf("[%d] HANDLING SIGNAL\t\tENUM: %d\t\tAGG: %d\n", blockIdx.x, (t == Signal::SignalTag::Enum ? 1 : 0), (t == Signal::SignalTag::Agg ? 1 : 0));
 		switch(t)
 		{
 			case Signal::SignalTag::Enum:
@@ -496,7 +498,7 @@ namespace Mercator  {
 		}
 		__syncthreads();	//Make sure we are done with the current signal . . .
 		if(IS_BOSS()) {
-			printf("[%d] SIGNAL RELEASED\n", blockIdx.x);
+			//printf("[%d] SIGNAL RELEASED\n", blockIdx.x);
 			signalQueue.release(1);	//Release the one signal we just processed.
 		}
 		__syncthreads();	//Make sure everyone sees the updated signal queue . . .

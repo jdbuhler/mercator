@@ -164,7 +164,9 @@ namespace Mercator  {
 		    }
 		numTotalToWrite += numToWrite;
 		}
-		this->currentCreditCounter -= numToWrite;
+		if(IS_BOSS()) {
+			this->currentCreditCounter -= numToWrite;
+		}
 
 		__syncthreads();
 

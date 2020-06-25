@@ -347,12 +347,11 @@ namespace Mercator  {
 		{
 			COUNT_ITEMS(1);
 			queue.release(1);
-		}
-
-		//if had credit, subtract 1
-		if(this->numSignalsPending() > 0)
-		{
-			this->currentCreditCounter -= 1;
+			//if had credit, subtract 1
+			if(this->numSignalsPending() > 0)
+			{
+				this->currentCreditCounter -= 1;
+			}
 		}
 
 		//Reset dataCount and currentCount to 0

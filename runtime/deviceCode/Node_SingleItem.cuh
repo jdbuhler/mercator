@@ -149,8 +149,8 @@ namespace Mercator  {
       //while(nTotalConsumed < nTotalToConsume && mynDSActive == 0 && !dsSignalFull)
       while(nTotalConsumed < nTotalToConsume && mynDSActive == 0 && !dsSignalFull)
 	{
-		if(IS_BOSS())
-			printf("[%d] FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter);
+		//if(IS_BOSS())
+		//	printf("[%d] FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter);
 	      //assert(this->currentCreditCounter >= 0);
 	      //assert(this->currentCreditCounter <= queue.getOccupancy());
 
@@ -169,12 +169,15 @@ namespace Mercator  {
 	      }
 
 	      //nTotalToConsume += nToConsume;
+		__syncthreads();
 
 	      while (nConsumed < nToConsume && mynDSActive == 0)
 		{
 		  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
 		  
 		  NODE_OCC_COUNT(nItems);
+
+		  __syncthreads();
 		  
 		  const T &myData = 
 		    (tid < nItems
@@ -190,6 +193,7 @@ namespace Mercator  {
 		    {
 		      n->run(myData);
 		    }
+		  __syncthreads();
 		  nConsumed += nItems;
 		  
 		  TIMER_STOP(run);
@@ -213,7 +217,13 @@ namespace Mercator  {
 		__syncthreads();
 
 		if(this->numSignalsPending() > 0) {
-			this->currentCreditCounter -= nConsumed;
+		//if(IS_BOSS())
+		//	printf("[%d] POST FIRING PRE CREDIT DECREMENT\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
+
+			__syncthreads();
+			if(IS_BOSS()) {
+				this->currentCreditCounter -= nConsumed;
+			}
 
 			//Syncthreads before entering the signal handeler, need to make sure that every
 			//thread knows the current consumed totals.
@@ -225,8 +235,8 @@ namespace Mercator  {
 		}
 
 		__syncthreads();
-		if(IS_BOSS())
-			printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter);
+		//if(IS_BOSS())
+		//	printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
 	}
 	__syncthreads();
 
