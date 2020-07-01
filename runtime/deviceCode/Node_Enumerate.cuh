@@ -290,7 +290,8 @@ namespace Mercator  {
 	  __syncthreads();
 
 	  //Add the number of items we just sent downstream to the current counter
-	  currentCount += nItems;
+	  if(IS_BOSS())
+	 	 currentCount += nItems;
 
 	  __syncthreads();
 
@@ -355,8 +356,11 @@ namespace Mercator  {
 		}
 
 		//Reset dataCount and currentCount to 0
-		dataCount = 0;
-		currentCount = 0;
+		if(IS_BOSS())
+		{
+			dataCount = 0;
+			currentCount = 0;
+		}
 	}
 
 	__syncthreads();

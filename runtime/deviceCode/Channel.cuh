@@ -183,7 +183,11 @@ namespace Mercator  {
 	}
       __syncthreads(); // all threads must see updates to dsBase
 
-      numItemsProduced += agg;	//Add to the number of items produced since last signal
+      if(IS_BOSS()) {
+        numItemsProduced += agg;	//Add to the number of items produced since last signal
+      }
+
+      __syncthreads();
       
       // for each thread group, copy all generated outputs downstream
       if (tid < numThreadGroups)
@@ -205,7 +209,7 @@ namespace Mercator  {
 	//if(IS_BOSS()) {
 	//	printf("numItemsProduced = %d\n", numItemsProduced);
 	//}
-	__syncthreads();
+	//__syncthreads();
       
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
@@ -221,7 +225,9 @@ namespace Mercator  {
 	  return true;
 	}
       else
-	return false;
+	{
+	  return false;
+	}
     }
 
     

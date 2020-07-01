@@ -133,9 +133,9 @@ namespace Mercator  {
       // Set further downstream depending on whether or not we have signals
       //unsigned int nTotalToConsume = queue.getOccupancy();
       unsigned int nTotalToConsume = queue.getOccupancy();
-      if(!isFlushing) {
-	nTotalToConsume = (nTotalToConsume / maxRunSize) * maxRunSize;
-      }
+      //if(!isFlushing) {
+	//nTotalToConsume = (nTotalToConsume / maxRunSize) * maxRunSize;
+      //}
 
       unsigned int mynDSActive = 0;
 
@@ -150,7 +150,7 @@ namespace Mercator  {
       while(nTotalConsumed < nTotalToConsume && mynDSActive == 0 && !dsSignalFull)
 	{
 		//if(IS_BOSS())
-		//	printf("[%d] FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter);
+		//	printf("[%d] FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending());
 	      //assert(this->currentCreditCounter >= 0);
 	      //assert(this->currentCreditCounter <= queue.getOccupancy());
 
@@ -170,6 +170,8 @@ namespace Mercator  {
 
 	      //nTotalToConsume += nToConsume;
 		__syncthreads();
+		if(IS_BOSS())
+			printf("[%d] FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\t\tnToConsume: %d\t\tnConsumed: %d\t\tisFlushing: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending(), nToConsume, nConsumed, (isFlushing ? 1 : 0));
 
 	      while (nConsumed < nToConsume && mynDSActive == 0)
 		{
@@ -217,8 +219,10 @@ namespace Mercator  {
 		__syncthreads();
 
 		if(this->numSignalsPending() > 0) {
-		//if(IS_BOSS())
-		//	printf("[%d] POST FIRING PRE CREDIT DECREMENT\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
+		if(IS_BOSS())
+			//printf("[%d] POST FIRING PRE CREDIT DECREMENT\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
+			//printf("[%d] POST FIRING PRE CREDIT DECREMENT\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\t\tnToConsume: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending(), nToConsume, nConsumed);
+			printf("[%d] POST FIRING PRE CREDIT DECREMENT\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\t\tnToConsume: %d\t\tnConsumed: %d\t\tisFlushing: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending(), nToConsume, nConsumed, (isFlushing ? 1 : 0));
 
 			__syncthreads();
 			if(IS_BOSS()) {
@@ -235,143 +239,12 @@ namespace Mercator  {
 		}
 
 		__syncthreads();
-		//if(IS_BOSS())
-		//	printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
+		if(IS_BOSS())
+			printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\t\tnToConsume: %d\t\tnConsumed: %d\t\tisFlushing: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending(), nToConsume, nConsumed, (isFlushing ? 1 : 0));
+			//printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tsignalCount: %d\t\tnToConsume: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, this->numSignalsPending(), nToConsume, nConsumed);
+			//printf("[%d] POST FIRING SINGLE\t\tnTotalConsumed: %d\t\tnTotalToConsume: %d\t\tcurrentCredit: %d\t\tnConsumed: %d\n", blockIdx.x, nTotalConsumed, nTotalToConsume, this->currentCreditCounter, nConsumed);
 	}
 	__syncthreads();
-
-/*
-	//Perform SAFIrE scheduling while we have signals.
-      while (this->numSignalsPending() > 0 && !dsSignalFull && mynDSActive == 0)
-	{
-	      Signal s = this->signalQueue.getElt(0);
-	      unsigned int c = this->currentCreditCounter;
-	      Queue<Signal>& sq = this->signalQueue;
-	      unsigned int oc = queue.getOccupancy();
-	      assert(this->currentCreditCounter >= 0);
-	      assert(this->currentCreditCounter <= queue.getOccupancy());
-
-	      // # of items already consumed from queue
-	      nConsumed = 0;
-	      nToConsume = this->currentCreditCounter;
-
-	      //Can ignore flushing here, since we need to get to signal boundary.
-
-	      nTotalToConsume += nToConsume;
-
-	      while (nConsumed < nToConsume && mynDSActive == 0)
-		{
-		  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
-		  
-		  NODE_OCC_COUNT(nItems);
-		  
-		  const T &myData = 
-		    (tid < nItems
-		     //? queue.getElt(nConsumed + tid)
-		     ? queue.getElt(nTotalConsumed + nConsumed + tid)
-		     : queue.getDummy()); // don't create a null reference
-		  
-		  TIMER_STOP(input);
-		  
-		  TIMER_START(run);
-	
-		  if (runWithAllThreads || tid < nItems)
-		    {
-		      n->run(myData);
-		    }
-		  nConsumed += nItems;
-		  
-		  TIMER_STOP(run);
-		  
-		  TIMER_START(output);
-		  
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
-		    }
-		  
-		  TIMER_STOP(output);
-		  
-		  TIMER_START(input);
-		}
-
-		//Syncthreads so we have the correct nConsumed listed here
-		__syncthreads();
-		nTotalConsumed += nConsumed;	//nConsumed Should be the same as nToConsume here
-		this->currentCreditCounter -= nConsumed;
-
-		//Syncthreads before entering the signal handeler, need to make sure that every
-		//thread knows the current consumed totals.
-		__syncthreads();
-
-		dsSignalFull = this->signalHandler();
-
-		__syncthreads();
-	}
-
-      //Use normal AFIE nConsumed and nToConsume values after signals are all handled.
-      __syncthreads();
-      nToConsume = queue.getOccupancy()- nTotalConsumed;
-
-      nConsumed = 0;
-
-      __syncthreads();
-
-      // unless we are flushing, round # to consume down to a multiple
-      // of ensemble width.
-      if (!isFlushing)
-	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
-
-      __syncthreads();
-
-      nTotalToConsume += nToConsume;
-
-      __syncthreads();
-
-	//Resume normal AFIE scheduling once we have no signals remaining.
-      while (nConsumed < nToConsume && mynDSActive == 0 && !dsSignalFull)
-	{
-	      while (nConsumed < nToConsume && mynDSActive == 0)
-		{
-		  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
-		  
-		  NODE_OCC_COUNT(nItems);
-		  
-		  const T &myData = 
-		    (tid < nItems
-		     ? queue.getElt(nTotalConsumed + nConsumed + tid)
-		     : queue.getDummy()); // don't create a null reference
-		  
-		  TIMER_STOP(input);
-		  
-		  TIMER_START(run);
-	
-		  if (runWithAllThreads || tid < nItems)
-		    {
-		      n->run(myData);
-		    }
-		  nConsumed += nItems;
-		  
-		  TIMER_STOP(run);
-		  
-		  TIMER_START(output);
-		  
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      // check whether each channel's downstream node was activated
-		      mynDSActive += getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
-		    }
-		  
-		  TIMER_STOP(output);
-		  
-		  TIMER_START(input);
-		}
-	}
-	__syncthreads();
-        nTotalConsumed += nConsumed;
-	__syncthreads();
-*/
 
 	//Release items as normal.
       if (IS_BOSS())
@@ -390,7 +263,7 @@ namespace Mercator  {
 		}
 	  }
 
-	  if (nTotalConsumed >= nTotalToConsume)
+	  if (nTotalConsumed == nTotalToConsume)
 	    {
 	      // less than a full ensemble remains, or 0 if flushing
 	      this->deactivate(); 

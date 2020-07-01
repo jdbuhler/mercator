@@ -455,6 +455,7 @@ namespace Mercator  {
 						}
 					}
 				}
+				__syncthreads();
 				break;
 			}
 
@@ -487,6 +488,7 @@ namespace Mercator  {
 						}
 					}
 				}
+				__syncthreads();
 				break;
 			}
 
@@ -494,7 +496,6 @@ namespace Mercator  {
 			{
 				assert(false && "Signal without tag found, aborting. . .");
 			}
-			__syncthreads();
 		}
 		__syncthreads();	//Make sure we are done with the current signal . . .
 		if(IS_BOSS()) {
@@ -505,7 +506,7 @@ namespace Mercator  {
 
 		hasSignal = false;	//Cannot get here unless we processed a signal.
 	}
-	__syncthreads();	//Make sure everyone got to the end of signal handling . . .
+	//__syncthreads();	//Make sure everyone got to the end of signal handling . . .
 	return false;		//No more signals to process, can break here, no activation requirements set by signal handling
     }
 
