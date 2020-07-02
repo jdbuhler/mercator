@@ -185,43 +185,6 @@ namespace Mercator  {
       
       return data[myIdx]; 
     }
-
-    //
-    // @brief read an element from a queue location, specified as
-    //        an offset relative to the queue's head
-    //        
-    // May be called multithreaded; does NOT release space
-    //
-    // @return value read at end of queue (returned as void*)
-    //
-    __device__
-    void* getVoidTail() const
-    {
-      //assert(getOccupancy() > offset);
-      
-      unsigned int myIdx = addModulo(head, getOccupancy() - 1, dataSize);
-      
-      return &(data[myIdx]); 
-    }
-
-    //
-    // @brief read an element from a queue location, specified as
-    //        an offset relative to the queue's head
-    //        
-    // May be called multithreaded; does NOT release space
-    //
-    // @return value read at end of queue (returned as void*)
-    //
-    __device__
-    void* getVoidHead() const
-    {
-      //assert(getOccupancy() > offset);
-      
-      unsigned int myIdx = addModulo(head, 0, dataSize);
-      
-      return &(data[myIdx]); 
-    }
-    
     
     //
     // @brief return a reference to an actual item of type T that
@@ -239,12 +202,16 @@ namespace Mercator  {
     // single call.
     //
     __device__
-    void enqueue(const T &v)
+    T &enqueue(const T &v)
     {
       assert(getOccupancy() < getCapacity());
       
       data[tail] = v;
+      
+      unsigned int oldTail = tail;
       tail = addModulo(tail, 1, dataSize);
+      
+      return data[oldTail];
     }
 
     //

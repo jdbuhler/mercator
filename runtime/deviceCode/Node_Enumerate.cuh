@@ -96,9 +96,11 @@ namespace Mercator  {
     unsigned int currentCount;		// # of data items needed to be enumerated from the node
     
     unsigned int refCount;		// # of aggregate nodes that must be reached before freeing a parent, NOT YET IMPLEMENTED, DEFAULT IS 1
-
+    
     Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
     Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
+    
+    unsigned int *currRefCount;
     
     //
     // @brief find the number of data items that need to be enumerated
@@ -141,7 +143,7 @@ namespace Mercator  {
       unsigned int tid = threadIdx.x;
       Queue<T> &queue = this->queue; 
       unsigned int mynDSActive = 0;
-
+      
       do
 	{
 	  ////////////////////////////////////////////
@@ -225,65 +227,58 @@ namespace Mercator  {
 	  //Short circut here if there are not inputs to the node.
 	  //This is the case when a block has NO INPUTS and is trying
 	  //to propagate the flushing mode.
-	  if(queue.getOccupancy() == 0)
+	  if (queue.empty())
 	    break;
 	  
 	  ////////////////////////////////////////////
 	  // EMIT ENUMERATE SIGNAL IF NEEDED
 	  ////////////////////////////////////////////
-	  
-	  //Need to NOT look at element here unconditionally, will be
-	  //garbage value if there is no data in the queue
-	  if (dataCount == 0) 
+
+	  // If we've consumed all the data from the current elt
+	  if (dataCount == currentCount) 
 	    { 
-	      //Get a new parent object from the data queue
+	      // Get a new parent object from the data queue
 	      if (IS_BOSS())
 		{
-		  unsigned int parentBase = parentBuffer.reserve(1);
-		  unsigned int refBase = refCounts.reserve(1);
-		  unsigned int offset = 0;
+		  T *currParent = &parentBuffer.enqueue(queue.dequeue());
+		  currRefCount  = &refCounts.enqueue(refCount);
+
+		  setCurrentParent(currParent);
 		  
-		  const T &elt = queue.getElt(offset);
-		  const unsigned int &refelt = refCount;
-		  
-		  parentBuffer.putElt(parentBase, offset, elt);
-		  refCounts.putElt(refBase, offset, refelt);
-		
-		  void *s = parentBuffer.getVoidTail();
-		  setCurrentParent(s);
-		
 		  dataCount = this->findCount();
 		  currentCount = 0;
-
+		  
 		  //Emit Enumerate Signal
-
+		  
 		  //Create new Enum signal to send downstream
 		  Signal s_new;
 		  s_new.setTag(Signal::SignalTag::Enum);	
-		  s_new.setParent(parentBuffer.getVoidTail());
-		
-		  //Set the new parent for the node
-		  setCurrentParent(queue.getVoidTail());
-
+		  s_new.setParent(currParent);
+		  
 		  using Channel = typename BaseType::Channel<void*>;
-	
+		  
 		  //Reserve space downstream for the new signal
-		  for(unsigned int c = 0; c < numChannels; ++c)
+		  for (unsigned int c = 0; c < numChannels; ++c)
 		    {
 		      Channel *channel = static_cast<Channel*>(getChannel(c));
-	
+		      
 		      //If the channel is NOT an aggregate channel, send
 		      //the new signal downstream
-		      if(!channel->isAggregate())
+		      if (!channel->isAggregate())
 			pushSignal(s_new, channel);
 		    }
+		  
+		  // record that we consumed one item from input queue
+		  COUNT_ITEMS(1);
+		  if (this->numSignalsPending() > 0)
+		    this->currentCreditCounter -= 1;		  
 		}
 	    }
-
+	  
 	  __syncthreads();
       
 	  unsigned int nConsumed = 0;
-
+	  
 	  while (mynDSActive == 0 && dataCount != currentCount)
 	    {
 	      assert(currentCount < dataCount);
@@ -342,7 +337,7 @@ namespace Mercator  {
 		  //Create new Agg signal to send downstream
 		  Signal s_new;
 		  s_new.setTag(Signal::SignalTag::Agg);	
-		  s_new.setRefCount((unsigned int *) refCounts.getVoidTail());
+		  s_new.setRefCount(currRefCount);
 		  
 		  using Channel = typename BaseType::Channel<void*>;
 	
@@ -353,7 +348,7 @@ namespace Mercator  {
 
 		      //If the channel is NOT an aggregate channel,
 		      //send the new signal downstream
-		      if (!(channel->isAggregate()))
+		      if (!channel->isAggregate())
 			{
 			  pushSignal(s_new, channel);
 			}
@@ -361,27 +356,9 @@ namespace Mercator  {
 			{
 			  //Subtract from the current node's
 			  //enumeration region ID's reference count
-			  s_new.getRefCount()[0] -= 1;
+			  (*s_new.getRefCount())--;
 			}
 		    }
-		}
-	      
-	      //release 1 data item from queue
-	      if (IS_BOSS())
-		{
-		  COUNT_ITEMS(1);
-		  queue.release(1);
-		  
-		  //if had credit, subtract 1
-		  if (this->numSignalsPending() > 0)
-		    this->currentCreditCounter -= 1;
-		}
-
-	      //Reset dataCount and currentCount to 0
-	      if (IS_BOSS())
-		{
-		  dataCount = 0;
-		  currentCount = 0;
 		}
 	    }
 	  
