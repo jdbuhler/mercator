@@ -43,13 +43,14 @@ namespace Mercator  {
       : workQueue(numNodes),
 	localFlushSize(numNodes + 1)
     {
-	localFlush = new bool [numNodes + 1];
-	//stimcheck: TODO need to get the number of enumIds set here, not numNodes
-	//just using numNodes instead for now since enumIds is strictly less than
-	//numNodes + 1.  The 0th position is the default flag, and is never modified.
-	for(unsigned int i = 0; i < numNodes + 1; ++i) {
-		localFlush[i] = false;
-	}
+      localFlush = new bool [localFlushSize];
+      
+      //stimcheck: TODO need to get the number of enumIds set here,
+      //not numNodes just using numNodes instead for now since enumIds
+      //is strictly less than numNodes + 1.  The 0th position is the
+      //default flag, and is never modified.
+      for (unsigned int i = 0; i < localFlushSize; ++i)
+	localFlush[i] = false;
     }
     
     //
@@ -57,7 +58,8 @@ namespace Mercator  {
     // called single-threaded from cleanup kernel
     //
     __device__
-    ~Scheduler() {}
+    ~Scheduler() 
+    { delete [] localFlush; }
     
     //
     // @brief run the MERCATOR application to consume all input
@@ -87,20 +89,21 @@ namespace Mercator  {
 	  
 	  NODE_TIMER_STOP(scheduler);
 
-	  //if(nextNode) { //stimcheck: No idea why this has to be here, but otherwise we get an illegal address access
-	  	if(nextNode->getWriteThruId() > 0) {
-		    assert(nextNode->getWriteThruId() < localFlushSize);
-		    if(!(localFlush[nextNode->getWriteThruId()])) {
-			//remove local write thru id and DO NOT fire node
-			nextNode->setWriteThruId(0);
-			//deactivate?
-		    }
-		  }
-		  else {
-		  	nextNode->fire();
-		  }
-	  //}
-
+	  if (nextNode->getWriteThruId() > 0) 
+	    {
+	      assert(nextNode->getWriteThruId() < localFlushSize);
+	      if (!(localFlush[nextNode->getWriteThruId()])) 
+		{
+		  //remove local write thru id and DO NOT fire node
+		  nextNode->setWriteThruId(0);
+		  //deactivate?
+		}
+	    }
+	  else 
+	    {
+	      nextNode->fire();
+	    }
+	  
 	  __syncthreads();
 	  
 	  NODE_TIMER_START(scheduler);
