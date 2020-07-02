@@ -52,7 +52,7 @@ public:
   bool VisitVarDecl(VarDecl *var) 
   {
     // Check for VarDecls in the top (main) file ONLY
-    if (astContext->getSourceManager().isInMainFile(var->getLocStart())) 
+    if (astContext->getSourceManager().isInMainFile(var->getBeginLoc())) 
       {
 	// For each variable that we created for type-checking purposes,
 	// map its typename *as it appears in the specfile* to
