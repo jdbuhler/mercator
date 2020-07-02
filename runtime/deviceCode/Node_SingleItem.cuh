@@ -252,7 +252,7 @@ namespace Mercator  {
 	      if (isFlushing)
 		{
 		  // no more inputs to read -- force downstream nodes
-		  // into flushing mode and activte them (if not
+		  // into flushing mode and activate them (if not
 		  // already active).  Even if they have no input,
 		  // they must fire once to propagate flush mode and
 		  // activate *their* downstream nodes.
