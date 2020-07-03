@@ -60,6 +60,7 @@ namespace Mercator  {
     virtual
     unsigned int dsSignalCapacity() const = 0;
         
+
     //
     // @brief After a call to run(), move node's output
     // from its temporary buffer to its downstream queue.
@@ -68,49 +69,25 @@ namespace Mercator  {
     __device__
     virtual
     bool moveOutputToDSQueue(unsigned int wtid) = 0;
-
-    //
-    //
-    //
+    
     __device__
     virtual
-    unsigned int getNumItemsProduced() const = 0;
-
-    //
-    //
-    //
-    __device__
-    virtual
-    void resetNumItemsProduced() = 0;
-
+    void pushSignal(const Signal &s) = 0;
+    
     //
     //
     //
     __device__
     virtual
     bool isAggregate() const = 0;
-
+    
     //
     //
     //
     __device__
     virtual
     void setAggregate() = 0;
-
-    //
-    //
-    //
-    __device__
-    virtual
-    bool dsSignalQueueHasPending() const = 0;
-
-    //
-    //
-    //
-    __device__
-    virtual
-    unsigned int dsPendingOccupancy() const = 0;
-
+    
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel
     ItemCounter itemCounter;

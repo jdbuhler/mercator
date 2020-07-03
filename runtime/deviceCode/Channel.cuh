@@ -96,9 +96,11 @@ namespace Mercator  {
     // @param idsNode downstream node
     //
     __device__
-      void setDSEdge(NodeBase *idsNode, Queue<T> *idsQueue,
-		     unsigned int ireservedSlots,
-		     Queue<Signal> *idsSignalQueue)
+      void setDSEdge(NodeBase *idsNode, 
+		     Queue<T> *idsQueue,
+		     Queue<Signal> *idsSignalQueue,
+		     unsigned int ireservedSlots)
+
     {
       dsNode = idsNode;
       dsQueue = idsQueue;
@@ -175,19 +177,13 @@ namespace Mercator  {
       __shared__ unsigned int dsBase;
       if ( IS_BOSS() )
 	{
-#ifdef PRINTDBG
-	  printf("%u:\tWrote %u down stream\n", blockIdx.x, agg);
-#endif
 	  COUNT_ITEMS(agg);  // instrumentation
 	  dsBase = directReserve(agg);
+	    
+	  // track produced items for cedit calculation
+	  numItemsProduced += agg;
 	}
       __syncthreads(); // all threads must see updates to dsBase
-
-      if(IS_BOSS()) {
-        numItemsProduced += agg;	//Add to the number of items produced since last signal
-      }
-
-      __syncthreads();
       
       // for each thread group, copy all generated outputs downstream
       if (tid < numThreadGroups)
@@ -203,24 +199,19 @@ namespace Mercator  {
 	  // clear nextSlot for this thread group
 	  nextSlot[tid] = 0;
 	}
-
-	//DEBUG
-	//__syncthreads();
-	//if(IS_BOSS()) {
-	//	printf("numItemsProduced = %d\n", numItemsProduced);
-	//}
-	//__syncthreads();
       
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
       //
       if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
 	{
-	  if (IS_BOSS()) {
-	    dsNode->activate();
-	    //stimcheck: In addition to activating, pass the writeThruId
-	    dsNode->setWriteThruId(wtid);
-	  }
+	  if (IS_BOSS()) 
+	    {
+	      dsNode->activate();
+	      
+	      //stimcheck: In addition to activating, pass the writeThruId
+	      dsNode->setWriteThruId(wtid);
+	    }
 	  
 	  return true;
 	}
@@ -229,7 +220,7 @@ namespace Mercator  {
 	  return false;
 	}
     }
-
+    
     
     //
     // @brief prepare for a direct write to the downstream queue(s)
@@ -260,93 +251,48 @@ namespace Mercator  {
       dsQueue->putElt(base, offset, item);
     }
 
+
     //
-    // @brief prepare for a direct write to the downstream signal queue(s)
-    // by reserving space for the signal to write.
+    // @brief push a signal to a specified channel, and reset the number
+    // of items produced on that channel. This function is SINGLE THREADED.
     //
-    // @param number of slots to reserve for next write
-    // @return starting index of reserved segment.
+    // @param s the signal being sent downstream
+    // @param channel the channel on which the signal is being sent
     //
     __device__
-      unsigned int directSignalReserve(unsigned int nToWrite) const
+    void pushSignal(const Signal& s)
     {
-      return dsSignalQueue->reserve(nToWrite);
+      assert(dsSignalQueue->getFreeSpace() > 0);
+      
+      unsigned int credit = 
+	(dsSignalQueue->empty()
+	 ? dsSignalQueue->getOccupancy()
+	 : numItemsProduced);
+      
+      Signal &sNew = dsSignalQueue->enqueue(s);
+      sNew.setCredit(credit);
+      
+      numItemsProduced = 0;
     }
     
-    
-    //
-    // @brief Write signals directly to the downstream queue.
-    //
-    // @param sig signal to be written
-    // @param base base pointer to writable block in queue
-    // @param offset offset at which to write item
-    //
-    __device__
-      void directSignalWrite(const Signal &sig, 
-		             unsigned int base,
-		             unsigned int offset) const
-    {
-      dsSignalQueue->putElt(base, offset, sig);
-    }
-
-    //
-    //
-    //
-    __device__
-    unsigned int getNumItemsProduced() const
-    {
-	return numItemsProduced;
-    }
-
-    //
-    //
-    //
-    __device__
-    void resetNumItemsProduced()
-    {
-	numItemsProduced = 0;
-    }
-
     //
     //
     //
     __device__
     bool isAggregate() const
     {
-	return (propFlags & 0x01 ? true : false);
-    }
-
-    //
-    //
-    //
-    __device__
-    void setAggregate()
-    {
-	propFlags |= 0x01;
-    }
-
-    //
-    //
-    //
-    __device__
-    bool dsSignalQueueHasPending() const
-    {
-	//if(dsSignalQueue == nullptr)
-	//	return false;
-	if(dsSignalQueue->getOccupancy() > 0)
-		return true;
-	return false;
+      return (propFlags & 0x01);
     }
     
     //
     //
     //
     __device__
-    unsigned int dsPendingOccupancy() const
+    void setAggregate()
     {
-	return dsQueue->getOccupancy();
+      propFlags |= 0x01;
     }
-
+    
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
@@ -373,6 +319,7 @@ namespace Mercator  {
     Queue<T> *dsQueue;
     Queue<Signal> *dsSignalQueue;
     NodeBase *dsNode;
+    
     unsigned int reservedQueueEntries; // NB: will be used for cycles
 
     unsigned int propFlags;	//Signal propagation flags for this channel

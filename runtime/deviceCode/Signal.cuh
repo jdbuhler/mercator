@@ -4,38 +4,30 @@
 class Signal {
 private:
 public:
-  enum SignalTag {Enum, Agg};
+  enum SignalTag {Invalid, Enum, Agg};
 
 private:
-  int credit;
+  
+  SignalTag tag;
   
   void* parent;
   unsigned int* refCount;
-  SignalTag tag;
+  
+  int credit;
   
 public:
-  __device__ 
-  Signal() 
-    : credit(0) 
-  { }
-  
-  __device__ ~Signal() 
+  __device__
+  Signal()
+    : tag(Invalid)
   { }
   
   __device__ 
-  void setCredit(int c) 
-  { credit = c; }
+  Signal(SignalTag itag) 
+    : tag(itag), credit(0) 
+  { }
   
-  __device__ 
-  int getCredit() const 
-  { return credit; }
-  
-  __device__ 
-  void setTag(SignalTag t) 
-  { tag = t; }
-  
-  __device__ 
-  SignalTag getTag() const 
+  __device__
+  SignalTag getTag() const
   { return tag; }
   
   __device__ 
@@ -53,6 +45,15 @@ public:
   __device__ 
   unsigned int* getRefCount() const
   { return refCount; }
+  
+  __device__ 
+  void setCredit(int c) 
+  { credit = c; }
+  
+  __device__ 
+  int getCredit() const 
+  { return credit; }
+  
 };
 
 #endif

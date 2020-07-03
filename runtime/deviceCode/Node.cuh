@@ -205,8 +205,11 @@ namespace Mercator  {
       Channel<typename DSP::T> *channel = 
 	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
 
-      dsNode->setParent(this);
-      channel->setDSEdge(dsNode, dsNode->getQueue(), reservedSlots, dsNode->getSignalQueue());
+      dsNode->setParentNode(this);
+      channel->setDSEdge(dsNode, 
+			 dsNode->getQueue(), 
+			 dsNode->getSignalQueue(),
+			 reservedSlots);
     }
 
 
@@ -235,7 +238,7 @@ namespace Mercator  {
     // @param iparent parent node
     ///
     __device__
-    void setParent(NodeBase *iparent)
+    void setParentNode(NodeBase *iparent)
     { 
       parent = iparent;
     }
@@ -365,184 +368,115 @@ namespace Mercator  {
     __device__
     bool signalHandler()
     {
-	while(this->numSignalsPending() > 0)
+      Queue<Signal> &signalQueue = this->signalQueue;
+      
+      while (!signalQueue.empty() && currentCreditCounter == 0)
 	{
-		/////////////////////////////
-		// FULL SIGNAL QUEUE CHECK
-		/////////////////////////////
-		bool hasFullDSSignalQueue = false;
-		for(unsigned int c = 0; c < numChannels; ++c)
+	  /////////////////////////////
+	  // FULL DS SIGNAL QUEUE CHECK
+	  /////////////////////////////
+	  
+	  __shared__ bool hasFullDSSignalQueue;
+	  if (IS_BOSS())
+	    {
+	      hasFullDSSignalQueue = false;
+	      for (unsigned int c = 0; c < numChannels; ++c)
 		{
-			//Downstream signal queue is full, return true to indicate as such,
-			//and activate the respective downstream nodes.
-			if(getChannel(c)->dsSignalCapacity() <= 2)
-			{
-				if(IS_BOSS())
-					getChannel(c)->getDSNode()->activate();
-				hasFullDSSignalQueue = true;
-			}
+		  // Downstream signal queue is full, return true to
+		  // indicate as such, and activate the respective
+		  // downstream nodes.
+		  if (getChannel(c)->dsSignalCapacity() <= 2)
+		    {
+		      getChannel(c)->getDSNode()->activate();
+		      hasFullDSSignalQueue = true;
+		    }
 		}
-
+	    }
+	  __syncthreads();
+	  
+	  if (hasFullDSSignalQueue) // cannot process any more signals
+	    return true;
+	  
+	  /////////////////////////////
+	  // SIGNAL HANDLING SWITCH
+	  /////////////////////////////
+	  
+	  const Signal &s = signalQueue.getElt(0);
+	  
+	  switch (s.getTag())
+	    {
+	    case Signal::Enum:
+	      {
+		//Call the begin stub of this node
+		this->begin();
 		__syncthreads();
 		
-		//Short circut here when we have a full signal queue.
-		if(hasFullDSSignalQueue)
-		{
-			return true;
-		}
-
+		if (IS_BOSS())
+		  {
+		    setCurrentParent(s.getParent());
+		    
+		    //Reserve space downstream for the new signal
+		    for (unsigned int c = 0; c < numChannels; ++c)
+		      {
+			ChannelBase *channel = getChannel(c);
+			
+			// If the channel is NOT an aggregate channel,
+			// send the new signal downstream
+			if (!channel->isAggregate())
+			  channel->pushSignal(s);
+		      }
+		  }
+		break;
+	      }
+	      
+	    case Signal::Agg:
+	      {
+		//Call the end stub of this node
+		this->end();
 		__syncthreads();
-
-		/////////////////////////////
-		// CREDIT ASSIGNMENT & CHECK
-		/////////////////////////////
-		Queue<Signal> &signalQueue = this->signalQueue;
-
-		const Signal& s = signalQueue.getElt(0);	//0th element is always the head of signal queue
-		if(IS_BOSS()) {
-			if(!hasSignal)
-			{
-				//if(IS_BOSS())
-				//	printf("[%d] GOT CREDIT %d\n", blockIdx.x, s.getCredit());
-				currentCreditCounter = s.getCredit();
-				hasSignal = true;
-			}
-		}
-
-		__syncthreads();
-
-		if(hasSignal && currentCreditCounter > 0)
-		{
-			//if(IS_BOSS())
-			//	printf("[%d] HAS SIGNAL AND CREDIT EXISTS, EXITING SIGNAL HANDLER. . .\n", blockIdx.x);
-			//Nothing to do here, we still have credit available
-			return false;
-		}
-
-		__syncthreads();
-
-		/////////////////////////////
-		// SIGNAL HANDLING SWITCH
-		/////////////////////////////
-		const Signal::SignalTag t = s.getTag();
-
-		//if(IS_BOSS())
-		//	printf("[%d] HANDLING SIGNAL\t\tENUM: %d\t\tAGG: %d\n", blockIdx.x, (t == Signal::SignalTag::Enum ? 1 : 0), (t == Signal::SignalTag::Agg ? 1 : 0));
-		switch(t)
-		{
-			case Signal::SignalTag::Enum:
-			{
-				//Call the begin stub of this node
-				this->begin();
-
-				if(IS_BOSS())
-				{
-					//Create new Enum signal to send downstream
-					Signal s_new;
-					s_new.setTag(Signal::SignalTag::Enum);
-					s_new.setParent(s.getParent());	//Set the parent for the new signal
-					setCurrentParent(s.getParent());	//Set the new parent for the node
-	
-					//Reserve space downstream for the new signal
-					for(unsigned int c = 0; c < numChannels; ++c)
-					{
-						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
-	
-						//If the channel is NOT an aggregate channel, send the new signal downstream
-						if(!(channel->isAggregate()))
-						{
-							pushSignal(s_new, channel);
-						}
-					}
-				}
-				__syncthreads();
-				break;
-			}
-
-			case Signal::SignalTag::Agg:
-			{
-				//Call the end stub of this node
-				this->end();
-
-				if(IS_BOSS())
-				{
-					//Create new Agg signal to send downstream
-					Signal s_new;
-					s_new.setTag(Signal::SignalTag::Agg);
-					s_new.setRefCount(s.getRefCount());	//Set the parent's ref count for the new signal
-	
-					//Reserve space downstream for the new signal
-					for(unsigned int c = 0; c < numChannels; ++c)
-					{
-						Channel<void*> *channel = static_cast<Channel<void*> *>(getChannel(c));
-	
-						//If the channel is NOT an aggregate channel, send the new signal downstream
-						if(!(channel->isAggregate()))
-						{
-							pushSignal(s_new, channel);
-						}
-						else
-						{
-							//Subtract from the current node's enumeration region ID's reference count
-							s.getRefCount()[0] -= 1;
-						}
-					}
-				}
-				__syncthreads();
-				break;
-			}
-
-			default:
-			{
-				assert(false && "Signal without tag found, aborting. . .");
-			}
-		}
-		__syncthreads();	//Make sure we are done with the current signal . . .
-		if(IS_BOSS()) {
-			//printf("[%d] SIGNAL RELEASED\n", blockIdx.x);
-			signalQueue.release(1);	//Release the one signal we just processed.
-		}
-		__syncthreads();	//Make sure everyone sees the updated signal queue . . .
-
-		hasSignal = false;	//Cannot get here unless we processed a signal.
+		
+		if (IS_BOSS())
+		  {
+		    //Reserve space downstream for the new signal
+		    for(unsigned int c = 0; c < numChannels; ++c)
+		      {
+			ChannelBase *channel = getChannel(c);
+			
+			if(!channel->isAggregate())
+			  channel->pushSignal(s);
+			else
+			  (*s.getRefCount())--;
+		      }
+		  }
+		break;
+	      }
+	      
+	    default:
+	      {
+		assert(false && "Invalid signal type detected");
+	      }
+	    }
+	  
+	  ///////////////////////////////////
+	  // CLEAR SIGNAL AND UPDATE CREDIT
+	  ///////////////////////////////////
+	  
+	  if (IS_BOSS())
+	    {
+	      signalQueue.dequeue();
+	      if (!signalQueue.empty())
+		currentCreditCounter = signalQueue.getElt(0).getCredit();
+	    }
+	  __syncthreads();
 	}
-	//__syncthreads();	//Make sure everyone got to the end of signal handling . . .
-	return false;		//No more signals to process, can break here, no activation requirements set by signal handling
+      
+      return false;
     }
-
-    //
-    // @brief push a signal to a specified channel, and reset the number
-    // of items produced on that channel. This function is SINGLE THREADED.
-    //
-    // @param s the signal being sent downstream
-    // @param channel the channel on which the signal is being sent
-    //
-    __device__
-    void pushSignal(Signal& s,
-	            Channel<void*>* channel) const
-    {
-	assert(channel->dsSignalCapacity() >= 1);
-
-	if(channel->dsSignalQueueHasPending())
-	{
-		s.setCredit(channel->getNumItemsProduced());
-	}
-	else
-	{
-		s.setCredit(channel->dsPendingOccupancy());
-	}
-
-	unsigned int dsSignalBase = channel->directSignalReserve(1);
-
-	channel->directSignalWrite(s, dsSignalBase, 0);
-
-	channel->resetNumItemsProduced();
-    }
-
+    
     ///////////////////////////////////////////////////////////////////
     // OUTPUT CODE FOR INSTRUMENTATION
     ///////////////////////////////////////////////////////////////////
-  
+    
 #ifdef INSTRUMENT_TIME
     //
     // @brief print the contents of the node's timers
@@ -648,7 +582,7 @@ namespace Mercator  {
     bool isFlushing;           // is node in flushing mode?
 
     int currentCreditCounter;  // the current credit available to a node
-    bool hasSignal;  	       // whether or not the current credit is valid (has a signal)
+    
     void* currentParent;       // the current parent object of the current enumeration if applicable
     unsigned int enumId;       // the enumeration region Id of the node, needed for flushing state
 

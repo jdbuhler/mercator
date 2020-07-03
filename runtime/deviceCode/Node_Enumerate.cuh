@@ -57,7 +57,7 @@ namespace Mercator  {
       : BaseType(queueSize, scheduler),
 	dataCount(0),
 	currentCount(0),
-	refCount(1),	//stimcheck: DEFAULT VALUE FOR REF COUNT IS 1
+	nFrontierNodes(1),	// FIXME: get from compiler
 	parentBuffer(queueSize),
 	refCounts(queueSize)
     {}
@@ -69,15 +69,14 @@ namespace Mercator  {
     
     using BaseType::nDSActive;
     using BaseType::isFlushing;
+
+    using BaseType::setCurrentParent;
     
     // make these downwardly available to the user
     using BaseType::getNumActiveThreads;
     using BaseType::getThreadGroupSize;
     using BaseType::isThreadGroupLeader;
 
-    //stimcheck: Add base type for setParent
-    using BaseType::setCurrentParent;
-    
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
     using BaseType::runTimer;
@@ -91,16 +90,30 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     using BaseType::itemCounter;
 #endif
-  
-    unsigned int dataCount;		// # of data items already enumerated from the node
-    unsigned int currentCount;		// # of data items needed to be enumerated from the node
     
-    unsigned int refCount;		// # of aggregate nodes that must be reached before freeing a parent, NOT YET IMPLEMENTED, DEFAULT IS 1
+    // # of nodes in this enumeration region's frontier -- used
+    // for reference-counting signals for region
+    const unsigned int nFrontierNodes;  
     
-    Queue<T> parentBuffer;		// Where parent objects of the enumerate node are stored.  Size is set to the same as data queue currently
-    Queue<unsigned int> refCounts;	// Where the current number of references finished for each parent object is stored.
+    // total number of items in currently enumerating object
+    unsigned int dataCount;
     
+    // number of items so far in currently enumerating object
+    unsigned int currentCount;
+
+    // reference count associated with current parent object -- needed
+    // to generate Agg signal if enumeration takes multiple firings
     unsigned int *currRefCount;
+    
+    
+    // Where parent objects of the enumerate node are stored.  Size is
+    // set to the same as data queue currently
+    Queue<T> parentBuffer;
+    
+    // Where the current number of references finished for each parent
+    // object is stored.
+    Queue<unsigned int> refCounts;
+    
     
     //
     // @brief find the number of data items that need to be enumerated
@@ -141,10 +154,17 @@ namespace Mercator  {
     void fire()
     {
       unsigned int tid = threadIdx.x;
+
       Queue<T> &queue = this->queue; 
+      
+      // # of items available to consume from queue
+      unsigned int nToConsume = queue.getOccupancy();
+      
+      unsigned int nConsumed = 0;
+      
       unsigned int mynDSActive = 0;
       
-      do
+      while (nConsumed < nToConsume && mynDSActive == 0)
 	{
 	  ////////////////////////////////////////////
 	  // FULL PARENT BUFFER CHECK
@@ -155,135 +175,112 @@ namespace Mercator  {
 	      __shared__ bool parentBufferReleased;
 	      if (IS_BOSS())
 		{
+		  printf("%d PARENT FULL\n", blockIdx.x);
+		  
 		  parentBufferReleased = false;
-		  for (unsigned int i = 0; i < parentBuffer.getCapacity(); ++i) 
+		  while (!parentBuffer.empty() && refCounts.getElt(0) != 0)
 		    {
-		      if (refCounts.getElt(i) != 0) 
-			{
-			  if (i > 0) 
-			    {
-			      //Release all parents that were found to have 0
-			      //references remaining.
-			      refCounts.release(i);
-			      parentBuffer.release(i);
-			      parentBufferReleased = true;
-			    }
-			  break;
-			}
+		      parentBuffer.dequeue();
+		      refCounts.dequeue();
+		      parentBufferReleased = true;
 		    }
-	
+		  
 		  //If we did not release from the parent buffer, make
 		  //sure to re-activate ourselves and set the local
 		  //flushing mode for our enumeration region.  Activate
 		  //downstream node(s) if they are not already to
 		  //propagate local flush and eventualy be able to free
 		  //the parent buffer once revisited.
-		  if (!parentBufferReleased) 
+		  if (parentBufferReleased)
+		    this->scheduler->removeLocalFlush(this->getEnumId());
+		  else
 		    {
-		      //Re-enqueue and re-activate ourselves since we
-		      //still have stuff to process
+		      // Re-enqueue and re-activate ourselves since we
+		      // still have stuff to process
 		      this->deactivate();
 		      this->activate();
-		    
+		      
 		      for (unsigned int c = 0; c < numChannels; c++)
 			{
 			  NodeBase *dsNode = getChannel(c)->getDSNode();
-			
-			  //Set the writeThru ID of the downstream nodes
-			  //to that of this node
+			  
+			  // Set the writeThru ID of the downstream nodes
+			  // to that of this node
 			  dsNode->setWriteThruId(this->getEnumId());
-			
-			  //Activate the downstream nodes to pass the
-			  //local flush mode
+			  
+			  // Activate the downstream nodes to pass the
+			  // local flush mode
 			  dsNode->activate();
 			}
-
-		      //Set the local flushing flag for the region in
-		      //the scheduler
+		      
+		      // Set the local flushing flag for the region in
+		      // the scheduler
 		      this->scheduler->setLocalFlush(this->getEnumId());
 		    }
 		}
-	    
-	      //Make sure all threads see whether or not the parent
-	      //buffer is still full.
 	      __syncthreads(); 
-	    
-	      //Short circut ourselves since we don't have any more
-	      //space to put new parents
+	      
+	      // Short circut ourselves since we don't have any more
+	      // space to put new parents
 	      if (!parentBufferReleased)
 		return;
-
-	      __syncthreads();
-	      if (parentBufferReleased) 
-		{
-		  //Remove the local flush flag from the scheduler if we
-		  //have space available in our parent buffer
-		  if (IS_BOSS())
-		    this->scheduler->removeLocalFlush(this->getEnumId());
-		}
-	      __syncthreads();
 	    }
-
-	  //Short circut here if there are not inputs to the node.
-	  //This is the case when a block has NO INPUTS and is trying
-	  //to propagate the flushing mode.
+	  
+	  // Short circut here if there are not inputs to the node.
+	  // This is the case when a block has NO INPUTS and is trying
+	  // to propagate the flushing mode.
 	  if (queue.empty())
 	    break;
 	  
 	  ////////////////////////////////////////////
 	  // EMIT ENUMERATE SIGNAL IF NEEDED
 	  ////////////////////////////////////////////
-
+	  
 	  // If we've consumed all the data from the current elt
-	  if (dataCount == currentCount) 
+	  if (currentCount == dataCount)
 	    { 
+	      __syncthreads();
+	      
 	      // Get a new parent object from the data queue
 	      if (IS_BOSS())
 		{
 		  T *currParent = &parentBuffer.enqueue(queue.dequeue());
-		  currRefCount  = &refCounts.enqueue(refCount);
-
+		  currRefCount  = &refCounts.enqueue(nFrontierNodes);
+		  
 		  setCurrentParent(currParent);
 		  
 		  dataCount = this->findCount();
 		  currentCount = 0;
 		  
-		  //Emit Enumerate Signal
+		  // Emit Enumerate Signal
 		  
-		  //Create new Enum signal to send downstream
-		  Signal s_new;
-		  s_new.setTag(Signal::SignalTag::Enum);	
+		  // Create new Enum signal to send downstream
+		  Signal s_new(Signal::Enum);	
 		  s_new.setParent(currParent);
 		  
-		  using Channel = typename BaseType::Channel<void*>;
-		  
-		  //Reserve space downstream for the new signal
+		  // Reserve space downstream for the new signal
 		  for (unsigned int c = 0; c < numChannels; ++c)
 		    {
-		      Channel *channel = static_cast<Channel*>(getChannel(c));
+		      auto *channel = getChannel(c);
 		      
-		      //If the channel is NOT an aggregate channel, send
-		      //the new signal downstream
+		      // If the channel is NOT an aggregate channel, send
+		      // the new signal downstream
 		      if (!channel->isAggregate())
-			pushSignal(s_new, channel);
+			channel->pushSignal(s_new);
 		    }
 		  
 		  // record that we consumed one item from input queue
 		  COUNT_ITEMS(1);
 		  if (this->numSignalsPending() > 0)
-		    this->currentCreditCounter -= 1;		  
+		    this->currentCreditCounter--;
 		}
 	    }
 	  
 	  __syncthreads();
-      
-	  unsigned int nConsumed = 0;
-	  
-	  while (mynDSActive == 0 && dataCount != currentCount)
+	  	  
+	  while (currentCount < dataCount && mynDSActive == 0)
 	    {
-	      assert(currentCount < dataCount);
 	      unsigned int nItems = min(dataCount - currentCount, maxRunSize);
-	      __syncthreads();
 	      
 	      NODE_OCC_COUNT(nItems);
 	      
@@ -291,22 +288,12 @@ namespace Mercator  {
 	      
 	      TIMER_START(run);
 	      
-	      //No call to run here, just push out the ids up to
-	      //dataCount.
+	      // No call to run here, just push out the ids up to
+	      // dataCount.
 	      if (tid < nItems)
 		{
 		  this->push(currentCount + tid);
 		}
-	      nConsumed += nItems;
-
-	      __syncthreads();
-
-	      //Add the number of items we just sent downstream to the
-	      //current counter
-	      if (IS_BOSS())
-		currentCount += nItems;
-	      
-	      __syncthreads();
 	      
 	      TIMER_STOP(run);
 	      
@@ -320,37 +307,38 @@ namespace Mercator  {
 		    getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
 		}
 	      
-	      __syncthreads();
-	      
 	      TIMER_STOP(output);
 	      
 	      TIMER_START(input);
+	      
+	      __syncthreads();
+	      if (IS_BOSS())
+		currentCount += nItems;
+	      __syncthreads();
 	    }
 	  
-	  __syncthreads();
 	  
-	  if (dataCount == currentCount)
+	  if (currentCount == dataCount)
 	    {
+	      nConsumed++;
+	      
 	      //Emit Agg Signal
 	      if (IS_BOSS())
 		{
 		  //Create new Agg signal to send downstream
-		  Signal s_new;
-		  s_new.setTag(Signal::SignalTag::Agg);	
+		  Signal s_new(Signal::Agg);
 		  s_new.setRefCount(currRefCount);
 		  
-		  using Channel = typename BaseType::Channel<void*>;
-	
 		  //Reserve space downstream for the new signal
 		  for (unsigned int c = 0; c < numChannels; ++c)
 		    {
-		      Channel *channel = static_cast<Channel*>(getChannel(c));
-
+		      auto *channel = getChannel(c);
+		      
 		      //If the channel is NOT an aggregate channel,
 		      //send the new signal downstream
 		      if (!channel->isAggregate())
 			{
-			  pushSignal(s_new, channel);
+			  channel->pushSignal(s_new);
 			}
 		      else
 			{
@@ -362,6 +350,14 @@ namespace Mercator  {
 		}
 	    }
 	  
+
+	  
+#if 0
+	  // FIXME: TERMPORARILY TURNED OFF because we aren't
+	  // receiving signals at the input to enumerations right
+	  // now. This needs to be rewritten to properly handle
+	  // signals.
+
 	  __syncthreads();
 	  
 	  bool dsSignalQueueFull = false;
@@ -375,20 +371,24 @@ namespace Mercator  {
 	  //Signal Queue is full, short circut here
 	  if (dsSignalQueueFull)
 	    {
-	      this->activate();	//NEED TO RE-ENQUEUE OURSELVES
+	      if (IS_BOSS())
+		{
+		  // forcibly re-enqueue ourselves
+		  this->deactivate();
+		  this->activate();
+		}
+	      
 	      return;
 	    }
-	  
-	  __syncthreads();
-	  
+#endif
 	}
-      while (mynDSActive == 0 && queue.getOccupancy() > 0);
-      
+	
+	
       if (IS_BOSS())
 	{
 	  nDSActive = mynDSActive;
 
-	  if (queue.getOccupancy() == 0)
+	  if (nConsumed == nToConsume)
 	    {
 	      // less than a full ensemble remains, or 0 if flushing
 	      this->deactivate(); 
