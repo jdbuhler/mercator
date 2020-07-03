@@ -135,7 +135,7 @@ namespace Mercator  {
       
       while (nConsumed < nToConsume && mynDSActive == 0)
 	{
-#if 1
+#if 0
 	  if (IS_BOSS())
 	    printf("%d %p %d %d %d %d\n", 
 		   blockIdx.x, this, nConsumed, nToConsume,  
