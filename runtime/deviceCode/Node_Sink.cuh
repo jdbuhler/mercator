@@ -126,99 +126,83 @@ namespace Mercator  {
       
       Queue<T> &queue = this->queue; 
       
-      unsigned int numToWrite = queue.getOccupancy();
+      unsigned int nToConsume = queue.getOccupancy();
             
       // unless we are flushing all our input, round down to a full
       // ensemble.  Since we are active, if we aren't flushing, we
       // have at least one full ensemble to write.
       if (!isFlushing)
-	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
+	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
       
-      // # of total items that need to be written
-      unsigned int numTotalToWrite = 0;
-
+      unsigned int nConsumed = 0;
       TIMER_STOP(input);
       
       TIMER_START(output);
       
-      while(this->numSignalsPending() > 0)
+      unsigned int nCredits = this->currentCreditCounter;
+      
+      while(nConsumed < nToConsume)
 	{
-	  numToWrite = this->currentCreditCounter;
-	  if (numToWrite > 0)
+	  unsigned int nItems =
+	    (this->numSignalsPending() > 0 
+	     ? nCredits 
+	     : nToConsume - nConsumed);
+	  
+	  if (nItems > 0)
 	    {
 	      __shared__ unsigned int basePtr;
 	      if (IS_BOSS())
-		basePtr = sink->reserve(numToWrite);
+		basePtr = sink->reserve(nItems);
 	      __syncthreads(); // make sure all threads see base ptr
 	      
 	      // use every thread to copy from our queue to sink
-	      for (int base = 0; base < numToWrite; base += maxRunSize)
+	      for (int base = 0; base < nItems; base += maxRunSize)
 		{
 		  int srcIdx = base + tid;
 		  
-		  if (srcIdx < numToWrite)
+		  if (srcIdx < nItems)
 		    {
 		      const T &myData = queue.getElt(srcIdx);
 		      sink->put(basePtr, srcIdx, myData);
 		    }
 		}
-	      numTotalToWrite += numToWrite;
+	      nConsumed += nItems;
 	    }
 	  
-	  if(IS_BOSS())
-	    this->currentCreditCounter -= numToWrite;
+	  TIMER_STOP(output);
 	  
-	  __syncthreads();
+	  TIMER_START(input);
 	  
-	  //stimcheck: We don't care about the ds signal queues being
-	  //full here, since there are no ds signal queues.
-	  this->signalHandler();	
-	  
-	  __syncthreads();
-	}
-      
-      
-      __syncthreads();
-      
-      numToWrite = queue.getOccupancy();
-      
-      // unless we are flushing all our input, round down to a full
-      // ensemble.  Since we are active, if we aren't flushing, we
-      // have at least one full ensemble to write.
-      if (!isFlushing)
-	numToWrite = (numToWrite / maxRunSize) * maxRunSize;
-      
-      //Perform normal AFIE Scheduling once all signals are processed.
-      if (numToWrite > 0)
-	{
-	  __shared__ unsigned int basePtr;
-	  if (IS_BOSS())
-	    basePtr = sink->reserve(numToWrite);
-	  __syncthreads(); // make sure all threads see base ptr
-	  
-	  // use every thread to copy from our queue to sink
-	  for (int base = 0; base < numToWrite; base += maxRunSize)
+	  if (this->numSignalsPending() > 0)
 	    {
-	      int srcIdx = base + tid;
+	      nCredits -= nItems;
 	      
-	      if (srcIdx < numToWrite)
+	      if (nCredits == 0)
 		{
-		  const T &myData = queue.getElt(srcIdx);
-		  sink->put(basePtr, srcIdx, myData);
+		  __syncthreads();
+		  
+		  if (IS_BOSS())
+		    this->currentCreditCounter = 0;
+		  __syncthreads();
+		  
+		  this->signalHandler(); // no output signal queue to fill
+		  
+		  __syncthreads();
+		  
+		  nCredits = this->currentCreditCounter;
 		}
 	    }
-	  numTotalToWrite += numToWrite;
 	}
       
-      TIMER_STOP(output);
-      
-      TIMER_START(input);
-      
+      __syncthreads();
+	  
       // we consumed enough input that we are no longer active
       if (IS_BOSS())
 	{
-	  COUNT_ITEMS(numTotalToWrite);
-	  queue.release(numTotalToWrite);
+	  this->currentCreditCounter = nCredits;
+	  
+	  COUNT_ITEMS(nConsumed);
+	  queue.release(nConsumed);
 	  
 	  this->deactivate();
 	  this->setFlushing(false);
@@ -226,7 +210,6 @@ namespace Mercator  {
       
       TIMER_STOP(input);
     }
-    
   };
   
 }; // namespace Mercator
