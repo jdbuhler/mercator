@@ -19,7 +19,7 @@
 //#define INSTRUMENT_TIME
 
 // instrument code for performance model parameters?
-#define INSTRUMENT_COUNTS
+//#define INSTRUMENT_COUNTS
 
 // instrument code for occupancy of each node firing?
 // NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
@@ -54,10 +54,10 @@
 // Misc runtime options
 //
 //how many blocks to run with
-//#define USE_MAX_BLOCKS
-#define USE_ONE_BLOCKS
-//#define USE_X_BLOCKS 16*15
+//#define USE_ONE_BLOCKS
+//#define USE_X_BLOCKS 8
 //#define USE_SM_BLOCKS
+#define USE_MAX_BLOCKS
 
 //use random thread to record timings 
 #define RAND_TIMING_THREAD
