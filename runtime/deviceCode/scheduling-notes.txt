@@ -1,0 +1,121 @@
+NOTES ON SCHEDULING AND SIGNAL PROCESSING
+
+A node may fire only if it is ACTIVE and has NO ACTIVE CHILDREN.
+
+Initially, the source is active, and all other nodes are inactive.
+
+An inactive node becomes active when either its data or signal queue
+becomes FULL, or when it is explicitly set to flushing mode and
+activated by its parent.
+
+  - for the data queue, FULL means that there is insufficient space
+    remaining for the previous node to process a full vector width of
+    inputs.
+
+  - for the signal queue, FULL means that there is insufficient space
+    remaining for the maximum number of signals that could be issued
+    by the previous node processing a full vector width of inputs 
+    (MAX_SIGNALS_PER_VEC) AND the max # of signals that could
+    result from processing one queued signal (MAX_SIGNALS_PER_SIG).
+    The former is currently 2, while the latter is currently 1.
+    [Defined in Signal.cuh]
+
+An active node becomes inactive when its data and signal queues
+become EMPTY
+
+   - EMPTY means less than one full vector width of items in
+     the data queue *and* NO queued signals.
+
+[NB: signals are never issued with more credit that the number of
+items in the data queue, so it is not possible for the signal queue to
+be nonempty but blocked on data that has not yet been issued.]
+
+Fireable nodes are queued in the scheduler.  No node may appear on a
+queue more than once.  When no fireable nodes exist in the queue, the
+application terminates.
+
+The source enters flushing mode when it cannot request any more data
+from the input stream.
+
+CLAIM: the application cannot terminate with data or signals still
+queued.
+
+--------------------------
+
+Signals are managed on each edge by a local credit protocol.
+
+A signal is issued with an amount of credit equal to the number
+of queued data items that must be processed between the previous
+queued signal (if any) and itself.
+
+--------------------------
+
+Firing a node work as follows:
+
+PRECONDITION: When a node fires, it is ACTIVE and has NO ACTIVE
+CHILDREN.  Therefore, it either 
+   * has no queued signals AND >= vector width queued data items, OR
+   * has >= 1 queued signal, OR
+   * is in flushing mode
+AND none of its children have FULL data or FULL signal queues.  Hence,
+the node is safe to fire and can make progress.
+
+nDataToConsume    = <size of data queue>
+nSignalsToConsume = <size of signal queue>
+
+if (nSignalsToConsume == 0 && !flushing)
+  round nDataToConsume down
+
+nCredit = nSignalsToconsume == 0 
+          ? 0 
+          : # of credits in signal at head of signal queue
+
+nDataConsumed    = 0
+nSignalsConsumed = 0
+
+anyDSActive = false
+
+while ((nDataConsumed < nDataToConsume) ||
+       (nSignalsConsumed < nSignalsToConsume) && 
+       !anyDSActive)
+
+   limit = (nSignalsConsumed < nSignalsToConsume 
+            ? nCredit : nDataToConsume - nDataConsumed)
+
+   nItems = min(limit, vector width)
+
+   CONSUME data items [nDataConsumed .. nDataConsumed + nItems - 1]
+   
+   if (nSignalsToConsume > 0) 
+      nCredit -= nItems
+
+      if (nCredit == 0)
+        CONSUME signal [nSignalsConsumed]
+        nSignalsConsumed++
+        if (nSignalsConsumed < nSignalsToConsume)
+           nCredit = credits from signal [nSignalsConsumed]
+        else if (!flushing)
+           round nDataToConsume down
+       
+   for each downstream channel with a FULL data or signal queue,
+    activate downstream node
+    set anyDSActive true
+    
+SYNC
+
+release nDataConsumed data items from data queue
+release nSignalsConsumed signals from signal queue
+
+if nSignalsConsumed < nSignalsToConsume
+   set signal credit at head of queue to nCredit
+
+   // inactivation condition, since we fixed up nDataToConsume if needed
+if (nDataConsumed == nDatatoConsume && 
+    nSignalsConsumed == nSignalsToConsume)
+   
+   deactivate node
+
+   if we are flushing
+     let R be the region we are flushing
+     set flushing and activate all downstream nodes in region R
+     unset our flushing flag
