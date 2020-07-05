@@ -1,25 +1,23 @@
-#ifndef LINE_CUH
-#define LINE_CUH
+#ifndef __LINE_CUH
+#define __LINE_CUH
 
-class Line {
-	public:
-		const char* startPointer;
-		unsigned int length;
-		unsigned int tag;
+#include <cuda_runtime.h>
 
-		__device__ __host__
-		Line() {
-			tag = 0;
-			startPointer = 0;
-			length = 0;
-		}
-
-		__device__ __host__
-		Line(unsigned int t, const char* sp, unsigned int l) {
-			tag = t;
-			startPointer = sp;
-			length = l;
-		}
+struct Line {
+  
+  __device__ __host__
+  Line () 
+    : start(0), length(0), tag(0)
+  {}
+  
+  __device__ __host__
+  Line (unsigned int t, unsigned int s, unsigned int len) 
+    : start(s), length(len), tag(t)
+  {}
+  
+  unsigned int start;
+  unsigned int length;
+  unsigned int tag;
 };
 
 #endif
