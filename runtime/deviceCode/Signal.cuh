@@ -56,4 +56,14 @@ public:
   
 };
 
+// max # of signals produced by a node consuming a vector of data
+const unsigned int MAX_SIGNALS_PER_VEC = 2;
+
+// max # of signal produced by a node consuming one signal
+const unsigned int MAX_SIGNALS_PER_SIG = 1;
+
+// max # of signals produced by one pass through a node's run loop
+const unsigned int MAX_SIGNALS_PER_RUN =
+  MAX_SIGNALS_PER_VEC + MAX_SIGNALS_PER_SIG;
+
 #endif

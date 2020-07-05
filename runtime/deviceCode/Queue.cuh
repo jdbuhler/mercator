@@ -109,7 +109,6 @@ namespace Mercator  {
     bool empty() const
     { return (head == tail); }
     
-    
     //
     // @brief reserve space at the tail of the queue for elts
     //
@@ -176,7 +175,7 @@ namespace Mercator  {
     // @return value read
     //
     __device__
-    const T &getElt(unsigned int offset) const
+    T &getElt(unsigned int offset) const
     {
       unsigned int db = getOccupancy();
       assert(getOccupancy() > offset);
@@ -186,6 +185,10 @@ namespace Mercator  {
       return data[myIdx]; 
     }
     
+    __device__
+    T &getHead() const
+    { return getElt(0); }
+      
     //
     // @brief return a reference to an actual item of type T that
     // will never be dereferenced.  This is useful to avoid creating

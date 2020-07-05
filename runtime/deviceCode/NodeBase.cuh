@@ -37,6 +37,10 @@ namespace Mercator  {
 
     __device__
     virtual
+    void incrDSActive() = 0;
+
+    __device__
+    virtual
     void decrDSActive() = 0;
     
     __device__

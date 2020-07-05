@@ -152,6 +152,7 @@ namespace Mercator  {
 	}
     }
     
+    
     //
     // @brief After a call to run(), collect and write any data generated
     // to the downstream queue. NB: must be called with all threads
@@ -203,7 +204,8 @@ namespace Mercator  {
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
       //
-      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput)
+      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
+	  dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN)
 	{
 	  if (IS_BOSS()) 
 	    {
@@ -221,6 +223,12 @@ namespace Mercator  {
 	}
     }
     
+    __device__
+    bool checkDSFull()
+    {
+      return (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
+	      dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
+    }
     
     //
     // @brief prepare for a direct write to the downstream queue(s)
@@ -310,7 +318,10 @@ namespace Mercator  {
     
     // next buffer slot avail for thread to push output
     unsigned char nextSlot[numThreadGroups];
-    unsigned int numItemsProduced;	//Number of items produced since last signal
+    
+    
+    // number of items produced since last signal
+    unsigned int numItemsProduced;
     
     //
     // target (edge) for scattering items from output buffer

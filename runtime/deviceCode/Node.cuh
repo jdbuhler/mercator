@@ -101,7 +101,7 @@ namespace Mercator  {
     // forward-declare channel class
 
     class ChannelBase;
-
+    
     template <typename T>
     class Channel;
 
@@ -312,11 +312,14 @@ namespace Mercator  {
       if (!isActive)
 	{
 	  isActive = true;
+	  if (parent) //source has no parent
+	    parent->incrDSActive();
+	  
 	  if (nDSActive == 0) // node is eligible for firing
 	    scheduler->addFireableNode(this);
 	}   
     }
-
+    
     //
     // @brief set node to be inactive for scheduling purposes;
     //
@@ -328,6 +331,17 @@ namespace Mercator  {
       isActive = false;
       if (parent)  // source has no parent
 	parent->decrDSActive();
+    }
+
+    //
+    // @brief increment node's count of active downstream children;
+    //
+    __device__
+    void incrDSActive()
+    {
+      assert(IS_BOSS());
+      
+      nDSActive++;
     }
     
     //
@@ -366,111 +380,73 @@ namespace Mercator  {
     // short circut.
     // 
     __device__
-    bool signalHandler()
+    unsigned int signalHandler(unsigned int sigIdx)
     {
       Queue<Signal> &signalQueue = this->signalQueue;
       
-      while (!signalQueue.empty() && currentCreditCounter == 0)
+      /////////////////////////////
+      // SIGNAL HANDLING SWITCH
+      /////////////////////////////
+      
+      const Signal &s = signalQueue.getElt(sigIdx);
+      
+      switch (s.getTag())
 	{
-	  /////////////////////////////
-	  // FULL DS SIGNAL QUEUE CHECK
-	  /////////////////////////////
-	  
-	  __shared__ bool hasFullDSSignalQueue;
-	  if (IS_BOSS())
-	    {
-	      hasFullDSSignalQueue = false;
-	      for (unsigned int c = 0; c < numChannels; ++c)
-		{
-		  // Downstream signal queue is full, return true to
-		  // indicate as such, and activate the respective
-		  // downstream nodes.
-		  if (getChannel(c)->dsSignalCapacity() <= 2)
-		    {
-		      getChannel(c)->getDSNode()->activate();
-		      hasFullDSSignalQueue = true;
-		    }
-		}
-	    }
-	  __syncthreads();
-	  
-	  if (hasFullDSSignalQueue) // cannot process any more signals
-	    return true;
-	  
-	  /////////////////////////////
-	  // SIGNAL HANDLING SWITCH
-	  /////////////////////////////
-	  
-	  const Signal &s = signalQueue.getElt(0);
-	  
-	  switch (s.getTag())
-	    {
-	    case Signal::Enum:
+	case Signal::Enum:
+	  {
+	    if (IS_BOSS())
 	      {
-		//Call the begin stub of this node
-		this->begin();
-		__syncthreads();
+		setCurrentParent(s.getParent());
 		
-		if (IS_BOSS())
+		//Reserve space downstream for the new signal
+		for (unsigned int c = 0; c < numChannels; ++c)
 		  {
-		    setCurrentParent(s.getParent());
+		    ChannelBase *channel = getChannel(c);
 		    
-		    //Reserve space downstream for the new signal
-		    for (unsigned int c = 0; c < numChannels; ++c)
-		      {
-			ChannelBase *channel = getChannel(c);
-			
-			// If the channel is NOT an aggregate channel,
-			// send the new signal downstream
-			if (!channel->isAggregate())
-			  channel->pushSignal(s);
-		      }
+		    // If the channel is NOT an aggregate channel,
+		    // send the new signal downstream
+		    if (!channel->isAggregate())
+		      channel->pushSignal(s);
 		  }
-		break;
 	      }
-	      
-	    case Signal::Agg:
+	    
+	    //Call the begin stub of this node
+	    this->begin();
+	    
+	    break;
+	  }
+	  
+	case Signal::Agg:
+	  {
+	    //Call the end stub of this node
+	    this->end();
+	    
+	    if (IS_BOSS())
 	      {
-		//Call the end stub of this node
-		this->end();
-		__syncthreads();
-		
-		if (IS_BOSS())
+		//Reserve space downstream for the new signal
+		for(unsigned int c = 0; c < numChannels; ++c)
 		  {
-		    //Reserve space downstream for the new signal
-		    for(unsigned int c = 0; c < numChannels; ++c)
-		      {
-			ChannelBase *channel = getChannel(c);
-			
-			if(!channel->isAggregate())
-			  channel->pushSignal(s);
-			else
-			  (*s.getRefCount())--;
-		      }
+		    ChannelBase *channel = getChannel(c);
+		    
+		    if(!channel->isAggregate())
+		      channel->pushSignal(s);
+		    else
+		      (*s.getRefCount())--;
 		  }
-		break;
 	      }
-	      
-	    default:
-	      {
-		assert(false && "Invalid signal type detected");
-	      }
-	    }
+	    break;
+	  }
 	  
-	  ///////////////////////////////////
-	  // CLEAR SIGNAL AND UPDATE CREDIT
-	  ///////////////////////////////////
-	  
-	  if (IS_BOSS())
-	    {
-	      signalQueue.dequeue();
-	      if (!signalQueue.empty())
-		currentCreditCounter = signalQueue.getElt(0).getCredit();
-	    }
-	  __syncthreads();
+	default:
+	  {
+	    assert(false && "Invalid signal type detected");
+	  }
 	}
       
-      return false;
+      // return credit from next signal if there is one
+      return (sigIdx < signalQueue.getOccupancy()
+	      ? signalQueue.getElt(sigIdx + 1).getCredit()
+	      : 0);
     }
     
     ///////////////////////////////////////////////////////////////////

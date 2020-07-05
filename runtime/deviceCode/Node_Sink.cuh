@@ -115,41 +115,63 @@ namespace Mercator  {
     // @brief fire the node, consuming pending inputs and
     // moving them directly to the output sink
     //
-    
+
     __device__
     virtual
     void fire()
     {
       unsigned int tid = threadIdx.x;
-
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
+      Queue<Signal> &signalQueue = this->signalQueue; 
       
-      unsigned int nToConsume = queue.getOccupancy();
-            
-      // unless we are flushing all our input, round down to a full
-      // ensemble.  Since we are active, if we aren't flushing, we
-      // have at least one full ensemble to write.
-      if (!isFlushing)
-	nToConsume = (nToConsume / maxRunSize) * maxRunSize;
+      // # of items available to consume from queue
+      unsigned int nDataToConsume = queue.getOccupancy();
+      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
       
-      unsigned int nConsumed = 0;
-      TIMER_STOP(input);
+      unsigned int nCredits = (nSignalsToConsume == 0
+			       ? 0
+			       : signalQueue.getHead().getCredit());
       
-      TIMER_START(output);
       
-      unsigned int nCredits = this->currentCreditCounter;
+      // # of items already consumed from queue
+      unsigned int nDataConsumed = 0;
+      unsigned int nSignalsConsumed = 0;
       
-      while(nConsumed < nToConsume)
+      bool anyDSActive = false;
+
+      while ((nDataConsumed < nDataToConsume ||
+	      nSignalsConsumed < nSignalsToConsume) &&
+	     !anyDSActive)
 	{
-	  unsigned int nItems =
-	    (this->numSignalsPending() > 0 
+#if 0
+	  if (IS_BOSS())
+	    printf("%d %p %d %d %d %d %d\n", 
+		   blockIdx.x, this, 
+		   nDataConsumed, nDataToConsume,  
+		   nSignalsConsumed, nSignalsToConsume,
+		   nCredits);
+#endif
+	  
+	  unsigned int nItems = 
+	    (nSignalsConsumed < nSignalsToConsume
 	     ? nCredits 
-	     : nToConsume - nConsumed);
+	     : nDataToConsume - nDataConsumed);
+	  
+	  TIMER_STOP(input);
+	  
+	  TIMER_START(run);
 	  
 	  if (nItems > 0)
 	    {
+	      //
+	      // Consume next nItems data items
+	      //
+	      
+	      NODE_OCC_COUNT(nItems);
+	      
 	      __shared__ unsigned int basePtr;
 	      if (IS_BOSS())
 		basePtr = sink->reserve(nItems);
@@ -166,45 +188,40 @@ namespace Mercator  {
 		      sink->put(basePtr, srcIdx, myData);
 		    }
 		}
-	      nConsumed += nItems;
+	      
+	      nDataConsumed += nItems;
 	    }
 	  
-	  TIMER_STOP(output);
-	  
-	  TIMER_START(input);
-	  
-	  if (this->numSignalsPending() > 0)
+	  //
+	  // Track credit to next signal, and consume if needed.
+	  //
+	  if (nSignalsToConsume > 0)
 	    {
 	      nCredits -= nItems;
 	      
 	      if (nCredits == 0)
-		{
-		  __syncthreads();
-		  
-		  if (IS_BOSS())
-		    this->currentCreditCounter = 0;
-		  __syncthreads();
-		  
-		  this->signalHandler(); // no output signal queue to fill
-		  
-		  __syncthreads();
-		  
-		  nCredits = this->currentCreditCounter;
-		}
+		nCredits = this->signalHandler(nSignalsConsumed++);
 	    }
+	  
+	  TIMER_STOP(run);
+	  
+	  TIMER_START(input);
 	}
       
+      // protect code above from queue changes below
       __syncthreads();
-	  
-      // we consumed enough input that we are no longer active
+      
       if (IS_BOSS())
 	{
-	  this->currentCreditCounter = nCredits;
+	  COUNT_ITEMS(nDataConsumed);  // instrumentation
 	  
-	  COUNT_ITEMS(nConsumed);
-	  queue.release(nConsumed);
+	  queue.release(nDataConsumed);
+	  signalQueue.release(nSignalsConsumed);
 	  
-	  this->deactivate();
+	  // sink is never output blocked so always exhausts its input 
+	  assert(queue.empty() && signalQueue.empty());
+	  
+	  this->deactivate(); 
 	  this->setFlushing(false);
 	}
       

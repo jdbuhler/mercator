@@ -18,8 +18,6 @@
 
 #include "timing_options.cuh"
 
-#include "Queue.cuh"
-
 
 namespace Mercator  {
 
@@ -74,7 +72,6 @@ namespace Mercator  {
     using BaseType::getChannel;
     using BaseType::maxRunSize; 
     
-    using BaseType::nDSActive;
     using BaseType::isFlushing;
     
     // make these downwardly available to the user
@@ -116,112 +113,113 @@ namespace Mercator  {
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
+      Queue<Signal> &signalQueue = this->signalQueue; 
       DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
       
       // # of items available to consume from queue
-      unsigned int nToConsume = queue.getOccupancy();
+      unsigned int nDataToConsume = queue.getOccupancy();
+      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
       
-      // unless we are flushing, round # to consume down to a multiple
-      // of ensemble width.
-      if (!isFlushing)
-        nToConsume = (nToConsume / maxRunSize) * maxRunSize;
+      unsigned int nCredits = (nSignalsToConsume == 0
+			       ? 0
+			       : signalQueue.getHead().getCredit());
+      
       
       // # of items already consumed from queue
-      unsigned int nConsumed = 0;
+      unsigned int nDataConsumed = 0;
+      unsigned int nSignalsConsumed = 0;
       
-      unsigned int nCredits = this->currentCreditCounter;
-      
-      unsigned int mynDSActive = 0;
-      
-      while (nConsumed < nToConsume && mynDSActive == 0)
+      bool anyDSActive = false;
+
+      while ((nDataConsumed < nDataToConsume ||
+	      nSignalsConsumed < nSignalsToConsume) &&
+	     !anyDSActive)
 	{
 #if 0
 	  if (IS_BOSS())
-	    printf("%d %p %d %d %d %d\n", 
-		   blockIdx.x, this, nConsumed, nToConsume,  
-		   this->numSignalsPending(), nCredits);
+	    printf("%d %p %d %d %d %d %d\n", 
+		   blockIdx.x, this, 
+		   nDataConsumed, nDataToConsume,  
+		   nSignalsConsumed, nSignalsToConsume,
+		   nCredits);
 #endif
 	  
-	  // consume up to either next signal boundary or vector width
 	  unsigned int limit =
-	    (this->numSignalsPending() > 0 ? nCredits : maxRunSize);
+	    (nSignalsConsumed < nSignalsToConsume
+	     ? nCredits 
+	     : nDataToConsume - nDataConsumed);
 	  
-	  unsigned int nItems = min(nToConsume - nConsumed, limit); 
-	  
-	  NODE_OCC_COUNT(nItems);
-	  
-	  const T &myData = 
-	    (tid < nItems
-	     ? queue.getElt(nConsumed + tid)
-	     : queue.getDummy()); // don't create a null reference
+	  unsigned int nItems = min(limit, maxRunSize); 
 	  
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
 	  
-	  if (runWithAllThreads || tid < nItems)
+	  if (nItems > 0)
 	    {
-	      n->run(myData);
+	      //
+	      // Consume next nItems data items
+	      //
+	      
+	      NODE_OCC_COUNT(nItems);
+	      
+	      const T &myData = 
+		(tid < nItems
+		 ? queue.getElt(nDataConsumed + tid)
+		 : queue.getDummy()); // don't create a null reference
+	      
+	      if (runWithAllThreads || tid < nItems)
+		{
+		  n->run(myData);
+		}
+	      
+	      nDataConsumed += nItems;
 	    }
-	  nConsumed += nItems;
 	  
-	  TIMER_STOP(run);
-	  
-	  TIMER_START(output);
-	  
-	  for (unsigned int c = 0; c < numChannels; c++)
-	    {
-	      // check whether each channel's downstream node was
-	      // activated
-	      mynDSActive += 
-		getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
-	    }
-	  
-	  TIMER_STOP(output);
-	  
-	  TIMER_START(input);
-	  
-	  if (this->numSignalsPending() > 0) 
+	  //
+	  // Track credit to next signal, and consume if needed.
+	  //
+	  if (nSignalsToConsume > 0)
 	    {
 	      nCredits -= nItems;
 	      
-	      // call the signal handler if we have reached 0 credit
 	      if (nCredits == 0)
-		{
-		  // protect loop code from changes to numSignalsPending()
-		  // and signal handler from changes to numOutputsProduced
-		  __syncthreads();
-		  
-		  if (IS_BOSS())
-		    this->currentCreditCounter = 0;
-		  __syncthreads();
-		  
-		  bool dsSignalFull = this->signalHandler();
-		  
-		  // protect loop code from changes to numSignalsPending()
-		  __syncthreads();
-		  
-		  nCredits = this->currentCreditCounter;
-		  if (dsSignalFull)
-		    break;
-		}
+		nCredits = this->signalHandler(nSignalsConsumed++);
 	    }
+
+	  TIMER_STOP(run);
+	  
+	  TIMER_START(output);
+
+	  
+	  //
+	  // Check whether any child has been activated
+	  //
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      anyDSActive |=
+		getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
+	    }
+
+	  TIMER_STOP(output);
+	  
+	  TIMER_START(input);
 	}
       
-      // protect loop from credit changes below
+      // protect code above from queue changes below
       __syncthreads();
       
       if (IS_BOSS())
 	{
-	  // store final state of credit counter
-	  this->currentCreditCounter = nCredits;
+	  COUNT_ITEMS(nDataConsumed);  // instrumentation
 	  
-	  COUNT_ITEMS(nConsumed);  // instrumentation
-	  queue.release(nConsumed);
-	  
-	  nDSActive = mynDSActive;
-	  
-	  //Send the write thru ID you have if you have one
+	  queue.release(nDataConsumed);
+	  signalQueue.release(nSignalsConsumed);
+
+	  if (!signalQueue.empty())
+	    signalQueue.getHead().setCredit(nCredits);
+	  	  
+	  // FIXME: what does this do?
 	  if (this->getWriteThruId() > 0) 
 	    {
 	      for(unsigned int c = 0; c < numChannels; ++c) 
@@ -232,7 +230,8 @@ namespace Mercator  {
 		}
 	    }
 	  
-	  if (nConsumed == nToConsume)
+	  if (nDataConsumed == nDataToConsume &&
+	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing
 	    this->deactivate(); 
@@ -251,7 +250,6 @@ namespace Mercator  {
 		    dsNode->activate();
 		  }
 		
-		nDSActive = numChannels;
 		this->setFlushing(false);
 	      }
 	  }

@@ -114,7 +114,6 @@ namespace Mercator  {
 
     using BaseType::maxRunSize;
     using BaseType::getChannel;
-    using BaseType::nDSActive;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -240,21 +239,24 @@ namespace Mercator  {
 		  dsNode->setFlushing(true);
 		  dsNode->activate();
 		}
-              nDSActive = numChannels;
+              
 	      this->setFlushing(false);
 	    }
 	  else
 	    {
-	      nDSActive = 0;
+	      bool anyChildActive = false;
 	      
 	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
+		  // Note: if source ever starts producing signals, need
+		  // to check dsSignalCapacity here too.
+		  
 		  auto chan = getChannel(c);
 		  if (chan->dsCapacity() < maxRunSize)
 		    {
-		      nDSActive++;
 		      chan->getDSNode()->activate();
+		      anyChildActive = true;
 		    }
 		}
 	      
@@ -263,7 +265,7 @@ namespace Mercator  {
 	      // ourselves and fire again.  This can happen only if
 	      // the source artificially limited our input request
 	      // size.
-	      if (nDSActive == 0)
+	      if (!anyChildActive)
 		{
 		  this->deactivate();
 		  this->activate();
