@@ -74,7 +74,6 @@ namespace Mercator  {
     using BaseType::getChannel;
     using BaseType::maxRunSize; 
     
-    using BaseType::nDSActive;
     using BaseType::isFlushing;
     
     // make these downwardly available to the user
@@ -129,9 +128,9 @@ namespace Mercator  {
       // # of items already consumed from queue
       unsigned int nConsumed = 0;
       
-      unsigned int mynDSActive = 0;
+      bool anyDSActive = false;
       
-      while (nConsumed < nToConsume && mynDSActive == 0)
+      while (nConsumed < nToConsume && !anyDSActive)
 	{
 	  unsigned int nItems = min(nToConsume - nConsumed, maxRunSize);
 	  
@@ -159,7 +158,7 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      // check whether each channel's downstream node was activated
-	      mynDSActive += getChannel(c)->moveOutputToDSQueue();
+	      anyDSActive |= getChannel(c)->moveOutputToDSQueue();
 	    }
 	  
 	  TIMER_STOP(output);
@@ -172,8 +171,6 @@ namespace Mercator  {
 	  COUNT_ITEMS(nConsumed);  // instrumentation
 	  queue.release(nConsumed);
 	  
-	  nDSActive = mynDSActive;
-
 	  if (nConsumed == nToConsume)
 	    {
 	      // less than a full ensemble remains, or 0 if flushing
@@ -193,7 +190,6 @@ namespace Mercator  {
 		      dsNode->activate();
 		    }
 		  
-		  nDSActive = numChannels;
 		  this->setFlushing(false);
 		}
 	    }

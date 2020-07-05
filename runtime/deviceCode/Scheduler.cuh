@@ -70,7 +70,7 @@ namespace Mercator  {
 	      nextNode = (workQueue.empty() ? nullptr : workQueue.dequeue());
 	    }
 	  __syncthreads(); // for nextNode
-	  
+	  //if (threadIdx.x == 0) printf("BLK %d NODE %lu\n", blockIdx.x, nextNode);
 	  if (!nextNode) // queue is empty -- terminate
 	    break;
 	  

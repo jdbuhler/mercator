@@ -245,6 +245,8 @@ namespace Mercator  {
       if (!isActive)
 	{
 	  isActive = true;
+	  if (parent) // source has no parent
+	    parent->incrDSActive();
 	  
 	  if (nDSActive == 0) // node is eligible for firing
 	    scheduler->addFireableNode(this);
@@ -262,6 +264,18 @@ namespace Mercator  {
       isActive = false;
       if (parent)  // source has no parent
 	parent->decrDSActive();
+    }
+
+    //
+    // @brief increment node's count of active downstream children
+    //
+    __device__
+    void incrDSActive()
+    {
+      assert(IS_BOSS());
+      //printf("BLK %d NODE %lu incrDSActive\n", blockIdx.x, this);
+      
+      nDSActive++;
     }
     
     //
