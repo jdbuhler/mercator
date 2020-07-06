@@ -79,20 +79,25 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	    "<" + inTypeString 
 	    + ", THREADS_PER_BLOCK>";
 	}
-      else // regular node
+      else if (mod->get_isEnumerate())
+	{
+	  baseType = 
+	    "Node_Enumerate<" + inTypeString
+	    + ", THREADS_PER_BLOCK"
+	    + ">";
+	}
+      else
 	{
 	  string moduleTypeVariant;
-
-	  if (mod->get_isEnumerate())
-	    moduleTypeVariant = "Node_Enumerate";
-	  else if (mod->get_nElements() > 1)
+	  
+	  if (mod->get_nElements() > 1)
 	    moduleTypeVariant = "Node_ManyItems";
 	  else
 	    moduleTypeVariant = "Node_SingleItem";
 	  
 	  baseType =
 	    moduleTypeVariant
-	    + "<" + inTypeString 
+	    + "<" + inTypeString
 	    + ", " + to_string(mod->get_nChannels())
 	    + ", " + to_string(mod->get_nThreads())
 	    + ", " + to_string(mod->get_inputLimit())

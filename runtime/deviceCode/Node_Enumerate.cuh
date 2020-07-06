@@ -20,32 +20,24 @@ namespace Mercator  {
   //   __device__ void run(const T &data)
   //
   // @tparam T type of input item
-  // @tparam numChannels  number of output channels 
   // @tparam runWithAllThreads call run with all threads, or just as many
   //           as have inputs?
   // @tparam DerivedNodeType subtype that defines the run() function
   template<typename T, 
-	   unsigned int numChannels,
-	   unsigned int threadGroupSize,
-	   unsigned int maxActiveThreads,
-	   bool runWithAllThreads,
-	   unsigned int THREADS_PER_BLOCK,
-	   typename DerivedNodeType>
+	   unsigned int THREADS_PER_BLOCK>
   class Node_Enumerate
     : public Node< NodeProperties<T, 
-				  numChannels,
-				  1, 
-				  threadGroupSize,
-				  maxActiveThreads,
-				  runWithAllThreads,
+				  1,
+				  1, 1,
+				  THREADS_PER_BLOCK,
+				  true,
 				  THREADS_PER_BLOCK> > {
     
     typedef Node< NodeProperties<T,
-				 numChannels,
-				 1,
-				 threadGroupSize,
-				 maxActiveThreads,
-				 runWithAllThreads,
+				 1, 
+				 1, 1,
+				 THREADS_PER_BLOCK,
+				 true,
 				 THREADS_PER_BLOCK> > BaseType;
     
   public:
@@ -69,11 +61,6 @@ namespace Mercator  {
     using BaseType::isFlushing;
 
     using BaseType::setCurrentParent;
-    
-    // make these downwardly available to the user
-    using BaseType::getNumActiveThreads;
-    using BaseType::getThreadGroupSize;
-    using BaseType::isThreadGroupLeader;
 
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -208,8 +195,6 @@ namespace Mercator  {
     virtual
     void fire()
     {
-      assert(numChannels == 1);
-      
       unsigned int tid = threadIdx.x;
       
       TIMER_START(input);
