@@ -147,7 +147,7 @@ namespace Mercator  {
       using Channel = typename BaseType::Channel<T>;
       
       int tid = threadIdx.x;
-
+      
       TIMER_START(input);
       
       // determine the amount of data needed to activate at least one

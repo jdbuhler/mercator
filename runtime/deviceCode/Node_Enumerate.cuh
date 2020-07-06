@@ -12,24 +12,21 @@ namespace Mercator  {
 
   //
   // @class Node_Enumerate
-  // @brief MERCATOR node whose run() fcn takes one input per thread group
-  // We use CRTP rather than virtual functions to derive subtypes of this
-  // nod, so that the run() function can be inlined in fire().
-  // The expected signature of run is
-  //
-  //   __device__ void run(const T &data)
+  // @brief MERCATOR node that enumerates the contents of a composite
+  // object.  The node has a single output channel on which it emits
+  // a stream of consecutive integers for each item enumerated, equal
+  // in length to the number of elements in the item according to the
+  // user-supplied findCount() function.
   //
   // @tparam T type of input item
-  // @tparam runWithAllThreads call run with all threads, or just as many
-  //           as have inputs?
-  // @tparam DerivedNodeType subtype that defines the run() function
+  //
   template<typename T, 
 	   unsigned int THREADS_PER_BLOCK>
   class Node_Enumerate
     : public Node< NodeProperties<T, 
-				  1,
-				  1, 1,
-				  THREADS_PER_BLOCK,
+				  1,             // one output channel
+				  1, 1,          // no run/scatter functions
+				  THREADS_PER_BLOCK, // use all threads
 				  true,
 				  THREADS_PER_BLOCK> > {
     
@@ -46,9 +43,9 @@ namespace Mercator  {
     Node_Enumerate(unsigned int queueSize,
 		   Scheduler *scheduler)
       : BaseType(queueSize, scheduler),
+	nFrontierNodes(1),	// FIXME: get from compiler
 	dataCount(0),
 	currentCount(0),
-	nFrontierNodes(1),	// FIXME: get from compiler
 	parentBuffer(queueSize),
 	refCounts(queueSize)
     {}
@@ -131,9 +128,6 @@ namespace Mercator  {
 	  
 	  if (parentBuffer.getFreeSpace() == 0)
 	    {
-	      if (IS_BOSS())
-		printf("PARENT FULL\n");
-	      
 	      // buffer is actually full -- FIXME: initiate DS flushing
 	      getChannel(0)->getDSNode()->activate();
 	      
@@ -212,19 +206,20 @@ namespace Mercator  {
       unsigned int nCredits = (nSignalsToConsume == 0
 			       ? 0
 			       : signalQueue.getHead().getCredit());
-      
-      // amount of space free on downstream data queue
-      unsigned int dsSpace = channel->dsCapacity();
-      
+            
       // # of items already consumed from queue
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
+
+      
+      // amount of space free on downstream data queue
+      unsigned int dsSpace = channel->dsCapacity();
       
       // state of partially emitted item, if any
       unsigned int myDataCount = dataCount;
       unsigned int myCurrentCount = currentCount;
 
-      __syncthreads(); // protect channel capacity
+      __syncthreads(); // protect ds channel capacity
       
       bool anyDSActive = false;
       
@@ -312,7 +307,7 @@ namespace Mercator  {
 	    }
 	  
 	  TIMER_STOP(run);
-	      
+	  
 	  TIMER_START(output);
 	  
 	  __syncthreads();
@@ -336,7 +331,7 @@ namespace Mercator  {
 	  
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
-
+	  
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().setCredit(nCredits);
 	  
@@ -368,7 +363,7 @@ namespace Mercator  {
 		dsNode->setFlushing(true);
 		dsNode->activate();
 	      }
-		
+	    
 	    this->setFlushing(false);
 	  }
 	}

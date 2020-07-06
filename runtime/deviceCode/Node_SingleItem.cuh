@@ -114,7 +114,6 @@ namespace Mercator  {
       
       Queue<T> &queue = this->queue; 
       Queue<Signal> &signalQueue = this->signalQueue; 
-      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
       
       // # of items available to consume from queue
       unsigned int nDataToConsume = queue.getOccupancy();
@@ -170,6 +169,7 @@ namespace Mercator  {
 	      
 	      if (runWithAllThreads || tid < nItems)
 		{
+		  DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
 		  n->run(myData);
 		}
 	      
