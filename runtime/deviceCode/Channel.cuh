@@ -160,7 +160,7 @@ namespace Mercator  {
     // RETURNS: true iff downstream node is active after copy
     //
     __device__
-      bool moveOutputToDSQueue(unsigned int wtid)
+      void moveOutputToDSQueue()
     {
       int tid = threadIdx.x;
       
@@ -181,7 +181,7 @@ namespace Mercator  {
 	  COUNT_ITEMS(agg);  // instrumentation
 	  dsBase = directReserve(agg);
 	    
-	  // track produced items for cedit calculation
+	  // track produced items for credit calculation
 	  numItemsProduced += agg;
 	}
       __syncthreads(); // all threads must see updates to dsBase
@@ -200,7 +200,11 @@ namespace Mercator  {
 	  // clear nextSlot for this thread group
 	  nextSlot[tid] = 0;
 	}
-      
+    }
+    
+    __device__
+      bool checkDSFull(unsigned int wtid)
+    {
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
       //
@@ -221,13 +225,6 @@ namespace Mercator  {
 	{
 	  return false;
 	}
-    }
-    
-    __device__
-    bool checkDSFull()
-    {
-      return (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
-	      dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
     }
     
     //

@@ -68,7 +68,11 @@ namespace Mercator  {
     //
     __device__
     virtual
-    bool moveOutputToDSQueue(unsigned int wtid) = 0;
+    void moveOutputToDSQueue() = 0;
+
+    __device__
+    virtual
+    bool checkDSFull(unsigned int wtid) = 0;
     
     __device__
     virtual

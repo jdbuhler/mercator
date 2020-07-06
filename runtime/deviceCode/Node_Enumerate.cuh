@@ -298,7 +298,7 @@ namespace Mercator  {
 		  
 		  // move these items downstream immediately.
 		  // We know we won't overflow the dsqueue
-		  channel->moveOutputToDSQueue(this->getWriteThruId());
+		  channel->moveOutputToDSQueue();
 		}
 	      
 	      myCurrentCount += nEltsToWrite;
@@ -332,11 +332,7 @@ namespace Mercator  {
 	  //
 	  // Check whether child has been activated by filling a queue
 	  //
-	  if (channel->checkDSFull())
-	    {
-	      channel->getDSNode()->activate();
-	      anyDSActive = true;
-	    }
+	  anyDSActive |= channel->checkDSFull(this->getWriteThruId());
 	  
 	  TIMER_STOP(output);
 	  

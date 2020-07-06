@@ -248,17 +248,7 @@ namespace Mercator  {
 	      
 	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
-		{
-		  // Note: if source ever starts producing signals, need
-		  // to check dsSignalCapacity here too.
-		  
-		  auto chan = getChannel(c);
-		  if (chan->dsCapacity() < maxRunSize)
-		    {
-		      chan->getDSNode()->activate();
-		      anyChildActive = true;
-		    }
-		}
+		anyChildActive = getChannel(c)->checkDSFull(0);
 	      
 	      // If we did not fill any downstream queues or exhaust
 	      // the input stream, we need to forcibly re-enqueue

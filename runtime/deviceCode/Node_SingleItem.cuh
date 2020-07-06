@@ -173,6 +173,11 @@ namespace Mercator  {
 		  n->run(myData);
 		}
 	      
+	      __syncthreads();
+	      
+	      for (unsigned int c = 0; c < numChannels; c++)
+		getChannel(c)->moveOutputToDSQueue();
+	      
 	      nDataConsumed += nItems;
 	    }
 	  
@@ -190,17 +195,15 @@ namespace Mercator  {
 	  TIMER_STOP(run);
 	  
 	  TIMER_START(output);
-
 	  
+	  __syncthreads();
+	      
 	  //
 	  // Check whether any child has been activated
 	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    {
-	      anyDSActive |=
-		getChannel(c)->moveOutputToDSQueue(this->getWriteThruId());
-	    }
-
+	    anyDSActive |= getChannel(c)->checkDSFull(this->getWriteThruId());
+	  
 	  TIMER_STOP(output);
 	  
 	  TIMER_START(input);
