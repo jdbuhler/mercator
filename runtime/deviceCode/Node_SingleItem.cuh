@@ -189,7 +189,10 @@ namespace Mercator  {
 	      nCredits -= nItems;
 	      
 	      if (nCredits == 0)
-		nCredits = this->signalHandler(nSignalsConsumed++);
+		{
+		  nCredits = this->signalHandler(nSignalsConsumed);
+		  nSignalsConsumed++;
+		}
 	    }
 
 	  TIMER_STOP(run);
@@ -221,7 +224,7 @@ namespace Mercator  {
 
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().setCredit(nCredits);
-	  	  
+	  
 	  // FIXME: what does this do?
 	  if (this->getWriteThruId() > 0) 
 	    {

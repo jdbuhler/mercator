@@ -320,7 +320,10 @@ namespace Mercator  {
 	      nCredits -= nItems;
 	      
 	      if (nCredits == 0)
-		nCredits = this->signalHandler(nSignalsConsumed++);
+		{
+		  nCredits = this->signalHandler(nSignalsConsumed);
+		  nSignalsConsumed++;
+		}
 	    }
 	  
 	  TIMER_STOP(run);

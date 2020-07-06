@@ -52,6 +52,8 @@ queued signal (if any) and itself.
 
 Firing a node work as follows:
 
+[Note: we are not enforcing full ensembles right now]
+
 PRECONDITION: When a node fires, it is ACTIVE and has NO ACTIVE
 CHILDREN.  Therefore, it either 
    * has no queued signals AND >= vector width queued data items, OR
@@ -60,11 +62,13 @@ CHILDREN.  Therefore, it either
 AND none of its children have FULL data or FULL signal queues.  Hence,
 the node is safe to fire and can make progress.
 
+//
+// begin by caching queue sizes and credits in per-thread registers,
+// so we don't have to do synchronous updates to them
+//
+
 nDataToConsume    = <size of data queue>
 nSignalsToConsume = <size of signal queue>
-
-if (nSignalsToConsume == 0 && !flushing)
-  round nDataToConsume down
 
 nCredit = nSignalsToconsume == 0 
           ? 0 
@@ -73,49 +77,60 @@ nCredit = nSignalsToconsume == 0
 nDataConsumed    = 0
 nSignalsConsumed = 0
 
+// 
+// run until we are out of both signals and data, OR a downstream
+// node has been activated due to a full queue.
+//  
+
+
 anyDSActive = false
 
 while ((nDataConsumed < nDataToConsume) ||
        (nSignalsConsumed < nSignalsToConsume) && 
        !anyDSActive)
 
+   // credit is relevant only if there are pending signals
    limit = (nSignalsConsumed < nSignalsToConsume 
             ? nCredit : nDataToConsume - nDataConsumed)
 
    nItems = min(limit, vector width)
 
+   // try to eat up to a vector worth of data (as limit permits)
+   // AND write any data or signal outputs that result downstream
    CONSUME data items [nDataConsumed .. nDataConsumed + nItems - 1]
-   
+
+   // If we have a signal pending, see if it's time to consume it
    if (nSignalsToConsume > 0) 
       nCredit -= nItems
 
       if (nCredit == 0)
-        CONSUME signal [nSignalsConsumed]
-        nSignalsConsumed++
-        if (nSignalsConsumed < nSignalsToConsume)
-           nCredit = credits from signal [nSignalsConsumed]
-        else if (!flushing)
-           round nDataToConsume down
-       
+        CONSUME signal [nSignalsConsumed] // may generate signals downstream
+
+      if (nSignalsConsumed < nSignalsToConsume) // get credit from next signal
+         nCredit = credits from signal [nSignalsConsumed + 1]
+
+      nSignalsConsumed++
+               
    for each downstream channel with a FULL data or signal queue,
     activate downstream node
     set anyDSActive true
     
 SYNC
 
+// update us queue sizes to reflect cached values
 release nDataConsumed data items from data queue
 release nSignalsConsumed signals from signal queue
 
+// save cached credit value
 if nSignalsConsumed < nSignalsToConsume
    set signal credit at head of queue to nCredit
 
-   // inactivation condition, since we fixed up nDataToConsume if needed
+// if we've consumed all inputs from both queues...
 if (nDataConsumed == nDatatoConsume && 
     nSignalsConsumed == nSignalsToConsume)
    
    deactivate node
 
    if we are flushing
-     let R be the region we are flushing
-     set flushing and activate all downstream nodes in region R
+     set flushing and activate all downstream nodes
      unset our flushing flag
