@@ -76,7 +76,7 @@ bool posnComp(const Position &p1, const Position &p2)
 	     
 ostream &operator<<(ostream &os, const Position &p)
 {
-  cout << '[' << p.tag << ", " << p.latitude << ", " << p.longitude << ']';
+  os << '[' << p.tag << ", " << p.latitude << ", " << p.longitude << ']';
   return os;
 }
 
@@ -87,13 +87,13 @@ void verifyOutput(Position *posns1, unsigned int nPosns1,
     {
       cerr << "ERROR: size mismatch: CPU " 
 	   << nPosns1 << " != GPU " << nPosns2 << endl;
-      return;
+      //return;
     }
   
   std::sort(posns1, posns1 + nPosns1, posnComp);
   std::sort(posns2, posns2 + nPosns2, posnComp);
   
-  for (unsigned int j = 0; j < nPosns1; j++)
+  for (unsigned int j = 0; j < min(nPosns1,nPosns2); j++)
     {
 #if 1
       if (!(posns1[j] == posns2[j]))
