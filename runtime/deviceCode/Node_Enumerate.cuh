@@ -6,6 +6,8 @@
 #include "Node.cuh"
 #include "ChannelBase.cuh"
 
+#include "ParentBuffer.cuh"
+
 #include "timing_options.cuh"
 
 namespace Mercator  {
@@ -46,8 +48,7 @@ namespace Mercator  {
 	nFrontierNodes(1),	// FIXME: get from compiler
 	dataCount(0),
 	currentCount(0),
-	parentBuffer(queueSize),
-	refCounts(queueSize)
+	parentBuffer(queueSize)
     {}
     
   protected:
@@ -56,9 +57,9 @@ namespace Mercator  {
     using BaseType::maxRunSize; 
     
     using BaseType::isFlushing;
-
-    using BaseType::setCurrentParent;
-
+    
+    using BaseType::parentHandle;
+    
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
     using BaseType::runTimer;
@@ -82,20 +83,10 @@ namespace Mercator  {
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
-
-    // reference count associated with current parent object -- needed
-    // to generate Agg signal if enumeration takes multiple firings
-    unsigned int *currRefCount;
-    
     
     // Where parent objects of the enumerate node are stored.  Size is
     // set to the same as data queue currently
-    Queue<T> parentBuffer;
-    
-    // Where the current number of references finished for each parent
-    // object is stored.
-    Queue<unsigned int> refCounts;
-    
+    ParentBuffer<T> parentBuffer;
     
     //
     // @brief find the number of data items that need to be enumerated
@@ -106,7 +97,7 @@ namespace Mercator  {
     //
     __device__
     virtual
-    unsigned int findCount() = 0;
+    unsigned int findCount(const T &item) = 0;
     
     
     __device__
@@ -114,47 +105,31 @@ namespace Mercator  {
     {
       __syncthreads();
       
-      if (parentBuffer.getFreeSpace() == 0)
+      if (parentBuffer.isFull())
 	{
-	  if (IS_BOSS())
-	    {
-	      while (!parentBuffer.empty() && refCounts.getHead() == 0)
-		{
-		  parentBuffer.dequeue();
-		  refCounts.dequeue();
-		}
-	    }
-	  __syncthreads();
+	  // buffer is actually full -- FIXME: initiate DS flushing
+	  getChannel(0)->getDSNode()->activate();
 	  
-	  if (parentBuffer.getFreeSpace() == 0)
-	    {
-	      // buffer is actually full -- FIXME: initiate DS flushing
-	      getChannel(0)->getDSNode()->activate();
-	      
-	      // re-enqueue ourselves
-	      this->deactivate();
-	      this->activate();
-	      
-	      return false;
-	    }
+	  // re-enqueue ourselves
+	  this->deactivate();
+	  this->activate();
+	  
+	  return false;
 	}
       
       // set new current parent and issue enumerate signal
       __shared__ unsigned int eltCount;
       if (IS_BOSS())
 	{
-	  T *currParent = &parentBuffer.enqueue(item);
-	  currRefCount  = &refCounts.enqueue(nFrontierNodes);
+	  parentHandle = parentBuffer.alloc(item, nFrontierNodes);
+
+	  eltCount = this->findCount(item);
 	  
-	  setCurrentParent(currParent);
-		  
 	  // Create new Enum signal to send downstream
 	  Signal s_new(Signal::Enum);	
-	  s_new.setParent(currParent);
+	  s_new.setHandle(parentHandle);
 	  
 	  getChannel(0)->pushSignal(s_new);
-	  
-	  eltCount = this->findCount();
 	}
       __syncthreads();
       
@@ -168,8 +143,7 @@ namespace Mercator  {
       if (IS_BOSS())
 	{
 	  Signal s_new(Signal::Agg);
-	  s_new.setRefCount(currRefCount);
-	
+	  
 	  getChannel(0)->pushSignal(s_new);
 	}
     }

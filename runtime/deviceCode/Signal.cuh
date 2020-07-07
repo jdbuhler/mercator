@@ -1,6 +1,8 @@
 #ifndef __SIGNAL_CUH
 #define __SIGNAL_CUH
 
+#include "ParentBuffer.cuh"
+
 class Signal {
 private:
 public:
@@ -9,11 +11,9 @@ public:
 private:
   
   SignalTag tag;
-  
-  void* parent;
-  unsigned int* refCount;
-  
   int credit;
+  
+  RefCountedArena::Handle handle;
   
 public:
   __device__
@@ -29,23 +29,7 @@ public:
   __device__
   SignalTag getTag() const
   { return tag; }
-  
-  __device__ 
-  void setParent(void* p) 
-  { parent = p; }
-  
-  __device__
-  void *getParent() const 
-  { return parent; }
-  
-  __device__ 
-  void setRefCount(unsigned int* rc) 
-  { refCount = rc; }
-  
-  __device__ 
-  unsigned int* getRefCount() const
-  { return refCount; }
-  
+
   __device__ 
   void setCredit(int c) 
   { credit = c; }
@@ -54,6 +38,13 @@ public:
   int getCredit() const 
   { return credit; }
   
+  __device__ 
+  void setHandle(const RefCountedArena::Handle &h)
+  { handle = h; }
+  
+  __device__
+  RefCountedArena::Handle getHandle() const 
+  { return handle; }
 };
 
 // max # of signals produced by a node consuming a vector of data

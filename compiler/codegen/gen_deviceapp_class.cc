@@ -303,7 +303,7 @@ void genDeviceModuleConstructor(const App *app,
 //
 // @brief generate a device-side node class
 //
-// @param mod node type fo rwhich we are generating class
+// @param mod node type for which we are generating class
 // @param f Formatter to receive generated code
 //
 static
@@ -347,32 +347,38 @@ void genDeviceModuleClass(const App *app,
   if (!mod->isSource() && !mod->isSink())
     {
       // begin and end functions (public because of CRTP)
-      if (app->isPropagate.at(mod->get_idx()))
+      if (app->isPropagate[mod->get_idx()])
 	{
-	   // create headers for begin and end
-   	   f.add("__device__");
-           f.add(genFcnHeader("void",
-			      "begin",
-			      "") +";");
-           f.add("");
-   	   f.add("__device__");
-           f.add(genFcnHeader("void",
-			      "end", 
-			      "") +";");
-           f.add("");
-   	   f.add("__device__");
-		//printf("FROM NAME: %s\n", mod->get_inputType()->from->name.c_str());
-		cout << "BEFORE PRINT" << endl;
-		if(mod->get_inputType()->from == nullptr)
-			cout << "NULL FROM" << endl;
-		if(mod->get_inputType()->from->name.empty())
-			cout << "EMPTY FROM TYPE" << endl;
-		cout << "FROM NAME: " << mod->get_inputType()->from->name << endl;
-           f.add(genFcnHeader(mod->get_inputType()->from->name + "*",
-			      "getParent",
+	  string fromType = mod->get_inputType()->from->name;
+	  
+	  // create headers for begin and end
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     "begin",
+			     "") +";");
+	  f.add("");
+	  f.add("__device__");
+	  f.add(genFcnHeader("void",
+			     "end", 
+			     "") +";");
+	  f.add("");
+	  f.add("__device__");
+	  f.add(genFcnHeader(fromType + "*",
+			     "getParent",
 			      ""));
-	   f.add("{ return static_cast< " + mod->get_inputType()->from->name + "* >(currentParent); }");
-           f.add("");
+	   f.add("{");
+	   f.indent();
+	   
+	   string pbType = 
+	     "ParentBuffer<" + fromType + ">";
+	   
+	   f.add(pbType + " *pb = static_cast<" + 
+		 pbType + " *>(parentHandle.getArena());");
+	   f.add("return pb->get(parentHandle);");
+           
+	   f.unindent();
+	   f.add("}");
+	   f.add("");
 	}
       else
 	{
@@ -388,37 +394,19 @@ void genDeviceModuleClass(const App *app,
 			      "") + "{ }");
            f.add("");
 	}
-
-	
-	if(mod->get_isUserEnumerate())
-	{
-   	   f.add("__device__");
-		//printf("FROM NAME: %s\n", mod->get_inputType()->from->name.c_str());
-		cout << "BEFORE PRINT" << endl;
-		if(mod->get_inputType()->from == nullptr)
-			cout << "NULL FROM" << endl;
-		//if(mod->get_inputType()->from->name.empty())
-		//	cout << "EMPTY FROM TYPE" << endl;
-		//cout << "FROM NAME: " << mod->get_inputType()->from->name << endl;
-           f.add(genFcnHeader(mod->get_inputType()->name + "*",
-			      "getParent", 
-			      ""));
-	   f.add("{ return static_cast< " + mod->get_inputType()->name + "* >(currentParent); }");
-           f.add("");
-	}
-	
     }
-	cout << "FINISHED ENUM STUB GEN. . ." << endl;
-
+  
   // stimcheck: Add findCount function header to the codegened headers of
   // enumerate modules.
   if (!mod->isSource() && !mod->isSink() && mod->get_isEnumerate())
     {
+      string inputType = mod->get_inputType()->name;
+      
       // findCount function (public because of CRTP)
       f.add("__device__");
       f.add(genFcnHeader("unsigned int",
 			 "findCount", 
-			 "") + ";");
+			 "const " + inputType + " &parent") + ";");
 
       f.add("");
     }
@@ -750,12 +738,14 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 
       if (mod->get_isEnumerate())
 	{
+	  string fromType = mod->get_inputType()->from->name;
+	  
 	  //generate findCount function
 	  f.add("__device__");
 	  f.add(genFcnHeader("unsigned int",
 			     DeviceAppClass + "::\n" + 
 			     mod->get_name() + "::findCount", 
-			     ""));
+			     "const " + fromType + " &parent"));
 	  
 	  f.add("{");
 	  f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");

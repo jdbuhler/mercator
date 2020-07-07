@@ -57,10 +57,6 @@ namespace Mercator  {
 
     __device__
     virtual
-    void setCurrentParent(void* v) = 0;
-
-    __device__
-    virtual
     void setEnumId(unsigned int e) = 0;
 
     __device__

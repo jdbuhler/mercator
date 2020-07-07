@@ -15,6 +15,8 @@
 
 #include "NodeBase.cuh"
 
+#include "ParentBuffer.cuh"
+
 #include "Signal.cuh"
 
 #include "Queue.cuh"
@@ -125,7 +127,6 @@ namespace Mercator  {
 	isFlushing(false),
 	enumId(0),
 	currentCreditCounter(0),
-	currentParent(nullptr),
 	writeThruId(0)
     {
       // init channels array
@@ -396,7 +397,7 @@ namespace Mercator  {
 	  {
 	    if (IS_BOSS())
 	      {
-		setCurrentParent(s.getParent());
+		parentHandle = s.getHandle();
 		
 		//Reserve space downstream for the new signal
 		for (unsigned int c = 0; c < numChannels; ++c)
@@ -431,7 +432,7 @@ namespace Mercator  {
 		    if(!channel->isAggregate())
 		      channel->pushSignal(s);
 		    else
-		      (*s.getRefCount())--;
+		      parentHandle.unref();
 		  }
 	      }
 	    break;
@@ -559,7 +560,8 @@ namespace Mercator  {
 
     int currentCreditCounter;  // the current credit available to a node
     
-    void* currentParent;       // the current parent object of the current enumeration if applicable
+    RefCountedArena::Handle parentHandle; // handle to current parent object
+
     unsigned int enumId;       // the enumeration region Id of the node, needed for flushing state
 
     unsigned int writeThruId;	// highest priority localFlush tag seen of this enumeration region Id
@@ -608,19 +610,7 @@ namespace Mercator  {
     {
       return signalQueue.getOccupancy();
     }
-  
-    //
-    // @brief Sets the currentParent pointer to a specified pointer, which should only be from a Signal.
-    //
-    // @param v The pointer of the new parent object
-    //
-    __device__
-    virtual
-    void setCurrentParent(void* v)
-    {
-      currentParent = v;
-    }
-
+    
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
