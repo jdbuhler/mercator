@@ -72,25 +72,15 @@ namespace Mercator  {
 
     __device__
     virtual
-    bool checkDSFull(unsigned int wtid) = 0;
+    bool checkDSFull() = 0;
     
     __device__
     virtual
     void pushSignal(const Signal &s) = 0;
     
-    //
-    //
-    //
     __device__
     virtual
     bool isAggregate() const = 0;
-    
-    //
-    //
-    //
-    __device__
-    virtual
-    void setAggregate() = 0;
     
 #ifdef INSTRUMENT_COUNTS
     // counts outputs on channel

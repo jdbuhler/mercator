@@ -211,9 +211,12 @@ void genDeviceModuleConstructor(const App *app,
       baseArgs.push_back("queueSize");
     }
   
-  // all nodes take a pointer to the app scheduler
+  // all nodes take a pointer to the app scheduler and a region ID
   args.push_back({"Mercator::Scheduler *", "scheduler"});
   baseArgs.push_back("scheduler");
+
+  args.push_back({"unsigned int", "region"});
+  baseArgs.push_back("region");
   
   // modules with per-node parameters have a node parameter accessor
   if (mod->hasNodeParams())
@@ -370,7 +373,7 @@ void genDeviceModuleClass(const App *app,
 	   f.indent();
 	   
 	   string pbType = 
-	     "ParentBuffer<" + fromType + ">";
+	     "Mercator::ParentBuffer<" + fromType + ">";
 	   
 	   f.add(pbType + " *pb = static_cast<" + 
 		 pbType + " *>(parentHandle.getArena());");
@@ -627,6 +630,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     f.add(genUserInclude("deviceCode/Node_Sink.cuh"));
     f.add("");
   }
+  
+  f.add(genUserInclude("deviceCode/Scheduler_impl.cuh"));
+  f.add("");
   
   // begin device app class
   f.add("class " + DeviceAppClass +

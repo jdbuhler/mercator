@@ -59,9 +59,7 @@ CoordinateSwap::end()
 
 __device__
 unsigned int Taxi_dev::
-__enumerateFor_BracketFind::findCount()
+__enumerateFor_BracketFind::findCount(const Line &parent)
 {
-  const Line* line = getParent();
-  
-  return line->length;
+  return parent.length;
 }

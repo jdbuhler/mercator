@@ -15,13 +15,9 @@
 
 #include "NodeBase.cuh"
 
-#include "ParentBuffer.cuh"
-
-#include "Signal.cuh"
-
 #include "Queue.cuh"
 
-#include "Scheduler.cuh"
+#include "Signal.cuh"
 
 #include "device_config.cuh"
 
@@ -117,22 +113,15 @@ namespace Mercator  {
     //
     __device__
     Node(const unsigned int queueSize,
-	 Scheduler *ischeduler)
-      : queue(queueSize),
-        signalQueue(queueSize),	//stimcheck: Currently use data queue size for signal queue size.
-	scheduler(ischeduler),
-	parent(nullptr),
-	isActive(false),
-	nDSActive(0),
-	isFlushing(false),
-	enumId(0),
-	currentCreditCounter(0),
-	writeThruId(0)
+	 Scheduler *scheduler, unsigned int region)
+      : NodeBase(scheduler, region),
+	queue(queueSize),
+        signalQueue(queueSize) // could be smaller?
     {
       // init channels array
-      for(unsigned int c = 0; c < numChannels; ++c)
+      for (unsigned int c = 0; c < numChannels; ++c)
 	channels[c] = nullptr;
-
+      
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
@@ -172,7 +161,7 @@ namespace Mercator  {
       // init the output channel -- should only happen once!
       assert(channels[c] == nullptr);
 
-      channels[c] = new Channel<DST>(outputsPerInput);
+      channels[c] = new Channel<DST>(outputsPerInput, isAgg);
 
       // make sure alloc succeeded
       if (channels[c] == nullptr)
@@ -182,10 +171,6 @@ namespace Mercator  {
 
 	  crash();
 	}
-
-      // set the aggregate state of the channel
-      if(isAgg)
-	channels[c]->setAggregate();
     }
 
 
@@ -231,144 +216,13 @@ namespace Mercator  {
     { 
       return &signalQueue; 
     }
-
-    //
-    // @brief set the parent of this node (the node at the upstream
-    // end of is incoming edge).
-    //
-    // @param iparent parent node
-    ///
-    __device__
-    void setParentNode(NodeBase *iparent)
-    { 
-      parent = iparent;
-    }
-
-    //
-    // @brief set the enumeration region Id of the node
-    //
-    // @param e The enumeration region id to set the node to
-    //
-    __device__
-    void setEnumId(unsigned int e)
-    {
-      enumId = e;
-    }
-
-    //
-    // @brief get the enumeration region Id of the node
-    //
-    // @return unsigned int The enumeration region Id of the node
-    //
-    __device__
-    unsigned int getEnumId()
-    {
-      return enumId;
-    }
-
-    //
-    // @brief set the write through enumeration region Id of the node
-    //
-    // @param w The enumeration region id to set the write through of
-    // the node to
-    //
-    __device__
-    void setWriteThruId(unsigned int w)
-    {
-      writeThruId = w;
-    }
-
-    //
-    // @brief get the write through enumeration region Id of the node
-    //
-    // @return unsigned int The enumeration region id to set the write
-    // through of the node to
-    //
-    __device__
-    unsigned int getWriteThruId()
-    {
-      return writeThruId;
-    }
-
-    //
-    // @brief indicate that node is in flush mode
-    //
-    __device__
-    void setFlushing(bool v = true)
-    {
-      isFlushing = v;
-    }
-
-    //
-    // @brief set node to be active for scheduling purposes;
-    // if this makes node fireable, schedule it for execution.
-    //
-    __device__
-    void activate()
-    {
-      assert(IS_BOSS());
-
-      // do not reschedule already-active nodes -- we can activate
-      // an active node when we put it into flush mode
-      if (!isActive)
-	{
-	  isActive = true;
-	  if (parent) //source has no parent
-	    parent->incrDSActive();
-	  
-	  if (nDSActive == 0) // node is eligible for firing
-	    scheduler->addFireableNode(this);
-	}   
-    }
-    
-    //
-    // @brief set node to be inactive for scheduling purposes;
-    //
-    __device__
-    void deactivate()
-    {
-      assert(IS_BOSS());
-      
-      isActive = false;
-      if (parent)  // source has no parent
-	parent->decrDSActive();
-    }
-
-    //
-    // @brief increment node's count of active downstream children;
-    //
-    __device__
-    void incrDSActive()
-    {
-      assert(IS_BOSS());
-      
-      nDSActive++;
-    }
-    
-    //
-    // @brief decrement node's count of active downstream children;
-    // if this makes the node fireable, schedule it for execution.
-    //
-    __device__
-    void decrDSActive()
-    {
-      assert(IS_BOSS());
-      
-      if (nDSActive == 0)
-	printf("FAILURE BLK %d NODE %lu\n", blockIdx.x, this);
-      assert(nDSActive > 0);
-
-      nDSActive--;
-      if (nDSActive == 0 && isActive) // node is eligible for firing
-	scheduler->addFireableNode(this);
-    }
     
     //
     // @brief return number of data items queued for this node.
     // (Only used for debugging right now.)
     //
     __device__
-    unsigned int numPending()
+    unsigned int numPending() const
     {
       return queue.getOccupancy();
     }
@@ -404,8 +258,7 @@ namespace Mercator  {
 		  {
 		    ChannelBase *channel = getChannel(c);
 		    
-		    // If the channel is NOT an aggregate channel,
-		    // send the new signal downstream
+		    // propagate the signal unless we are at region frontier
 		    if (!channel->isAggregate())
 		      channel->pushSignal(s);
 		  }
@@ -429,6 +282,7 @@ namespace Mercator  {
 		  {
 		    ChannelBase *channel = getChannel(c);
 		    
+		    // propagate the signal unless we are at region frontier
 		    if(!channel->isAggregate())
 		      channel->pushSignal(s);
 		    else
@@ -445,7 +299,7 @@ namespace Mercator  {
 	}
       
       // return credit from next signal if there is one
-      return (sigIdx < signalQueue.getOccupancy()
+      return (sigIdx + 1 < signalQueue.getOccupancy()
 	      ? signalQueue.getElt(sigIdx + 1).getCredit()
 	      : 0);
     }
@@ -461,7 +315,6 @@ namespace Mercator  {
     //    output
     //
     __device__
-    virtual
     void printTimersCSV(unsigned int nodeId) const
     {
       assert(IS_BOSS());
@@ -483,7 +336,6 @@ namespace Mercator  {
     //    output
     //
     __device__
-    virtual
     void printOccupancyCSV(unsigned int nodeId) const
     {
       assert(IS_BOSS());
@@ -504,7 +356,6 @@ namespace Mercator  {
     // @param inputOnly print only the input counts, not the channel
     //    counts
     __device__
-    virtual
     void printCountsCSV(unsigned int nodeId, bool inputOnly) const
     {
       assert(IS_BOSS());
@@ -545,26 +396,12 @@ namespace Mercator  {
     void end() {}
 
   protected:
-
+    
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     ChannelBase* channels[numChannels]; // node's output channels
-
-    Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    
-    NodeBase *parent;          // parent of this node in dataflow graph
-    
-    bool isActive;             // is node in active
-    unsigned int nDSActive;    // # of active downstream children of node
-    bool isFlushing;           // is node in flushing mode?
-
-    int currentCreditCounter;  // the current credit available to a node
     
     RefCountedArena::Handle parentHandle; // handle to current parent object
-
-    unsigned int enumId;       // the enumeration region Id of the node, needed for flushing state
-
-    unsigned int writeThruId;	// highest priority localFlush tag seen of this enumeration region Id
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -599,16 +436,6 @@ namespace Mercator  {
     unsigned int numInputsPending() const
     {
       return queue.getOccupancy();
-    }
-  
-    //
-    // @brief number of signals currently enqueued for this node.
-    //
-    __device__
-    virtual
-    unsigned int numSignalsPending() const
-    {
-      return signalQueue.getOccupancy();
     }
     
     ///////////////////////////////////////////////////////////////////

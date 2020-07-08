@@ -16,14 +16,12 @@
 
 #include "device_config.cuh"
 
-#include "Queue.cuh"
-
-#include "NodeBase.cuh"
-
 #include "instrumentation/device_timer.cuh"
 #include "instrumentation/sched_counter.cuh"
 
 namespace Mercator  {
+
+  class NodeBase; // fwd declaratino
   
   //
   // @class Scheduler
@@ -40,17 +38,9 @@ namespace Mercator  {
     // 
     __device__
     Scheduler(unsigned int numNodes)
-      : workQueue(numNodes),
-	localFlushSize(numNodes + 1)
     {
-      localFlush = new bool [localFlushSize];
-      
-      //stimcheck: TODO need to get the number of enumIds set here,
-      //not numNodes just using numNodes instead for now since enumIds
-      //is strictly less than numNodes + 1.  The 0th position is the
-      //default flag, and is never modified.
-      for (unsigned int i = 0; i < localFlushSize; ++i)
-	localFlush[i] = false;
+      workList = new NodeBase * [numNodes];
+      top = -1;
     }
     
     //
@@ -59,85 +49,24 @@ namespace Mercator  {
     //
     __device__
     ~Scheduler() 
-    { delete [] localFlush; }
+    {
+      delete [] workList;
+    }
     
     //
     // @brief run the MERCATOR application to consume all input
     //
 
     __device__
-    void run()
-    {
-      NODE_TIMER_START(scheduler);
-      
-      while (true)
-	{
-	  __shared__ NodeBase *nextNode;
-	  
-          COUNT_SCHED_LOOP();
-	  
-	  if (IS_BOSS())
-	    {
-	      nextNode = (workQueue.empty() ? nullptr : workQueue.dequeue());
-	    }
-	  __syncthreads(); // for nextNode
-	  
-	  if (!nextNode) // queue is empty -- terminate
-	    break;
-
-	  __syncthreads();
-	  
-	  NODE_TIMER_STOP(scheduler);
-
-	  if (nextNode->getWriteThruId() > 0) 
-	    {
-	      assert(nextNode->getWriteThruId() < localFlushSize);
-	      if (!(localFlush[nextNode->getWriteThruId()])) 
-		{
-		  //remove local write thru id and DO NOT fire node
-		  nextNode->setWriteThruId(0);
-		  //deactivate?
-		}
-	    }
-	  else 
-	    {
-	      nextNode->fire();
-	    }
-	  
-	  __syncthreads();
-	  
-	  NODE_TIMER_START(scheduler);
-	}
-      
-      NODE_TIMER_STOP(scheduler);
-    }
+    void run();
     
     __device__
     void addFireableNode(NodeBase *node)
     {
       assert(IS_BOSS());
-
-      workQueue.enqueue(node);
+      
+      workList[++top] = node;
     }
-
-    __device__
-    void setLocalFlush(unsigned int i)
-    {
-      assert(IS_BOSS());
-      assert(i < localFlushSize);
-
-      localFlush[i] = true;
-    }
-
-    __device__
-    void removeLocalFlush(unsigned int i)
-    {
-      assert(IS_BOSS());
-      assert(i < localFlushSize);
-
-      localFlush[i] = false;
-    }
-    
     
 #ifdef INSTRUMENT_TIME
     __device__
@@ -150,22 +79,22 @@ namespace Mercator  {
 
 #ifdef INSTRUMENT_SCHED_COUNTS
   __device__
-  void printLoopCount() const{
-    printf("%u: Sched Loop Count: %llu\n", blockIdx.x, schedCounter.getLoopCount());
-  }
+  void printLoopCount() const
+    {
+      printf("%u: Sched Loop Count: %llu\n", 
+	     blockIdx.x, schedCounter.getLoopCount());
+    }
 #endif
     
   private:
     
-    Queue<NodeBase *> workQueue;
-
-    bool* localFlush;
-    unsigned int localFlushSize;
-        
+    NodeBase **workList;
+    int top;
+    
 #ifdef INSTRUMENT_TIME
     DeviceTimer schedulerTimer;
 #endif
-
+    
 #ifdef INSTRUMENT_SCHED_COUNTS
     SchedCounter schedCounter;
 #endif

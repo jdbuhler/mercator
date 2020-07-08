@@ -43,20 +43,19 @@ namespace Mercator  {
     
     __device__
     Node_Enumerate(unsigned int queueSize,
-		   Scheduler *scheduler)
-      : BaseType(queueSize, scheduler),
+		   Scheduler *scheduler,
+		   unsigned int region)
+      : BaseType(queueSize, scheduler, region),
 	nFrontierNodes(1),	// FIXME: get from compiler
 	dataCount(0),
 	currentCount(0),
-	parentBuffer(queueSize)
+	parentBuffer(10 /*queueSize*/, this)
     {}
     
   protected:
 
     using BaseType::getChannel;
     using BaseType::maxRunSize; 
-    
-    using BaseType::isFlushing;
     
     using BaseType::parentHandle;
     
@@ -104,25 +103,33 @@ namespace Mercator  {
     bool startItem(const T &item, unsigned int *count)
     {
       __syncthreads();
-      
+
+      // buffer is full -- initiate DS flushing to clear it out,
+      // then terminate.  We'll reschedule ourselves to execute
+      // once the buffer is no longer full.
       if (parentBuffer.isFull())
 	{
-	  // buffer is actually full -- FIXME: initiate DS flushing
-	  getChannel(0)->getDSNode()->activate();
-	  
-	  // re-enqueue ourselves
-	  this->deactivate();
-	  this->activate();
+	  if (IS_BOSS())
+	    {
+	      NodeBase *dsNode = getChannel(0)->getDSNode();
+	      
+	      this->initiateFlush(dsNode);
+	      dsNode->activate();
+	      
+	      this->block();
+	    }
 	  
 	  return false;
 	}
+      
+      __syncthreads(); // protect read of parentBuffer from write below
       
       // set new current parent and issue enumerate signal
       __shared__ unsigned int eltCount;
       if (IS_BOSS())
 	{
 	  parentHandle = parentBuffer.alloc(item, nFrontierNodes);
-
+	  
 	  eltCount = this->findCount(item);
 	  
 	  // Create new Enum signal to send downstream
@@ -160,7 +167,6 @@ namespace Mercator  {
     // called with all threads
     
     __device__
-    virtual
     void fire()
     {
       unsigned int tid = threadIdx.x;
@@ -189,10 +195,6 @@ namespace Mercator  {
       // amount of space free on downstream data queue
       unsigned int dsSpace = channel->dsCapacity();
       
-      // state of partially emitted item, if any
-      unsigned int myDataCount = dataCount;
-      unsigned int myCurrentCount = currentCount;
-
       __syncthreads(); // protect ds channel capacity
       
       bool anyDSActive = false;
@@ -215,14 +217,17 @@ namespace Mercator  {
 	     ? nCredits 
 	     : nDataToConsume - nDataConsumed);
 	  
-	  unsigned int nItems = min(limit, 1); // only enum one input at a time
-	  
-	  TIMER_STOP(input);
-	  
-	  TIMER_START(run);
-	  
-	  if (nItems > 0)
+	  unsigned int nFinished = 0;
+	  if (limit > 0)
 	    {
+	      TIMER_STOP(input);
+	      
+	      TIMER_START(run);
+	      
+	      // recover state of partially emitted parent, if any
+	      unsigned int myDataCount = dataCount;
+	      unsigned int myCurrentCount = currentCount;
+	      
 	      // begin a new parent if it's time.  IF we cannot
 	      // (due to full parent buffer), terminate the main loop.
 	      if (myCurrentCount == myDataCount)
@@ -261,17 +266,21 @@ namespace Mercator  {
 	      if (myCurrentCount == myDataCount)
 		{
 		  finishItem();
-		  nDataConsumed++;
+		  nFinished = 1;
 		}
+	      
+	      // save any partial parent state
+	      dataCount = myDataCount;
+	      currentCount = myCurrentCount;
 	    }
+	  nDataConsumed += nFinished;
 	  
-	  // only consume a signal if we are not mid-item
-	  if (nSignalsToConsume > 0 && myCurrentCount == myDataCount)
+	  if (nSignalsToConsume > 0)
 	    {
 	      //
 	      // Track credit to next signal, and consume if needed.
 	      //
-	      nCredits -= nItems;
+	      nCredits -= nFinished;
 	      
 	      if (nCredits == 0)
 		{
@@ -289,7 +298,7 @@ namespace Mercator  {
 	  //
 	  // Check whether child has been activated by filling a queue
 	  //
-	  anyDSActive |= channel->checkDSFull(this->getWriteThruId());
+	  anyDSActive |= channel->checkDSFull();
 	  
 	  TIMER_STOP(output);
 	  
@@ -309,24 +318,13 @@ namespace Mercator  {
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().setCredit(nCredits);
 	  
-	  dataCount = myDataCount;
-	  currentCount = myCurrentCount;
-	  
-	  // FIXME: what does this do?
-	  if (this->getWriteThruId() > 0) 
-	    {
-	      NodeBase *dsNode = channel->getDSNode();
-	      dsNode->setWriteThruId(this->getWriteThruId());
-	      dsNode->activate();
-	    }
-	  
 	  if (nDataConsumed == nDataToConsume &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing
 	    this->deactivate(); 
 	    
-	    if (isFlushing)
+	    if (this->isFlushing())
 	      {
 		// no more inputs to read -- force downstream nodes
 		// into flushing mode and activate them (if not
@@ -334,11 +332,11 @@ namespace Mercator  {
 		// they must fire once to propagate flush mode and
 		// activate *their* downstream nodes.
 		NodeBase *dsNode = channel->getDSNode();
-		dsNode->setFlushing(true);
+		this->propagateFlush(dsNode);
 		dsNode->activate();
 	      }
 	    
-	    this->setFlushing(false);
+	    this->clearFlush(); // disable
 	  }
 	}
       

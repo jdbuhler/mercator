@@ -53,6 +53,8 @@ void genNodeConstruction(const string &nodeObj,
    
     nextStmt += ", &scheduler";
     
+    nextStmt += ", " + to_string(node->get_enumerateId());
+    
     if (mod->hasNodeParams())
       nextStmt += ", &" + hostNodeParamObj;
     
@@ -122,41 +124,6 @@ void genEdgeInitStmts(const App *app,
 }
 
 //
-// @brief Code-gen device-side app enumeration ids from topoverify corrected topology
-//
-// @param app The mercator app
-// @param f The output formatter
-//
-void genEnumIdSet(const App *app,
-			Formatter &f)
-{
-  // set all of the enumeration region Ids as needed.
-  f.add("// set all of the enumeration region Ids as needed");
-  
-  for (const ModuleType *mod : app->modules)
-    {
-      string deviceModuleType = mod->get_name();
-
-      for (const Node *node : mod->nodes)
-	{
-	  //string nodeObj = "d" + node->get_name();
-	  //genNodeConstruction(nodeObj, node, mod, app, f);
-	  //string enumerateIdLine = node->get_name();
-	  //enumerateIdLine += "->setEnumId(";
-	  //enumerateIdLine += atoi(node->get_enumerateId());
-	  //enumerateIdLine += ")";
-	  //f.add(enumerateIdLine);
-	  f.add("d" +
-		node->get_name() +
-		"->setEnumId(" +
-		to_string(node->get_enumerateId()) +
-		");");
-	  f.add("");
-	}
-    }
-}
-
-//
 // @brief Code-gen device-side app constructor
 //
 void genDeviceAppConstructor(const App *app,
@@ -194,9 +161,6 @@ void genDeviceAppConstructor(const App *app,
   
   // connect the instances of each module by edges
   genEdgeInitStmts(app, f);
-  
-  // set the appropriate enumeration region Ids as necessary
-  genEnumIdSet(app, f);
 
   // create an array of all modules to initialize the scheduler 
   int srcNode;

@@ -50,8 +50,9 @@ namespace Mercator  {
     //
     __device__
     Node_Sink(unsigned int queueSize,
-	      Scheduler *scheduler)
-      : BaseType(queueSize, scheduler),
+	      Scheduler *scheduler,
+	      unsigned int region)
+      : BaseType(queueSize, scheduler, region),
 	sink(nullptr)
     {}
     
@@ -93,7 +94,6 @@ namespace Mercator  {
   private:
     
     using BaseType::maxRunSize;
-    using BaseType::isFlushing;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -117,7 +117,6 @@ namespace Mercator  {
     //
 
     __device__
-    virtual
     void fire()
     {
       unsigned int tid = threadIdx.x;
@@ -222,7 +221,7 @@ namespace Mercator  {
 	  assert(queue.empty() && signalQueue.empty());
 	  
 	  this->deactivate(); 
-	  this->setFlushing(false);
+	  this->clearFlush(); // disable flushing
 	}
       
       TIMER_STOP(input);

@@ -63,16 +63,15 @@ namespace Mercator  {
     
     __device__
     Node_SingleItem(unsigned int queueSize,
-		    Scheduler *scheduler)
-      : BaseType(queueSize, scheduler)
+		    Scheduler *scheduler,
+		    unsigned int region)
+      : BaseType(queueSize, scheduler, region)
     {}
     
   protected:
 
     using BaseType::getChannel;
     using BaseType::maxRunSize; 
-    
-    using BaseType::isFlushing;
     
     // make these downwardly available to the user
     using BaseType::getNumActiveThreads;
@@ -105,7 +104,6 @@ namespace Mercator  {
     // called with all threads
     
     __device__
-    virtual
     void fire()
     {
       unsigned int tid = threadIdx.x;
@@ -205,7 +203,7 @@ namespace Mercator  {
 	  // Check whether any child has been activated
 	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    anyDSActive |= getChannel(c)->checkDSFull(this->getWriteThruId());
+	    anyDSActive |= getChannel(c)->checkDSFull();
 	  
 	  TIMER_STOP(output);
 	  
@@ -225,24 +223,13 @@ namespace Mercator  {
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().setCredit(nCredits);
 	  
-	  // FIXME: what does this do?
-	  if (this->getWriteThruId() > 0) 
-	    {
-	      for(unsigned int c = 0; c < numChannels; ++c) 
-		{
-		  NodeBase *dsNode = getChannel(c)->getDSNode();
-		  dsNode->setWriteThruId(this->getWriteThruId());
-		  dsNode->activate();
-		}
-	    }
-	  
 	  if (nDataConsumed == nDataToConsume &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing
 	    this->deactivate(); 
 	    
-	    if (isFlushing)
+	    if (this->isFlushing())
 	      {
 		// no more inputs to read -- force downstream nodes
 		// into flushing mode and activate them (if not
@@ -252,11 +239,11 @@ namespace Mercator  {
 		for (unsigned int c = 0; c < numChannels; c++)
 		  {
 		    NodeBase *dsNode = getChannel(c)->getDSNode();
-		    dsNode->setFlushing(true);
+		    this->propagateFlush(dsNode);
 		    dsNode->activate();
 		  }
 		
-		this->setFlushing(false);
+		this->clearFlush();  // disable flushing
 	      }
 	  }
 	}

@@ -57,8 +57,9 @@ namespace Mercator  {
     //
     __device__
     Node_Source(size_t *itailPtr,
-		Scheduler *scheduler)
-      : BaseType(0, scheduler),
+		Scheduler *scheduler,
+		unsigned int region)
+      : BaseType(0, scheduler, region),
 	source(nullptr),
 	tailPtr(itailPtr)
     {}
@@ -139,7 +140,6 @@ namespace Mercator  {
     //
     
     __device__
-    virtual
     void fire()
     {
       // type of our downstream channels matchses our input type,
@@ -181,6 +181,11 @@ namespace Mercator  {
       __syncthreads(); // all threads must see shared vars
       
       TIMER_STOP(input);
+
+#if 0
+	  if (IS_BOSS())
+	    printf("%d %p SRC\n", blockIdx.x, this);
+#endif
       
       TIMER_START(output);
       
@@ -236,11 +241,11 @@ namespace Mercator  {
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
-		  dsNode->setFlushing(true);
+		  this->initiateFlush(dsNode);
 		  dsNode->activate();
 		}
               
-	      this->setFlushing(false);
+	      this->clearFlush(); // disable flushing
 	    }
 	  else
 	    {
@@ -248,7 +253,7 @@ namespace Mercator  {
 	      
 	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
-		anyChildActive = getChannel(c)->checkDSFull(0);
+		anyChildActive = getChannel(c)->checkDSFull();
 	      
 	      // If we did not fill any downstream queues or exhaust
 	      // the input stream, we need to forcibly re-enqueue
@@ -257,8 +262,7 @@ namespace Mercator  {
 	      // size.
 	      if (!anyChildActive)
 		{
-		  this->deactivate();
-		  this->activate();
+		  this->forceReschedule();
 		}
 	    }
 	}

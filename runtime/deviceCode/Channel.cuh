@@ -37,6 +37,8 @@ namespace Mercator  {
     using ChannelBase::itemCounter;
 #endif
     
+    enum Flags {FLAG_ISAGGREGATE = 0x01 };
+    
   public:
     
     //
@@ -45,8 +47,9 @@ namespace Mercator  {
     // @param ioutputsPerInput Outputs per input for this channel
     //
     __device__
-      Channel(unsigned int ioutputsPerInput)
+      Channel(unsigned int ioutputsPerInput, bool isAgg)
       : outputsPerInput(ioutputsPerInput),
+      propFlags(0),
       numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
 	{
 	  // allocate enough total buffer capacity to hold outputs 
@@ -64,6 +67,9 @@ namespace Mercator  {
 	  
 	  dsQueue = nullptr;
 	  dsSignalQueue = nullptr;
+	  
+	  if (isAgg)
+	    propFlags |= FLAG_ISAGGREGATE;
 	  
 	  for (unsigned int j = 0; j < numThreadGroups; j++)
 	    nextSlot[j] = 0;
@@ -203,7 +209,7 @@ namespace Mercator  {
     }
     
     __device__
-      bool checkDSFull(unsigned int wtid)
+      bool checkDSFull()
     {
       // If we've managed to fill the downstream queue, activate its
       // target node. Let our caller know if we activated the ds node.
@@ -212,12 +218,7 @@ namespace Mercator  {
 	  dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN)
 	{
 	  if (IS_BOSS()) 
-	    {
-	      dsNode->activate();
-	      
-	      //stimcheck: In addition to activating, pass the writeThruId
-	      dsNode->setWriteThruId(wtid);
-	    }
+	    dsNode->activate();
 	  
 	  return true;
 	}
@@ -286,21 +287,14 @@ namespace Mercator  {
     __device__
     bool isAggregate() const
     {
-      return (propFlags & 0x01);
-    }
-    
-    //
-    //
-    //
-    __device__
-    void setAggregate()
-    {
-      propFlags |= 0x01;
+      return (propFlags & FLAG_ISAGGREGATE);
     }
     
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
+    unsigned int propFlags;	//Signal propagation flags for this channel
+    
     const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
 
     //
@@ -330,7 +324,7 @@ namespace Mercator  {
     
     unsigned int reservedQueueEntries; // NB: will be used for cycles
 
-    unsigned int propFlags;	//Signal propagation flags for this channel
+
   }; // end Channel class
 }  // end Mercator namespace
 
