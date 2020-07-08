@@ -1,3 +1,17 @@
+FIXMES
+ -- re-enable full ensemble opt when not flushing
+ -- pass in frontier size for enum node in compiler
+ -- assign correctly ordered region IDs in compiler topology check
+ -- frontier check should be aggregate OR dropping from type
+ -- consider merging isActive and isBlocked into one status
+    field.
+DESIGN OVERHAULS
+ -- drop output buffers from nodes.  Allows sundry simplifications
+    from warpspeed branch.
+ -- refactor Node hierarchy so that we can write ONE common fire()
+    for all non-source nodes that captures the common logic of managing
+    the input queues.  Will merge the duplicate code in three places.
+
 NOTES ON SCHEDULING AND SIGNAL PROCESSING
 
 A node may fire only if it is ACTIVE and has NO ACTIVE CHILDREN.
