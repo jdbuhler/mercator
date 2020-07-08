@@ -5,19 +5,26 @@
 
 namespace Mercator {
   
-  class Signal {
-  private:
-  public:
+  //
+  // A Signal is a polymorphic tagged type that contains information
+  // to be passed between nodes.  FIXME: we should really make this
+  // a tagged union so that the size is not the sum of sizes for
+  // fields associated with each type.
+  //
+  
+  struct Signal {
+    
     enum SignalTag {Invalid, Enum, Agg};
     
-  private:
-    
-    SignalTag tag;
+    SignalTag tag;   
     int credit;
     
+    // fields for Enum
     RefCountedArena::Handle handle;
     
-  public:
+    // fields for Agg
+    // (no fields needed)
+    
     __device__
     Signal()
       : tag(Invalid)
@@ -25,28 +32,8 @@ namespace Mercator {
     
     __device__ 
     Signal(SignalTag itag) 
-      : tag(itag), credit(0) 
+      : tag(itag), credit(0)
     { }
-    
-    __device__
-    SignalTag getTag() const
-    { return tag; }
-    
-    __device__ 
-    void setCredit(int c) 
-    { credit = c; }
-    
-    __device__ 
-    int getCredit() const 
-    { return credit; }
-    
-    __device__ 
-    void setHandle(const RefCountedArena::Handle &h)
-    { handle = h; }
-    
-    __device__
-    RefCountedArena::Handle getHandle() const 
-    { return handle; }
   };
   
   // max # of signals produced by a node consuming a vector of data

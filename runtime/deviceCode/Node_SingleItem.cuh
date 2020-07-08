@@ -7,7 +7,7 @@
 //        group processes a single input per call to run()
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
@@ -59,24 +59,18 @@ namespace Mercator  {
 				 runWithAllThreads,
 				 THREADS_PER_BLOCK> > BaseType;
     
-  public:
-    
-    __device__
-    Node_SingleItem(unsigned int queueSize,
-		    Scheduler *scheduler,
-		    unsigned int region)
-      : BaseType(queueSize, scheduler, region)
-    {}
-    
-  protected:
 
-    using BaseType::getChannel;
-    using BaseType::maxRunSize; 
+  protected:
     
     // make these downwardly available to the user
     using BaseType::getNumActiveThreads;
     using BaseType::getThreadGroupSize;
     using BaseType::isThreadGroupLeader;
+
+  private:
+    
+    using BaseType::getChannel;
+    using BaseType::maxRunSize; 
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -91,6 +85,16 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     using BaseType::itemCounter;
 #endif
+
+  public:
+    
+    __device__
+    Node_SingleItem(unsigned int queueSize,
+		    Scheduler *scheduler,
+		    unsigned int region)
+      : BaseType(queueSize, scheduler, region)
+    {}
+    
     
     //
     // @brief fire a node, consuming as much input 
@@ -110,7 +114,7 @@ namespace Mercator  {
       
       TIMER_START(input);
       
-      Queue<T> &queue = this->queue; 
+      Queue<T> &queue = this->queue;
       Queue<Signal> &signalQueue = this->signalQueue; 
       
       // # of items available to consume from queue
@@ -119,7 +123,7 @@ namespace Mercator  {
       
       unsigned int nCredits = (nSignalsToConsume == 0
 			       ? 0
-			       : signalQueue.getHead().getCredit());
+			       : signalQueue.getHead().credit);
       
       
       // # of items already consumed from queue
@@ -141,16 +145,17 @@ namespace Mercator  {
 		   nCredits);
 #endif
 	  
+	  // determine the max # of items we may safely consume 
 	  unsigned int limit =
 	    (nSignalsConsumed < nSignalsToConsume
 	     ? nCredits 
 	     : nDataToConsume - nDataConsumed);
-	  
-	  unsigned int nItems = min(limit, maxRunSize); 
-	  
+	  	  
 	  TIMER_STOP(input);
 	  
 	  TIMER_START(run);
+	  
+	  unsigned int nItems = min(limit, maxRunSize); 
 	  
 	  if (nItems > 0)
 	    {
@@ -197,7 +202,7 @@ namespace Mercator  {
 	  
 	  TIMER_START(output);
 	  
-	  __syncthreads();
+	  __syncthreads(); // protect channel changes
 	      
 	  //
 	  // Check whether any child has been activated
@@ -221,7 +226,7 @@ namespace Mercator  {
 	  signalQueue.release(nSignalsConsumed);
 
 	  if (!signalQueue.empty())
-	    signalQueue.getHead().setCredit(nCredits);
+	    signalQueue.getHead().credit = nCredits;
 	  
 	  if (nDataConsumed == nDataToConsume &&
 	      nSignalsConsumed == nSignalsToConsume)

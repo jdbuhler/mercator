@@ -12,6 +12,12 @@ namespace Mercator  {
   // maintain an external free list for simplicity rather than
   // chaining free entries together with internal pointers.
   // 
+  // The arena takes as an (optional) argument a poitner to a
+  // NodeBase, its presumable owner.  When the arena goes from full to
+  // non-full, we call back to the owner to let it know that it should
+  // unblock if it blocked when the buffer filled.
+  //
+  
   class RefCountedArena {
     
   public:
@@ -30,19 +36,29 @@ namespace Mercator  {
 	: arena(iarena), idx(iidx)
       {}
       
+      //
+      // @brief get the arena that the Handle points to
+      //
       __device__
       RefCountedArena *getArena() const { return arena; }
       
+      //
+      // @brief get the index of the element within the arena
+      //
       __device__
       unsigned int getIdx() const { return idx; }
       
+      //
+      // @brief remove a reference to the element that the handle
+      // points to, effectively invalidating it.
+      //
       __device__
       void unref() { arena->unref(idx); }
       
     private:
       
-      RefCountedArena *arena;
-      unsigned int idx;
+      RefCountedArena *arena; // memory area that Handle points to
+      unsigned int idx;       // index of object in arena
     };
     
     
@@ -121,6 +137,11 @@ namespace Mercator  {
   };
   
   
+  //
+  // a ParentBuffer is a reference-counted arena that allocates
+  // storage of a particular type T for objects.
+  //
+  
   template <class T>
   class ParentBuffer : public RefCountedArena {
   public:
@@ -135,6 +156,12 @@ namespace Mercator  {
     ~ParentBuffer()
     { delete [] data; }
     
+    //
+    // @brief allocate an entry in the buffer with nrefs references
+    // and set it to the item v.  Return a handle to the newly
+    // allocated entry.
+    //
+    
     __device__
     RefCountedArena::Handle alloc(const T &v, unsigned int nrefs)
     {
@@ -145,6 +172,9 @@ namespace Mercator  {
       return h;
     }
     
+    //
+    // @brief get a poitner to an item from its handle.
+    //
     __device__
     T *get(const RefCountedArena::Handle &h) const
     { return &data[h.getIdx()]; }

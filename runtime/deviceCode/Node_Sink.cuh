@@ -42,6 +42,25 @@ namespace Mercator  {
 				 THREADS_PER_BLOCK,
 				 true,
 				 THREADS_PER_BLOCK> > BaseType;
+    
+  private:
+    
+    using BaseType::maxRunSize;
+    
+#ifdef INSTRUMENT_TIME
+    using BaseType::inputTimer;
+    using BaseType::runTimer;
+    using BaseType::outputTimer;
+#endif
+
+#ifdef INSTRUMENT_OCC
+    using BaseType::occCounter;
+#endif
+
+#ifdef INSTRUMENT_COUNTS
+    using BaseType::itemCounter;
+#endif
+    
   public: 
     
     //
@@ -91,26 +110,6 @@ namespace Mercator  {
       sink = isink;
     }
     
-  private:
-    
-    using BaseType::maxRunSize;
-    
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
-#ifdef INSTRUMENT_OCC
-    using BaseType::occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
-#endif
-    
-    Sink<T> * sink;
-
     //
     // @brief fire the node, consuming pending inputs and
     // moving them directly to the output sink
@@ -132,7 +131,7 @@ namespace Mercator  {
       
       unsigned int nCredits = (nSignalsToConsume == 0
 			       ? 0
-			       : signalQueue.getHead().getCredit());
+			       : signalQueue.getHead().credit);
       
       
       // # of items already consumed from queue
@@ -226,6 +225,11 @@ namespace Mercator  {
       
       TIMER_STOP(input);
     }
+    
+  private:
+
+    Sink<T> * sink;
+    
   };
   
 }; // namespace Mercator

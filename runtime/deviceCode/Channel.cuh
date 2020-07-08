@@ -276,7 +276,7 @@ namespace Mercator  {
 	 : numItemsProduced);
       
       Signal &sNew = dsSignalQueue->enqueue(s);
-      sNew.setCredit(credit);
+      sNew.credit = credit;
       
       numItemsProduced = 0;
     }

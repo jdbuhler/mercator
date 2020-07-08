@@ -6,12 +6,11 @@
 // @brief a MERCATOR node that knows its input type
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>
 #include <cassert>
-#include <climits>
 
 #include "NodeBase.cuh"
 
@@ -143,40 +142,11 @@ namespace Mercator  {
 	}
     }
 
-    //
-    // @brief Create and initialize an output channel.
-    //
-    // @param c index of channel to initialize
-    // @param outputsPerInput Num outputs/input for the channel
-    //
-    template<typename DST>
-    __device__
-    void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput,
-		     bool isAgg = false)
-    {
-      assert(c < numChannels);
-      assert(outputsPerInput > 0);
-
-      // init the output channel -- should only happen once!
-      assert(channels[c] == nullptr);
-
-      channels[c] = new Channel<DST>(outputsPerInput, isAgg);
-
-      // make sure alloc succeeded
-      if (channels[c] == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-
-	  crash();
-	}
-    }
 
 
     //
-    // @brief Construc tthe edge between this node and a downstream
-    // neighbor on a partrcular channel.
+    // @brief Construct the edge between this node and a downstream
+    // neighbor on a particular channel.
     //
     // @param channelIdx channel that holds edge
     // @param dsNode node at downstream end of edge
@@ -197,19 +167,18 @@ namespace Mercator  {
 			 dsNode->getSignalQueue(),
 			 reservedSlots);
     }
-
-
+    
     //
-    // @brief return our queue (needed for setDSEdge().
+    // @brief return our queue (needed for setDSEdge()).
     //
     __device__
     Queue<T> *getQueue()
     { 
       return &queue; 
     }
-
+    
     //
-    // @brief return our signal queue (needed for setDSEdge().
+    // @brief return our signal queue (needed for setDSEdge()).
     //
     __device__
     Queue<Signal> *getSignalQueue()
@@ -218,91 +187,24 @@ namespace Mercator  {
     }
     
     //
-    // @brief return number of data items queued for this node.
-    // (Only used for debugging right now.)
+    // @brief is any input queued for this node?
+    // (Only used for debugging.)
     //
     __device__
-    unsigned int numPending() const
+    bool hasPending() const
     {
-      return queue.getOccupancy();
+      return (!queue.empty() || !signalQueue.empty());
     }
 
-    // 
-    // @brief The main signal handler function for nodes.  Perform signal
-    // actions and create new signals here.  This IS multithreaded.   Must
-    // sync all threads before entering and after exiting since state of
-    // data and signal queues change.  Can also cause main firing loop to 
-    // short circut.
-    // 
+  //Begin and end stubs for enumeration and aggregation 
+  public: 
     __device__
-    unsigned int signalHandler(unsigned int sigIdx)
-    {
-      Queue<Signal> &signalQueue = this->signalQueue;
-      
-      /////////////////////////////
-      // SIGNAL HANDLING SWITCH
-      /////////////////////////////
-      
-      const Signal &s = signalQueue.getElt(sigIdx);
-      
-      switch (s.getTag())
-	{
-	case Signal::Enum:
-	  {
-	    if (IS_BOSS())
-	      {
-		parentHandle = s.getHandle();
-		
-		//Reserve space downstream for the new signal
-		for (unsigned int c = 0; c < numChannels; ++c)
-		  {
-		    ChannelBase *channel = getChannel(c);
-		    
-		    // propagate the signal unless we are at region frontier
-		    if (!channel->isAggregate())
-		      channel->pushSignal(s);
-		  }
-	      }
-	    
-	    //Call the begin stub of this node
-	    this->begin();
-	    
-	    break;
-	  }
-	  
-	case Signal::Agg:
-	  {
-	    //Call the end stub of this node
-	    this->end();
-	    
-	    if (IS_BOSS())
-	      {
-		//Reserve space downstream for the new signal
-		for(unsigned int c = 0; c < numChannels; ++c)
-		  {
-		    ChannelBase *channel = getChannel(c);
-		    
-		    // propagate the signal unless we are at region frontier
-		    if(!channel->isAggregate())
-		      channel->pushSignal(s);
-		    else
-		      parentHandle.unref();
-		  }
-	      }
-	    break;
-	  }
-	  
-	default:
-	  {
-	    assert(false && "Invalid signal type detected");
-	  }
-	}
-      
-      // return credit from next signal if there is one
-      return (sigIdx + 1 < signalQueue.getOccupancy()
-	      ? signalQueue.getElt(sigIdx + 1).getCredit()
-	      : 0);
-    }
+    virtual
+    void begin() {}
+
+    __device__
+    virtual
+    void end() {}
     
     ///////////////////////////////////////////////////////////////////
     // OUTPUT CODE FOR INSTRUMENTATION
@@ -385,16 +287,6 @@ namespace Mercator  {
   
 #endif
 
-  //Begin and end stubs for enumeration and aggregation 
-  public: 
-    __device__
-    virtual
-    void begin() {}
-
-    __device__
-    virtual
-    void end() {}
-
   protected:
     
     Queue<T> queue;                     // node's input queue
@@ -416,7 +308,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_COUNTS
     ItemCounter itemCounter; // counts inputs to node
 #endif
-  
+    
     //
     // @brief inspector for the channels array (for subclasses)
     // @param c index of channel to get
@@ -438,6 +330,36 @@ namespace Mercator  {
       return queue.getOccupancy();
     }
     
+    //
+    // @brief Create and initialize an output channel.
+    //
+    // @param c index of channel to initialize
+    // @param outputsPerInput Num outputs/input for the channel
+    //
+    template<typename DST>
+    __device__
+    void initChannel(unsigned int c, 
+		     unsigned int outputsPerInput,
+		     bool isAgg = false)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(channels[c] == nullptr);
+      
+      channels[c] = new Channel<DST>(outputsPerInput, isAgg);
+
+      // make sure alloc succeeded
+      if (channels[c] == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+
+	  crash();
+	}
+    }
+
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
@@ -481,6 +403,90 @@ namespace Mercator  {
 	static_cast<Channel<DST> *>(channels[channelIdx]);
       
       channel->push(item, isThreadGroupLeader());
+    }
+
+
+    // 
+    // @brief The main signal handler function for a node.  Read
+    // the sigIdx-th signal in the queue and perform whatever action
+    // it demands (which may generate additional downstream signals).
+    //
+    // Return the credit associated with the signal at index sigIdx+1
+    // in the queue, if any exists; otherwise, return 0.
+    //
+    __device__
+    unsigned int signalHandler(unsigned int sigIdx)
+    {
+      const Queue<Signal> &signalQueue = this->signalQueue;
+      
+      /////////////////////////////
+      // SIGNAL HANDLING SWITCH
+      /////////////////////////////
+      
+      const Signal &s = signalQueue.getElt(sigIdx);
+      
+      switch (s.tag)
+	{
+	case Signal::Enum:
+	  {
+	    if (IS_BOSS())
+	      {
+		// set the parent object for this node (specified
+		// as a handle to an object in the ParentBuffer)
+		parentHandle = s.handle;
+		
+		//Reserve space downstream for the new signal
+		for (unsigned int c = 0; c < numChannels; ++c)
+		  {
+		    ChannelBase *channel = getChannel(c);
+		    
+		    // propagate the signal unless we are at region
+		    // frontier
+		    if (!channel->isAggregate())
+		      channel->pushSignal(s);
+		  }
+	      }
+	    
+	    //Call the begin stub of this node
+	    this->begin();
+	    
+	    break;
+	  }
+	  
+	case Signal::Agg:
+	  {
+	    //Call the end stub of this node
+	    this->end();
+	    
+	    if (IS_BOSS())
+	      {
+		//Reserve space downstream for the new signal
+		for(unsigned int c = 0; c < numChannels; ++c)
+		  {
+		    ChannelBase *channel = getChannel(c);
+		    
+		    // if we're not at a region frontier, propagate
+		    // the signal; if we are, we can remove our reference
+		    // to the parent object.
+		    if(!channel->isAggregate())
+		      channel->pushSignal(s);
+		    else
+		      parentHandle.unref();
+		  }
+	      }
+	    break;
+	  }
+	  
+	default:
+	  {
+	    assert(false && "Invalid signal type detected");
+	  }
+	}
+      
+      // return credit from next signal if there is one
+      return (sigIdx + 1 < signalQueue.getOccupancy()
+	      ? signalQueue.getElt(sigIdx + 1).credit
+	      : 0);
     }
 
   };  // end Node class

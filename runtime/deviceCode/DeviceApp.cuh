@@ -90,7 +90,7 @@ namespace Mercator {
 	  // sanity check -- make sure no node still has pending inputs
 	  bool hasPending = false;
 	  for (unsigned int j = 0; j < numNodes; j++)
-	    hasPending |= (nodes[j]->numPending() > 0);
+	    hasPending |= nodes[j]->hasPending();
 	  
 	  assert(!hasPending);
 	}

@@ -46,6 +46,26 @@ namespace Mercator  {
 				 true,
 				 THREADS_PER_BLOCK> > BaseType;
     
+    
+  private:
+
+    using BaseType::maxRunSize;
+    using BaseType::getChannel;
+    
+#ifdef INSTRUMENT_TIME
+    using BaseType::inputTimer;
+    using BaseType::runTimer;
+    using BaseType::outputTimer;
+#endif
+
+#ifdef INSTRUMENT_OCC
+    using BaseType::occCounter;
+#endif
+
+#ifdef INSTRUMENT_COUNTS
+    using BaseType::itemCounter;
+#endif
+    
   public: 
     
     //
@@ -110,28 +130,6 @@ namespace Mercator  {
     {
       source = isource;
     }
-    
-  private:
-
-    using BaseType::maxRunSize;
-    using BaseType::getChannel;
-    
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
-#ifdef INSTRUMENT_OCC
-    using BaseType::occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
-#endif
-    
-    Source<T>* source;
-    
     
     //
     // @brief fire the node, copying as much input as possible from
@@ -230,22 +228,20 @@ namespace Mercator  {
 	{
 	  if (numToWrite < numToRequest)
 	    {
-	      // no inputs remaining in source
+	      // no inputs remain in source
 	      this->deactivate();
 	      
 	      // no more inputs to read -- force downstream nodes
 	      // into flushing mode and activate them (if not
 	      // already active).  Even if they have no input,
-	      // they must fire once to propagate flush mode and
-	      // activate *their* downstream nodes.
+	      // they must fire once to propagate flush mode to
+	      // *their* downstream nodes.
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
 		  this->initiateFlush(dsNode);
 		  dsNode->activate();
 		}
-              
-	      this->clearFlush(); // disable flushing
 	    }
 	  else
 	    {
@@ -271,6 +267,8 @@ namespace Mercator  {
     }
     
   private:
+
+    Source<T>* source;
     
     size_t *tailPtr;
   };
