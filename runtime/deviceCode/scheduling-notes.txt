@@ -44,6 +44,13 @@ become EMPTY
 items in the data queue, so it is not possible for the signal queue to
 be nonempty but blocked on data that has not yet been issued.]
 
+[Why is EMPTY not "less than one full vector width in the data queue
+ and a NON-FULL signal queue"?  The latter may be safe, but when we
+ return to the node after acquiring more data, none of those old
+ signals have >= a full vector width of credit.  Hence, deferring
+ processing them won't improve our occupancy, so we might as well
+ do it now.]
+
 Fireable nodes are queued in the scheduler.  No node may appear on a
 queue more than once.  When no fireable nodes exist in the queue, the
 application terminates.
