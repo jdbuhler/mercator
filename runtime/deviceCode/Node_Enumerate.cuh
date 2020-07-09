@@ -202,7 +202,7 @@ namespace Mercator  {
 	      
 	      if (nCredits == 0)
 		{
-		  nCredits = this->signalHandler(nSignalsConsumed);
+		  nCredits = this->handleSignal(nSignalsConsumed);
 		  nSignalsConsumed++;
 		}
 	    }

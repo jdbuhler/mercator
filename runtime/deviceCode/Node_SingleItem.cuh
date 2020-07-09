@@ -196,7 +196,7 @@ namespace Mercator  {
 	      
 	      if (nCredits == 0)
 		{
-		  nCredits = this->signalHandler(nSignalsConsumed);
+		  nCredits = this->handleSignal(nSignalsConsumed);
 		  nSignalsConsumed++;
 		}
 	    }
@@ -220,15 +220,6 @@ namespace Mercator  {
       
       // protect code above from queue changes below
       __syncthreads();
-
-#if 0
-	  if (IS_BOSS())
-	    printf("END: %d %p %d %d %d %d %d %d\n", 
-		   blockIdx.x, this, 
-		   nDataConsumed, nDataToConsume,  
-		   nSignalsConsumed, nSignalsToConsume,
-		   nCredits, this->isFlushing());
-#endif
 
       if (IS_BOSS())
 	{

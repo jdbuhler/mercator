@@ -405,17 +405,28 @@ namespace Mercator  {
       channel->push(item, isThreadGroupLeader());
     }
 
+    
+    ////////////////////////////////////////////////////////////////////
+    // SIGNAL HANDLING LOGIC
+    //
+    // As new signal types Foo are added in Signal.h, we need to add a
+    // handler here named handleFoo() and update the switch stmt in
+    // handleSignal() accordingly.  Handlers are always VIRTUAL so
+    // that subclasses may override them; if a generic Node needs no
+    // handler for a signal, it should be given an empty function
+    // here, and the subclass should provide a new version.
+    ///////////////////////////////////////////////////////////////////
 
     // 
-    // @brief The main signal handler function for a node.  Read
-    // the sigIdx-th signal in the queue and perform whatever action
-    // it demands (which may generate additional downstream signals).
+    // @brief Signal handling dispatch for a node.  Consume the
+    // sigIdx-th signal in the queue and perform whatever action it
+    // demands (which may generate additional downstream signals).
     //
     // Return the credit associated with the signal at index sigIdx+1
     // in the queue, if any exists; otherwise, return 0.
     //
     __device__
-    unsigned int signalHandler(unsigned int sigIdx)
+    unsigned int handleSignal(unsigned int sigIdx)
     {
       const Queue<Signal> &signalQueue = this->signalQueue;
       
@@ -428,59 +439,17 @@ namespace Mercator  {
       switch (s.tag)
 	{
 	case Signal::Enum:
-	  {
-	    if (IS_BOSS())
-	      {
-		// set the parent object for this node (specified
-		// as a handle to an object in the ParentBuffer)
-		parentHandle = s.handle;
-		
-		//Reserve space downstream for the new signal
-		for (unsigned int c = 0; c < numChannels; ++c)
-		  {
-		    ChannelBase *channel = getChannel(c);
-		    
-		    // propagate the signal unless we are at region
-		    // frontier
-		    if (!channel->isAggregate())
-		      channel->pushSignal(s);
-		  }
-	      }
-	    
-	    //Call the begin stub of this node
-	    this->begin();
-	    
-	    break;
-	  }
+	  handleEnum(s);
+	  break;
 	  
 	case Signal::Agg:
-	  {
-	    //Call the end stub of this node
-	    this->end();
-	    
-	    if (IS_BOSS())
-	      {
-		//Reserve space downstream for the new signal
-		for(unsigned int c = 0; c < numChannels; ++c)
-		  {
-		    ChannelBase *channel = getChannel(c);
-		    
-		    // if we're not at a region frontier, propagate
-		    // the signal; if we are, we can remove our reference
-		    // to the parent object.
-		    if(!channel->isAggregate())
-		      channel->pushSignal(s);
-		    else
-		      parentHandle.unref();
-		  }
-	      }
-	    break;
-	  }
+	  handleAgg(s);
+	  break;
 	  
 	default:
-	  {
-	    assert(false && "Invalid signal type detected");
-	  }
+	  if (IS_BOSS())
+	    printf("ERROR: unhandled signal type %d detected\n", s.tag);
+	  assert(false);
 	}
       
       // return credit from next signal if there is one
@@ -488,7 +457,61 @@ namespace Mercator  {
 	      ? signalQueue.getElt(sigIdx + 1).credit
 	      : 0);
     }
+    
+  protected:    
 
+    __device__
+    virtual
+    void handleEnum(const Signal &s)
+    {
+      if (IS_BOSS())
+	{
+	  // set the parent object for this node (specified
+	  // as a handle to an object in the ParentBuffer)
+	  parentHandle = s.handle;
+	  
+	  //Reserve space downstream for the new signal
+	  for (unsigned int c = 0; c < numChannels; ++c)
+	    {
+	      ChannelBase *channel = getChannel(c);
+	      
+	      // propagate the signal unless we are at region
+	      // frontier
+	      if (!channel->isAggregate())
+		channel->pushSignal(s);
+	    }
+	}
+      
+      //Call the begin stub of this node
+      this->begin();
+    }
+    
+    
+    __device__
+    virtual
+    void handleAgg(const Signal &s)
+    {
+      //Call the end stub of this node
+      this->end();
+      
+      if (IS_BOSS())
+	{
+	  //Reserve space downstream for the new signal
+	  for(unsigned int c = 0; c < numChannels; ++c)
+	    {
+	      ChannelBase *channel = getChannel(c);
+	      
+	      // if we're not at a region frontier, propagate
+	      // the signal; if we are, we can remove our reference
+	      // to the parent object.
+	      if(!channel->isAggregate())
+		channel->pushSignal(s);
+	      else
+		parentHandle.unref();
+	    }
+	}
+    }
+    
   };  // end Node class
 }  // end Mercator namespace
 
