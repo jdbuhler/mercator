@@ -138,12 +138,15 @@ namespace Mercator  {
       // # of items already consumed from queue
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
-      
-      unsigned int inputLB = (this->isFlushing() ? 1 : maxInputSize);
+
+      // threshold for declaring data queue "empty" for scheduling      
+      unsigned int emptyThreshold = (this->isFlushing() 
+				     ? 0 
+				     : maxInputSize - 1);
       
       bool anyDSActive = false;
 
-      while ((nDataToConsume - nDataConsumed >= inputLB || 
+      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !anyDSActive)
 	{

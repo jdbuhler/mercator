@@ -235,8 +235,8 @@ namespace Mercator  {
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
 		  
-		  this->initiateFlush(dsNode);
-		  dsNode->activate();
+		  if (this->initiateFlush(dsNode))
+		    dsNode->activate();
 		}
 	    }
 	  else

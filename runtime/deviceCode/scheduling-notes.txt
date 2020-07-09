@@ -176,87 +176,66 @@ and R', since the lower-numbered flush propagates to a superset of
 the nodes reached by the higher-numbered flush.
 
 
---------------------------
+** OUTLINE OF FIRING FUNCTION
 
-Firing a node work as follows:
-
-PRECONDITION: When a node fires, it is ACTIVE and has NO ACTIVE
-CHILDREN.  Therefore, it either 
-   * has no queued signals AND >= vector width queued data items, OR
+PRECONDITION: When a node fires, it is ACTIVE, not BLOCKED, and has NO
+ACTIVE CHILDREN.  Therefore, it either
+   * has no queued signals AND >= max input size queued data items, OR
    * has >= 1 queued signal, OR
    * is in flushing mode
 AND none of its children have FULL data or FULL signal queues.  Hence,
 the node is safe to fire and can make progress.
 
-//
-// begin by caching queue sizes and credits in per-thread registers,
-// so we don't have to do synchronous updates to them
-//
 
-nDataToConsume    = <size of data queue>
-nSignalsToConsume = <size of signal queue>
+* SETUP
 
-nCredit = nSignalsToconsume == 0 
-          ? 0 
-          : # of credits in signal at head of signal queue
+Initially, we cache in per-thread registers
+  - the initial size of the input data queue 
+  - the initial size of the input signal queue
+  - the stored credit (if any) from the head of the input signal queue
 
-nDataConsumed    = 0
-nSignalsConsumed = 0
+None of these items will be updated in global memory until the end of
+firing. [FIXME: so do we need to cache them, or can we rely on L1
+to do so?]
 
-// 
-// run until we are out of both signals and data, OR a downstream
-// node has been activated due to a full queue.
-//  
+We have two variables to track the number of consumed data items and
+signals.
 
+Finally, we compute the threshold for the data queue being declared
+EMPTY, according to the flushing status.
 
-anyDSActive = false
+* MAIN LOOP
 
-while ((nDataConsumed < nDataToConsume) ||
-       (nSignalsConsumed < nSignalsToConsume) && 
-       !anyDSActive)
+We iterate the run loop while neither the data queue or signal queue
+is EMPTY and no successor of the node has become ACTIVE.
 
-   // credit is relevant only if there are pending signals
-   limit = (nSignalsConsumed < nSignalsToConsume 
-            ? nCredit : nDataToConsume - nDataConsumed)
+The loop first computes nItems, the maximum number of data items that
+may safely be consumed by the next run.  This depends on how many
+items remain and how many credits are associated with the next signal,
+if any.
 
-   nItems = min(limit, vector width)
+If nItems is non-zero, the node processes some number X of items <=
+nItems. If there are pending signals, the number of credits is also
+decremented by X.  If the node determines that it is blocked,
+the main loop should terminate at this point.
 
-   // try to eat up to a vector worth of data (as limit permits)
-   // AND write any data or signal outputs that result downstream
-   CONSUME data items [nDataConsumed .. nDataConsumed + nItems - 1]
+If there are pending signals and the credit count has reached 0,
+the signal handler is called to consume the next signal, and the
+credit is updated to reflect the following signal (if any) in
+the signal queue.
 
-   // If we have a signal pending, see if it's time to consume it
-   if (nSignalsToConsume > 0) 
-      nCredit -= nItems
+Finally, each downstream channel is checked to see if it is full
+and activated if so.
 
-      if (nCredit == 0)
-        CONSUME signal [nSignalsConsumed] // may generate signals downstream
+* UPDATES POST-LOOP
 
-      if (nSignalsConsumed < nSignalsToConsume) // get credit from next signal
-         nCredit = credits from signal [nSignalsConsumed + 1]
+The input data and signal queues are updated to release the consumed
+items.  If the signal queue is not empty, any unused credit is stored
+back to the signal at the head of the queue.
 
-      nSignalsConsumed++
-               
-   for each downstream channel with a FULL data or signal queue,
-    activate downstream node
-    set anyDSActive true
-    
-SYNC
+If the node's queues are now EMPTY, it is deactivated.  If it has
+just completed a flush, 
 
-// update us queue sizes to reflect cached values
-release nDataConsumed data items from data queue
-release nSignalsConsumed signals from signal queue
-
-// save cached credit value
-if nSignalsConsumed < nSignalsToConsume
-   set signal credit at head of queue to nCredit
-
-// if we've consumed all inputs from both queues...
-if (nDataConsumed == nDatatoConsume && 
-    nSignalsConsumed == nSignalsToConsume)
-   
-   deactivate node
-
-   if we are flushing
-     set flushing and activate all downstream nodes
-     unset our flushing flag
+   - the node's flush status is propagated to its successors,
+        which are activated if they propagate
+   - the node's flush status is cleared

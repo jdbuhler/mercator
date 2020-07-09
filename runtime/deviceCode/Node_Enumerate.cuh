@@ -112,11 +112,14 @@ namespace Mercator  {
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
       
-      unsigned int inputLB = (this->isFlushing() ? 1 : maxInputSize);
+      // threshold for declaring data queue "empty" for scheduling
+      unsigned int emptyThreshold = (this->isFlushing() 
+				     ? 0 
+				     : maxInputSize - 1);
       
       bool anyDSActive = false;
       
-      while ((nDataToConsume - nDataConsumed >= inputLB || 
+      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !anyDSActive)
 	{
@@ -236,7 +239,7 @@ namespace Mercator  {
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().credit = nCredits;
 	  
-	  if (nDataToConsume - nDataConsumed < inputLB &&
+	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing
@@ -250,8 +253,8 @@ namespace Mercator  {
 		// they must fire once to propagate flush mode and
 		// activate *their* downstream nodes.
 		NodeBase *dsNode = channel->getDSNode();
-		this->propagateFlush(dsNode);
-		dsNode->activate();
+		if (this->propagateFlush(dsNode))
+		  dsNode->activate();
 		
 		this->clearFlush(); // disable
 	      }
@@ -317,8 +320,8 @@ namespace Mercator  {
 	    {
 	      NodeBase *dsNode = getChannel(0)->getDSNode();
 	      
-	      this->initiateFlush(dsNode);
-	      dsNode->activate();
+	      if (this->initiateFlush(dsNode))
+		dsNode->activate();
 	      
 	      this->block();
 	    }
