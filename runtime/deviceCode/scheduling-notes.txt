@@ -1,5 +1,4 @@
 FIXMES
- -- re-enable full ensemble opt when not flushing
  -- pass in frontier size for enum node in compiler
  -- assign correctly ordered region IDs in compiler topology check
  -- frontier check should be aggregate OR dropping from type
@@ -12,68 +11,174 @@ DESIGN OVERHAULS
     for all non-source nodes that captures the common logic of managing
     the input queues.  Will merge the duplicate code in three places.
 
-NOTES ON SCHEDULING AND SIGNAL PROCESSING
+** SCHEDULING PROTOCOL
 
-A node may fire only if it is ACTIVE and has NO ACTIVE CHILDREN.
+The basic scheduling mechanism of MERCATOR is described in (Plano and
+Buhler, 2020).  The following description extends this protocol to
+accommodate signals.
 
-Initially, the source is active, and all other nodes are inactive.
+A node may fire only if it is ACTIVE, is not BLOCKED, and has NO
+ACTIVE CHILDREN.
+
+When a node fires, it executes a series of *runs*. In a single run, a
+node consumes zero or more data items (if present), produces any
+outputs and signals that result from these, and then consumes up to
+one signal if any signals are pending.  
+
+A node's firing ends when either 
+ (1) the node becomes INACTIVE 
+       (informally, exhausts its input queue),
+ (2) some child of the node becomes ACTIVE
+       (informally, its input queue fills), or
+ (3) the node becomes BLOCKED
+       (on some internal resource limit other than queues)
+
+* NODE STATUS CHANGES
 
 An inactive node becomes active when either its data or signal queue
-becomes FULL, or when it is explicitly set to flushing mode and
-activated by its parent.
+becomes FULL, or when its parent explicitly sets it to FLUSHING mode
+and activates it.
 
   - for the data queue, FULL means that there is insufficient space
-    remaining for the previous node to process a full vector width of
-    inputs.
+    remaining for the previous node to write the maximum possible
+    output from processing one run's worth of inputs.
 
   - for the signal queue, FULL means that there is insufficient space
-    remaining for the maximum number of signals that could be issued
-    by the previous node processing a full vector width of inputs 
-    (MAX_SIGNALS_PER_VEC) AND the max # of signals that could
-    result from processing one queued signal (MAX_SIGNALS_PER_SIG).
-    The former is currently 2, while the latter is currently 1.
-    [Defined in Signal.cuh]
+    remaining for the previous node to write the maximum number of 
+    signals it could produce in one run.  More specifically,
+    a node is assumed to produce at most MAX_SIGNALS_PER_VEC
+    signals from processing one run's worth of data and at
+    most MAX_SIGNALS_PER_SIG signals from processing one signal.
+    [Currently, MAX_SIGNALS_PER_VEC = 2 and MAX_SIGNALS_PER_SIG = 1;
+    these constants are defined in Signal.cuh]
 
 An active node becomes inactive when its data and signal queues
-become EMPTY
+become EMPTY.  
 
-   - EMPTY means less than one full vector width of items in
-     the data queue *and* NO queued signals.
+   - for the data queue, the definition of EMPTY depends on the node's
+     flushing status. If the node is flushing, EMPTY means that hte
+     data queue contains zero items.  If it is not flushing, EMPTY means
+     that there is less than the maximum number of items the node can
+     process in one run.
+  
+   - for the signal queue, EMPTY means there are zero signals.
 
-[NB: signals are never issued with more credit that the number of
-items in the data queue, so it is not possible for the signal queue to
-be nonempty but blocked on data that has not yet been issued.]
+Note that the signal credit protocol ensures that signals are never
+issued with more credit than the number of items currently in the data
+queue.  Hence, it is not possible to have a nonempty signal queue
+unless there are enough data items queued to allow all those signals
+to be processed.
 
-[Why is EMPTY not "less than one full vector width in the data queue
- and a NON-FULL signal queue"?  The latter may be safe, but when we
- return to the node after acquiring more data, none of those old
- signals have >= a full vector width of credit.  Hence, deferring
- processing them won't improve our occupancy, so we might as well
- do it now.]
+[Rationale: why does emptiness not merely require that the signal
+queue be non-FULL?  This alternative definition would be safe, in that
+it would allow the upstream node to make progress.  However, if we
+were to halt a node's execution with less than an input width's worth
+of data items and any queued signals, acquiring more data items would
+not change the fact that those queued signals must be processed with
+non-full inputs' worth of data.  So there's no point in putting off
+the remaining data unless the signal queue is completely empty.]
 
-Fireable nodes are queued in the scheduler.  No node may appear on a
-queue more than once.  When no fireable nodes exist in the queue, the
-application terminates.
+An active node determines internally if it is BLOCKED on some resource
+other than its queues.  If so, it terminates its firing without
+processing any further input.  The node must take action before ending
+the firing to ensure that it will eventually be unblocked, and *some*
+code must take responsibility for scheduling the node once it
+unblocks. [Currently, blocking can only happen to enumerate nodes
+due to a full parent buffer.  The buffer itself will call back to
+reschedule an unblocked node if it is ready to fire.]
 
-The source enters flushing mode when it cannot request any more data
-from the input stream.
+* BEGINNING AND END OF EXECUTION
 
-CLAIM: the application cannot terminate with data or signals still
-queued.
+Initially, the source is active, all other nodes are inactive, and no
+node is blocked.  Hence, the source is initially fireable.
 
---------------------------
+An application executes as long as some node is fireable.  When the
+source discovers that no more data is available in the input stream,
+it issues a flush to all downstream nodes, activates these nodes, and
+inactivates itself. Once this flush reaches all sink nodes, all queues
+willl be empty, so the application will terminate.
 
-Signals are managed on each edge by a local credit protocol.
 
-A signal is issued with an amount of credit equal to the number
-of queued data items that must be processed between the previous
-queued signal (if any) and itself.
+** SIGNALING
+
+A node may raise one or more signals as part of its execution.
+Signals are synchronized with data on each edge of the application
+independently using a credit protocol as described in (Timcheck and
+Buhler, 2020).
+
+When a signal is pending, a node's firing may terminate without
+consuming all credit available to the node (e.g., due to a downstream
+queue filling.)  In this circumstance, the node's remaining credit
+is stored in the signa at the head of the queue.
+
+* HANDLING SIGNALS
+
+A signal is consumed by calling a Node's signal handler.  The handler
+looks at the signal's TAG (one of a finite set of values defined in
+Signal.cuh) and dispatches it to a corresponding handler function
+defined in the Node.  Handlers are *virtual* functions, so that any
+subclass of a Node is able to override the generic handler.
+
+
+** FLUSHING BEHAVIOR
+
+Flushing is used to ensure that a node will not wait to consume its
+pending input, even if the node would not normally be eligible to fire
+due to small amounts of queued data.  A node may enter flushing status
+for multiple reasons, e.g. because the end of input has been reached,
+or because an enumeration node has a full parent buffer and needs to
+force processing of any "open" parents to make room for more.
+
+In general, flushes are associated with REGIONS, which are connected
+subsets of the application graph with a single HEAD node.  The head
+node initiates flushes for its region, and these flushes propagate to
+all nodes in the region, but not beyond it.  Regions may NOT overlap
+arbitrarily, but one region may be a proper subset of another.  The
+entire graph constitutes a region with the source as its head.
+
+Restriction of flushes to particular regions is accomplished by
+careful choice of region numbers.  The entire graph is region 0.
+Numbering for other regions follows two rules. Assume there are two
+regions A and B, and region A's head is a predecessor of region B's
+head.
+
+  - If B is contained in A, then B has a higher number than A.
+
+  - If B is disjoint from A, then B has a lower number than A.
+
+Each node is labeled with the number of the highest-numbered region
+of which it is a member.
+
+[FIXME NOTE: the two rules above are not yet enforced by the MERCATOR
+compiler.  Even if we do not yet support nested enumeration, the
+second rule needs to be implemented.]
+
+Flushes are propagated from a node to its successors according to the
+following rule: a flush initiated by a node with region number R
+propagates to all successors with region number >= R.  Our numbering
+scheme ensures that a flush initiated by the head of region R will
+reach all nodes in region R, but no further.
+
+* IMPLEMENTATION OF FLUSH PROPAGATION
+
+A node's FLUSHING STATUS indicates whether the node is currently
+flushing.  It is equal to the *lowest-numbered region* whose flush is
+currently active for that node. Because flushes do not propagate from
+their own region to lower-numbered regions, a node is flushing iff its
+status is <= its own region.  A node that completes a flush sets its
+flushing status to a number higher than its region to indicate that
+it is no longer flushing.
+
+It is possible that a node may receive a flush for some region R while
+already in flushing mode due to some other region R'.  In such a
+circumstance, the node's status should be updated to the *lower* of R
+and R', since the lower-numbered flush propagates to a superset of
+the nodes reached by the higher-numbered flush.
+
 
 --------------------------
 
 Firing a node work as follows:
-
-[Note: we are not enforcing full ensembles right now]
 
 PRECONDITION: When a node fires, it is ACTIVE and has NO ACTIVE
 CHILDREN.  Therefore, it either 
