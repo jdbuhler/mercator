@@ -225,8 +225,8 @@ namespace Mercator  {
 	  // sink is never output blocked, so we always stop
 	  // because of our input lower bound.
 	  assert(signalQueue.empty());
-	  
 	  this->deactivate(); 
+	  
 	  this->clearFlush(); // disable flushing
 	}
       
