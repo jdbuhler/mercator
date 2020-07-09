@@ -15,7 +15,7 @@
 
 #ifndef INSTRUMENT_TAIL
 #define TIMER_START(tm)			\
-  { if (!this->isFlushing) { NODE_TIMER_START(tm); } }
+  { if (!this->isFlushing()) { NODE_TIMER_START(tm); } }
 #else
 #define TIMER_START(tm) \
   { NODE_TIMER_START(tm); }
@@ -23,7 +23,7 @@
 
 #ifndef INSTRUMENT_TAIL
 #define TIMER_STOP(tm)			\
-  { if (!this->isFlushing) { NODE_TIMER_STOP(tm); } }
+  { if (!this->isFlushing()) { NODE_TIMER_STOP(tm); } }
 #else
 #define TIMER_STOP(tm) \
   { NODE_TIMER_STOP(tm); }
@@ -31,7 +31,7 @@
 
 #ifndef INSTRUMENT_TAIL
 #define OCC_COUNT(n)                        \
-  { if (!this->isFlushing) { NODE_OCC_COUNT(n); } }
+  { if (!this->isFlushing()) { NODE_OCC_COUNT(n); } }
 #else
 #define OCC_COUNT(n)                        \
   { NODE_OCC_COUNT(n); }

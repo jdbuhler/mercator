@@ -120,6 +120,8 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
+      const unsigned int maxInputSize = maxRunSize;
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
@@ -133,14 +135,15 @@ namespace Mercator  {
 			       ? 0
 			       : signalQueue.getHead().credit);
       
-      
       // # of items already consumed from queue
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
       
+      unsigned int inputLB = (this->isFlushing() ? 1 : maxInputSize);
+      
       bool anyDSActive = false;
 
-      while ((nDataConsumed < nDataToConsume ||
+      while ((nDataToConsume - nDataConsumed >= inputLB || 
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !anyDSActive)
 	{
@@ -216,8 +219,9 @@ namespace Mercator  {
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  
-	  // sink is never output blocked so always exhausts its input 
-	  assert(queue.empty() && signalQueue.empty());
+	  // sink is never output blocked, so we always stop
+	  // because of our input lower bound.
+	  assert(signalQueue.empty());
 	  
 	  this->deactivate(); 
 	  this->clearFlush(); // disable flushing

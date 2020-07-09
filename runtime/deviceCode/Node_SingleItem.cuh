@@ -112,6 +112,8 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
+      const unsigned int maxInputSize = maxRunSize;
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue;
@@ -125,14 +127,15 @@ namespace Mercator  {
 			       ? 0
 			       : signalQueue.getHead().credit);
       
-      
       // # of items already consumed from queue
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
       
-      bool anyDSActive = false;
+      unsigned int inputLB = (this->isFlushing() ? 1 : maxInputSize);
 
-      while ((nDataConsumed < nDataToConsume ||
+      bool anyDSActive = false;
+      
+      while ((nDataToConsume - nDataConsumed >= inputLB || 
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !anyDSActive)
 	{
@@ -217,18 +220,27 @@ namespace Mercator  {
       
       // protect code above from queue changes below
       __syncthreads();
-      
+
+#if 0
+	  if (IS_BOSS())
+	    printf("END: %d %p %d %d %d %d %d %d\n", 
+		   blockIdx.x, this, 
+		   nDataConsumed, nDataToConsume,  
+		   nSignalsConsumed, nSignalsToConsume,
+		   nCredits, this->isFlushing());
+#endif
+
       if (IS_BOSS())
 	{
 	  COUNT_ITEMS(nDataConsumed);  // instrumentation
 	  
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
-
+	  
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().credit = nCredits;
 	  
-	  if (nDataConsumed == nDataToConsume &&
+	  if (nDataToConsume - nDataConsumed < inputLB &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing

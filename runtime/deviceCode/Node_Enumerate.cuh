@@ -90,6 +90,8 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
+      const unsigned int maxInputSize = 1; // we consume one parent at a time
+      
       TIMER_START(input);
       
       Queue<T> &queue = this->queue; 
@@ -110,11 +112,11 @@ namespace Mercator  {
       unsigned int nDataConsumed = 0;
       unsigned int nSignalsConsumed = 0;
       
-      __syncthreads(); // protect ds channel capacity
+      unsigned int inputLB = (this->isFlushing() ? 1 : maxInputSize);
       
       bool anyDSActive = false;
       
-      while ((nDataConsumed < nDataToConsume ||
+      while ((nDataToConsume - nDataConsumed >= inputLB || 
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !anyDSActive)
 	{
@@ -234,7 +236,7 @@ namespace Mercator  {
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().credit = nCredits;
 	  
-	  if (nDataConsumed == nDataToConsume &&
+	  if (nDataToConsume - nDataConsumed < inputLB &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
 	    // less than a full ensemble remains, or 0 if flushing

@@ -179,11 +179,6 @@ namespace Mercator  {
       __syncthreads(); // all threads must see shared vars
       
       TIMER_STOP(input);
-
-#if 0
-	  if (IS_BOSS())
-	    printf("%d %p SRC\n", blockIdx.x, this);
-#endif
       
       TIMER_START(output);
       
@@ -239,6 +234,7 @@ namespace Mercator  {
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
+		  
 		  this->initiateFlush(dsNode);
 		  dsNode->activate();
 		}
@@ -257,9 +253,7 @@ namespace Mercator  {
 	      // the source artificially limited our input request
 	      // size.
 	      if (!anyChildActive)
-		{
-		  this->forceReschedule();
-		}
+		this->forceReschedule();
 	    }
 	}
       
