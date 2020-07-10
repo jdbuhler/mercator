@@ -149,6 +149,9 @@ public:
   int get_idxInModuleType() const
   { return mIdx; }
 
+  int get_regionId() const
+  { return rId; }
+
   int get_enumerateId() const
   { return eId; }
   
@@ -159,8 +162,10 @@ public:
   
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
 
-  void set_enumerateId(int e) { eId = e; }
+  void set_regionId(int r) { rId = r; }
   
+  void set_enumerateId(int e) { eId = e; }
+
   void print() const;
   
   friend class TopologyVerifier;
@@ -188,6 +193,7 @@ private:
   DfsStatus dfsStatus;
   long multiplier;
 
+  int rId;
   int eId;
 };
 
@@ -348,7 +354,9 @@ struct App {
   
   std::vector<DataItem *> params;
   
-  std::vector<int> refCounts; // maps enumerateId to reference count
+  std::vector<int> refCounts; // maps regionId to reference count
+
+  std::vector<int> parentRegion; // maps regionId to parentRegionId
 
   std::vector<bool> isPropagate;
 

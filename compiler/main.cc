@@ -189,7 +189,7 @@ void compileApps(const vector<input::AppSpec *> &appSpecs,
 	  options.appToBuild != app->name)
 	continue;
       
-#if 0
+#if 1
       app->print();
 #endif
       

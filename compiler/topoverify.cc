@@ -76,6 +76,7 @@ int TopologyVerifier::currentId = 1;
 void TopologyVerifier::verifyTopology(App *app)
 {
   app->refCounts.push_back(0); //Init refCounts vector for later, index 0 is invalid enumId
+  app->parentRegion.push_back(0); //Init refCounts vector for later, index 0 is invalid enumId
 
   for(unsigned int i = 0; i < app->modules.size(); ++i)
     {
@@ -149,7 +150,7 @@ void TopologyVerifier::verifyTopology(App *app)
 Node *TopologyVerifier::dfsVisit(Node *node,
 				 Edge *parentEdge,
 				 long multiplier,
-				 int enumId,
+				 int regionId,
 				 App *app)
 {
   if (node->dfsStatus == Node::InProgress)
@@ -189,21 +190,36 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 
       if(node->get_moduleType()->get_isEnumerate())
 	{
-	  if(enumId != 0)
-	    {
-		  cerr << "ERROR: node " << node->get_name()
-		       << " is nested within another enumerate," << endl
-		       << "nesting of enumerates is currently unsupported!"
-		       << endl;
-		  abort();
-	    }
+	  //if(enumId != 0)
+	  //  {
+		//  cerr << "ERROR: node " << node->get_name()
+		  //     << " is nested within another enumerate," << endl
+		    //   << "nesting of enumerates is currently unsupported!"
+		    //   << endl;
+		  //abort();
+	   // }
 	  node->set_enumerateId(currentId);
+	  node->set_regionId(regionId);
 	  app->refCounts.push_back(0);
+	  app->parentRegion.push_back(regionId);
 	  currentId += 1;
+	  cout << "FOUND ENUMERATE:" << endl
+		<< "\t" << node->get_moduleType()->get_name() << endl
+		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
+		<< "\tRegionID:\t" << node->get_regionId() << endl
+		<< "\tcurrentId:\t" << currentId << endl;
 	}
       else
 	{
-	  node->set_enumerateId(enumId);
+	  node->set_regionId(regionId);
+	  if(node->get_regionId() > 0) {
+		app->isPropagate.at(mod->get_idx()) = true;
+	  }
+	  cout << "NOT ENUMERATE:" << endl
+		<< "\t" << node->get_moduleType()->get_name() << endl
+		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
+		<< "\tRegionID:\t" << node->get_regionId() << endl
+		<< "\tcurrentId:\t" << currentId << endl;
 	}
       
       Node *head = nullptr;
@@ -217,16 +233,21 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 
 	  bool resetEnumID = false;
 	  if(e->usChannel->isAggregate) {
-	    app->refCounts.at(enumId) += 1;
+	    app->refCounts.at(regionId) += 1;
 	    resetEnumID = true;
 	    app->isPropagate.at(mod->get_idx()) = true;
+	  cout << "RESET ENUMERATE:" << endl
+		<< "\t" << node->get_moduleType()->get_name() << endl
+		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
+		<< "\tRegionID:\t" << node->get_regionId() << endl
+		<< "\tcurrentId:\t" << currentId << endl;
 	    //node->set_enumerateId(0);
 	  }
 	  
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
 				    multiplier * nextAmpFactor,
-				    (resetEnumID ? 0 : node->get_enumerateId()),
+				    (resetEnumID ? app->parentRegion.at(node->get_regionId()) : (node->get_moduleType()->get_isEnumerate() ? node->get_enumerateId() : node->get_regionId())),
 				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)

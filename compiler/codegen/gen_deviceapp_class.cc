@@ -744,7 +744,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 
       if (mod->get_isEnumerate())
 	{
-	  string fromType = mod->get_inputType()->from->name;
+	  string fromType = mod->get_inputType()->name;
 	  
 	  //generate findCount function
 	  f.add("__device__");
