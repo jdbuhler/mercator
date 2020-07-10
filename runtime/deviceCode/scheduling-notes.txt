@@ -1,6 +1,5 @@
 FIXMES
  -- pass in frontier size for enum node in compiler
- -- assign correctly ordered region IDs in compiler topology check
  -- frontier check should be aggregate OR dropping from type
  -- consider merging isActive and isBlocked into one status
     field.
@@ -67,7 +66,7 @@ Note that the signal credit protocol ensures that signals are never
 issued with more credit than the number of items currently in the data
 queue.  Hence, it is not possible to have a nonempty signal queue
 unless there are enough data items queued to allow all those signals
-to be processed.
+to be processed. [FIXME: could be 0 items if all signals have 0 credit]
 
 [Rationale: why does emptiness not merely require that the signal
 queue be non-FULL?  This alternative definition would be safe, in that
@@ -130,28 +129,46 @@ or because an enumeration node has a full parent buffer and needs to
 force processing of any "open" parents to make room for more.
 
 In general, flushes are associated with REGIONS, which are connected
-subsets of the application graph with a single HEAD node.  The head
-node initiates flushes for its region, and these flushes propagate to
-all nodes in the region, but not beyond it.  Regions may NOT overlap
-arbitrarily, but one region may be a proper subset of another.  The
-entire graph constitutes a region with the source as its head.
+subsets of the application graph. Each region is descended from a
+single HEAD node, which is not contained in the region but does
+initiate flushes for it that propagate to all nodes in the region, but
+not beyond it.  Regions may NOT overlap arbitrarily; either a region R
+AND its head must be completely contained in another region R', or
+both must be disjoint from R'. The entire graph minus the source
+constitutes a region, with the source as its head.
 
 Restriction of flushes to particular regions is accomplished by
-careful choice of region numbers.  The entire graph is region 0.
-Numbering for other regions follows two rules. Assume there are two
-regions A and B, and region A's head is a predecessor of region B's
-head.
+careful choice of region numbers.  The entire graph minus the source
+is region 0.  Moreover, if region B is contained in region A, then B
+has a higher region number than A. Each node is labeled with the
+number of the highest-numbered region in which it is contained.
 
-  - If B is contained in A, then B has a higher number than A.
+Note that a path that passes through region A, followed by
+non-overlapping region B, always passes through B's head node N.  Node
+N is in neither region A nor region B, and a region may not include N
+while excluding region B; hence, N's region number corresponds to the
+smallest region that contains both A and B, and hence is less than
+that the region numbers of either A or B.
 
-  - If B is disjoint from A, then B has a lower number than A.
+[FIXME: the compiler must ensure that 
+  * the source has region 0 and enumeration ID 0
+  * the head of region R has an enumeration ID strictly greater
+    than its region ID.
+ Technically, it is not necessary that each region have a unique ID
+ for flushing to work, so long as the above rules hold.  But it might
+ be nice for debugging purposes to make the IDs unique.  Region IDs
+ for non-overlapping regions don't need to have any particular
+ inequalities on them.
 
-Each node is labeled with the number of the highest-numbered region
-of which it is a member.
+ For Node_Enumerate, the compiler should pass in an enumeration ID to
+ its constructor in addition to the region ID that is passed to all
+ nodes.
 
-[FIXME NOTE: the two rules above are not yet enforced by the MERCATOR
-compiler.  Even if we do not yet support nested enumeration, the
-second rule needs to be implemented.]
+ While you are changing the constructor for Node_Enumerate, consider
+ passing in the size of the frontier for the enumerate node (== the
+ initial ref count for its parents), rather than assuming that it is
+ always = 1.]
+
 
 Flushes are propagated from a node to its successors according to the
 following rule: a flush initiated by a node with region number R

@@ -239,7 +239,7 @@ namespace Mercator  {
 	  {
 	    // less than a full ensemble remains, or 0 if flushing
 	    this->deactivate(); 
-	    
+
 	    if (this->isFlushing())
 	      {
 		// no more inputs to read -- force downstream nodes
