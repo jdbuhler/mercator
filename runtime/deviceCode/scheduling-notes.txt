@@ -1,6 +1,4 @@
 FIXMES
- -- pass in frontier size for enum node in compiler
- -- frontier check should be aggregate OR dropping from type
  -- consider merging isActive and isBlocked into one status
     field.
 DESIGN OVERHAULS
@@ -149,26 +147,6 @@ N is in neither region A nor region B, and a region may not include N
 while excluding region B; hence, N's region number corresponds to the
 smallest region that contains both A and B, and hence is less than
 that the region numbers of either A or B.
-
-[FIXME: the compiler must ensure that 
-  * the source has region 0 and enumeration ID 0
-  * the head of region R has an enumeration ID strictly greater
-    than its region ID.
- Technically, it is not necessary that each region have a unique ID
- for flushing to work, so long as the above rules hold.  But it might
- be nice for debugging purposes to make the IDs unique.  Region IDs
- for non-overlapping regions don't need to have any particular
- inequalities on them.
-
- For Node_Enumerate, the compiler should pass in an enumeration ID to
- its constructor in addition to the region ID that is passed to all
- nodes.
-
- While you are changing the constructor for Node_Enumerate, consider
- passing in the size of the frontier for the enumerate node (== the
- initial ref count for its parents), rather than assuming that it is
- always = 1.]
-
 
 Flushes are propagated from a node to its successors according to the
 following rule: a flush initiated by a node with region number R
