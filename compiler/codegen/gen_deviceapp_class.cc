@@ -388,20 +388,6 @@ void genDeviceModuleClass(const App *app,
 	   f.add("}");
 	   f.add("");
 	}
-      else
-	{
-	   // create empty stubs for modules not in enumerate regions
-   	   f.add("__device__");
-           f.add(genFcnHeader("void",
-			      "begin", 
-			      "") + "{ }");
-           f.add("");
-   	   f.add("__device__");
-           f.add(genFcnHeader("void",
-			      "end", 
-			      "") + "{ }");
-           f.add("");
-	}
     }
   
   if (mod->isEnumerate())
