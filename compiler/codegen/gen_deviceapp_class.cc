@@ -390,7 +390,7 @@ void genDeviceModuleClass(const App *app,
 	}
       else
 	{
-	   // create empty stubs for modules without enumIds.
+	   // create empty stubs for modules not in enumerate regions
    	   f.add("__device__");
            f.add(genFcnHeader("void",
 			      "begin", 
@@ -404,9 +404,7 @@ void genDeviceModuleClass(const App *app,
 	}
     }
   
-  // stimcheck: Add findCount function header to the codegened headers of
-  // enumerate modules.
-  if (!mod->isSource() && !mod->isSink() && mod->isEnumerate())
+  if (mod->isEnumerate())
     {
       string inputType = mod->get_inputType()->name;
       
@@ -608,7 +606,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   
   {
     // include only the module type specializations needed by the app
-    bool needsSingleItem = false, needsMultiItem = false, needsEnumerate = false;
+    bool needsSingleItem = false;
+    bool needsMultiItem = false;
+    bool needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
       {
@@ -727,8 +727,8 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add("");
 	}
       
-      // stimcheck: Generate run functions for every module EXCEPT ENUMERATES.
-      if (!(mod->isEnumerate()))
+      // non-enumerate regular modules get run functions
+      if (!mod->isEnumerate())
 	{
           // generate run function
           f.add("__device__");
@@ -736,18 +736,19 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 			     DeviceAppClass + "::\n" + 
 			     mod->get_name() + "::run", 
 			     genDeviceModuleRunFcnParams(mod)));
-      
+	  
           f.add("{");
           f.indent();
-      
+	  
           f.add("");
-      
+	  
           f.unindent();
           f.add("}");
-      
+	  
           f.add("");
 	}
       
+      // enumerate modules get findCount()
       if (mod->isEnumerate())
 	{
 	  string fromType = mod->get_inputType()->name;
