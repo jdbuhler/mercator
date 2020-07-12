@@ -101,10 +101,10 @@ class mercator_driver;
 //%type <int> maxoutput mappingspec qualifier
 %type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
-%type <input::ChannelSpec *> channel 
+%type <input::ChannelSpec *> channel simplechannel 
 %type <std::vector<input::ChannelSpec *> *> channels
 %type <input::OutputSpec *> outputtype
-%type <input::ModuleTypeStmt *> moduletype
+%type <input::ModuleTypeStmt *> moduletype simplemoduletype
 %type <input::DataStmt *> varname scoped_varname;
 
 // expected shift-reduce conflicts:
@@ -353,21 +353,20 @@ vartype: basetypename
 /////////////////////////////
 
 moduletype:
+simplemoduletype { $$ = $1; }
+| "enumerate" simplemoduletype
+{
+  $2->setEnumerate();
+  $$ = $2;
+};
+
+simplemoduletype:
 inputtype "->" outputtype 
 {
   $$ = new input::ModuleTypeStmt($1, $3);
-}
-| "enumerate" inputtype "->" outputtype
-{ 
-  $$ = new input::ModuleTypeStmt($2, $4); 
-  $$->setEnumerate();
 };
 
-//qualifier:
-//  %empty                 { $$ = 0; }
-//| "enumerate"            { $$ = input::ModuleTypeStmt::isEnumerate; }
-//| "aggregate"            { $$ = input::ModuleTypeStmt::isAggregate; }
-//;
+
 
 inputtype:
  typename                { $$ = $1; }
@@ -397,10 +396,17 @@ channels:
 
 // an output channel of a module has a name and a type
 channel:
+simplechannel { $$ = $1; }
+|
+"aggregate" simplechannel
+{
+  $2->isAggregate = true;
+  $$ = $2;
+};
+
+simplechannel:
 channelname "<" typename  maxoutput ">" 
-{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0), 0); }
-| "aggregate" channelname "<" typename  maxoutput ">"
-{ $$ = new input::ChannelSpec($2, $4, std::abs($5), ($5 > 0), 1); };
+{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0), false); }
 
 maxoutput:
   %empty              { $$ =   1; }

@@ -197,10 +197,12 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  parentRegion.push_back(regionId); // remember parent of new region
 	  regionId = node->enumerateId;     // set new region for children
 	  
+#if 0
 	  cout << "FOUND ENUMERATE:" << endl
 	       << "\t" << node->moduleType->get_name() << endl
 	       << "\tRegionID:\t" << node->regionId << endl
 	       << "\tEnumerateID:\t" << node->enumerateId << endl;
+#endif
 	}
       
       Node *head = nullptr;
