@@ -183,7 +183,8 @@ void compileApps(const vector<input::AppSpec *> &appSpecs,
       appSpec->printAll();
 
       App *app = buildApp(appSpec);
-      TopologyVerifier::verifyTopology(app);
+      TopologyVerifier tv;
+      tv.verifyTopology(app);
       
       if (options.appToBuild != "" &&
 	  options.appToBuild != app->name)

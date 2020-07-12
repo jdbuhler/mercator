@@ -10,19 +10,21 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
+#include <vector>
+
 #include "app.h"
 
 class TopologyVerifier {
 public:
   
-  static
   void verifyTopology(App *app);
   
 private:
 
-  static int currentId;
+  int nextRegionId;
+  std::vector<int> parentRegion;
+  std::vector<int> refCount;
   
-  static
   Node *dfsVisit(Node *node,
 		 Edge *parentEdge,
 		 long multiplier,

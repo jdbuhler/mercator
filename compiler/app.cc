@@ -47,8 +47,9 @@ Node::Node(const string &iname,
     cycleEdge(nullptr),
     dfsStatus(Node::NotVisited),
     multiplier(0),
-    rId(0),
-    eId(0)
+    regionId(0),
+    enumerateId(0),
+    refCount(0)
 {
   int nChannels = moduleType->get_nChannels();
   

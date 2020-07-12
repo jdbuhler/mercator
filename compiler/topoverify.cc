@@ -71,18 +71,16 @@ using namespace std;
  * are heads of cycles also hold their cycle predecessor.
  */
 
-int TopologyVerifier::currentId = 1;
-
 void TopologyVerifier::verifyTopology(App *app)
 {
-  app->refCounts.push_back(0); //Init refCounts vector for later, index 0 is invalid enumId
-  app->parentRegion.push_back(0); //Init refCounts vector for later, index 0 is invalid enumId
-
-  for(unsigned int i = 0; i < app->modules.size(); ++i)
-    {
-	app->isPropagate.push_back(0);
-    }
-
+  refCount.clear();
+  refCount.push_back(0);     // reserve entry for global region 0
+  
+  parentRegion.clear();
+  parentRegion.push_back(0); // reserve entry for global region 0
+  
+  nextRegionId = 1;          // ID of first non-global region
+  
   dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
@@ -113,32 +111,36 @@ void TopologyVerifier::verifyTopology(App *app)
       // if the node has a cycle parent, add to its queue size and
       // set the reserved slots on its tree parent edge.
       if (node->cycleEdge)
-      {
-	const ModuleType *usmod  = node->cycleEdge->usNode->get_moduleType();
-	const Channel *usChannel = node->cycleEdge->usChannel;
-	
-	int maxInputsPerFiring = 
-	  usmod->get_inputLimit() * 
-	  usmod->get_nElements()/usmod->get_nThreads();
-	
-	int dsReservedSlots = maxInputsPerFiring * usChannel->maxOutputs;
-	
-	node->treeEdge->dsReservedSlots = dsReservedSlots;
-	node->queueSize                += dsReservedSlots;
-      }
-    }
-
-    // Check to make sure that no enumerates are unclosed,
-    // that is, check to see if any Sinks have an enumerateId.
-    for(Node* node : app->nodes) {
-	if(node->get_moduleType()->get_isSink() && node->get_enumerateId() > 0) {
-		cerr << "ERROR: Sink node "
-		     << node->get_name()
-		     << " has an enumerate ID. "
-		     << "Missing an aggregate channel "
-		     << "before this node."
-		     << endl;
-		abort();
+	{
+	  const ModuleType *usmod  = node->cycleEdge->usNode->get_moduleType();
+	  const Channel *usChannel = node->cycleEdge->usChannel;
+	  
+	  int maxInputsPerFiring = 
+	    usmod->get_inputLimit() * 
+	    usmod->get_nElements()/usmod->get_nThreads();
+	  
+	  int dsReservedSlots = maxInputsPerFiring * usChannel->maxOutputs;
+	  
+	  node->treeEdge->dsReservedSlots = dsReservedSlots;
+	  node->queueSize                += dsReservedSlots;
+	}
+      
+      // record reference count for enumerate nodes, and make sure
+      // that from type did not leak through to sink
+      if (node->enumerateId > 0)
+	{
+	  if (node->moduleType->get_isSink())
+	    {
+	      cerr << "ERROR: Sink node "
+		   << node->get_name()
+		   << " has an enumerate ID. "
+		   << "Missing an aggregate channel "
+		   << "before this node."
+		   << endl;
+	      abort();
+	    }
+	  
+	  node->refCount = refCount[node->enumerateId];
 	}
     }
 }
@@ -169,7 +171,6 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	}
       
       return node; // return in-progress node 
-
     }
   else if (node->dfsStatus == Node::Finished)
     {
@@ -187,39 +188,25 @@ Node *TopologyVerifier::dfsVisit(Node *node,
       node->multiplier = multiplier;
       
       const ModuleType *mod = node->get_moduleType();
-
-      if(node->get_moduleType()->get_isEnumerate())
+      
+      node->regionId = regionId;
+      
+      if (node->moduleType->get_isEnumerate())
 	{
-	  //if(enumId != 0)
-	  //  {
-		//  cerr << "ERROR: node " << node->get_name()
-		  //     << " is nested within another enumerate," << endl
-		    //   << "nesting of enumerates is currently unsupported!"
-		    //   << endl;
-		  //abort();
-	   // }
-	  node->set_enumerateId(currentId);
-	  node->set_regionId(regionId);
-	  app->refCounts.push_back(0);
-	  app->parentRegion.push_back(regionId);
-	  currentId += 1;
+	  // New enumerate node gets a new, distinct enum ID greater
+	  // than that of the region that contains it, which becomes
+	  // the region ID for its children.
+	  
+	  node->enumerateId = nextRegionId++;
+	  parentRegion.push_back(regionId); // remember parent of new region
+	  regionId = node->enumerateId;     // set new region for children
+	  
+	  refCount.push_back(0);   // reserve space for region refcount
+	  
 	  cout << "FOUND ENUMERATE:" << endl
-		<< "\t" << node->get_moduleType()->get_name() << endl
-		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
-		<< "\tRegionID:\t" << node->get_regionId() << endl
-		<< "\tcurrentId:\t" << currentId << endl;
-	}
-      else
-	{
-	  node->set_regionId(regionId);
-	  if(node->get_regionId() > 0) {
-		app->isPropagate.at(mod->get_idx()) = true;
-	  }
-	  cout << "NOT ENUMERATE:" << endl
-		<< "\t" << node->get_moduleType()->get_name() << endl
-		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
-		<< "\tRegionID:\t" << node->get_regionId() << endl
-		<< "\tcurrentId:\t" << currentId << endl;
+	       << "\t" << node->moduleType->get_name() << endl
+	       << "\tRegionID:\t" << node->regionId << endl
+	       << "\tEnumerateID:\t" << node->enumerateId << endl;
 	}
       
       Node *head = nullptr;
@@ -230,24 +217,20 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	    continue;
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
-
-	  bool resetEnumID = false;
-	  if(e->usChannel->isAggregate) {
-	    app->refCounts.at(regionId) += 1;
-	    resetEnumID = true;
-	    app->isPropagate.at(mod->get_idx()) = true;
-	  cout << "RESET ENUMERATE:" << endl
-		<< "\t" << node->get_moduleType()->get_name() << endl
-		<< "\tEnumerateID:\t" << node->get_enumerateId() << endl
-		<< "\tRegionID:\t" << node->get_regionId() << endl
-		<< "\tcurrentId:\t" << currentId << endl;
-	    //node->set_enumerateId(0);
-	  }
+	  
+	  if (e->usChannel->isAggregate) 
+	    {
+	      // we are passing out of current region; revert to its parent
+	      regionId = parentRegion[regionId];
+	      
+	      // add a reference count for each edge leaving the region
+	      refCount[regionId]++;
+	    }
 	  
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
 				    multiplier * nextAmpFactor,
-				    (resetEnumID ? app->parentRegion.at(node->get_regionId()) : (node->get_moduleType()->get_isEnumerate() ? node->get_enumerateId() : node->get_regionId())),
+				    regionId,
 				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)
@@ -262,17 +245,8 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	      else
 		head = nextHead;
 	    }
-
 	}
       
-      node->dfsStatus = Node::Finished;
-
-      // Set whther or not the module index needs begin/end stubs
-      if((node->get_enumerateId() > 0 && !(node->get_moduleType()->get_isEnumerate())))
-	{
-	  app->isPropagate.at(mod->get_idx()) = true;
-	}
-
       node->dfsStatus = Node::Finished;
       
       return head;

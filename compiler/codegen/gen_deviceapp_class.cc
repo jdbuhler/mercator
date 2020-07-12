@@ -345,16 +345,15 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
 
-  // stimcheck: Add begin and end functions to the codegened headers, make
-  // them blank stubs as necessary too (when unused).
   if (!mod->isSource() && !mod->isSink())
     {
-      // begin and end functions (public because of CRTP)
-      if (app->isPropagate[mod->get_idx()])
+      const DataType *fromType = mod->get_inputType()->from;
+      
+      // If module has a from type for its input, it must be in
+      // an enumeration region -- generate functions specific to 
+      // enumerated modules (begin(), end(), getParent())
+      if (fromType)
 	{
-	  string fromType = mod->get_inputType()->from->name;
-	  
-	  // create headers for begin and end
 	  f.add("__device__");
 	  f.add(genFcnHeader("void",
 			     "begin",
@@ -366,14 +365,14 @@ void genDeviceModuleClass(const App *app,
 			     "") +";");
 	  f.add("");
 	  f.add("__device__");
-	  f.add(genFcnHeader(fromType + "*",
+	  f.add(genFcnHeader(fromType->name + "*",
 			     "getParent",
-			      ""));
-	   f.add("{");
-	   f.indent();
-	   
+			     ""));
+	  f.add("{");
+	  f.indent();
+	  
 	   string pbType = 
-	     "Mercator::ParentBuffer<" + fromType + ">";
+	     "Mercator::ParentBuffer<" + fromType->name + ">";
 	   
 	   f.add(pbType + " *pb = static_cast<" + 
 		 pbType + " *>(parentHandle.getArena());");
@@ -705,7 +704,8 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add("");
 	}
       
-      if (app->isPropagate.at(mod->get_idx()))
+      
+      if (mod->get_inputType()->from)
 	{
 	  //generate begin function
 	  f.add("__device__");
@@ -760,7 +760,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add("");
 	}
       
-      if (app->isPropagate.at(mod->get_idx()))
+      if (mod->get_inputType()->from)
 	{
 	  //generate end function
 	  f.add("__device__");
@@ -775,26 +775,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  
 	  f.add("");
 	}
-
-	/*
-      // generate run function
-      f.add("__device__");
-      f.add(genFcnHeader("void",
-			 DeviceAppClass + "::\n" + 
-			 mod->get_name() + "::run", 
-			 genDeviceModuleRunFcnParams(mod)));
       
-      f.add("{");
-      f.indent();
-      
-      f.add("");
-      
-      f.unindent();
-      f.add("}");
-      
-      f.add("");
-	*/      
-
       if (mod->hasState())
 	{
 	  // generate cleanup function
