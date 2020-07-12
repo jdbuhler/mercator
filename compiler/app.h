@@ -79,10 +79,10 @@ struct DataItem {
 // An edge between two nodes
 //
 struct Edge {
-  Node    *usNode;    // upstream node
-  Channel *usChannel; // channel of upstream node
-  Node    *dsNode;    // downstream node
-  int      dsReservedSlots; // reserved slots in downstream queue
+  Node    *usNode;              // upstream node
+  Channel *usChannel;           // channel of upstream node
+  Node    *dsNode;              // downstream node
+  unsigned int dsReservedSlots; // reserved slots in downstream queue
 
   Edge(Node *iusNode,
        Channel *iusChannel,
@@ -103,16 +103,16 @@ struct Edge {
 struct Channel {
   std::string name;
   
-  DataType *type;     // output type of channel
-  int  maxOutputs;    // max outputs/input on channel
-  bool isVariable;    // is outputs/input fixed or variable?
-  bool isAggregate;   // is the channel used for aggregates?
+  DataType *type;              // output type of channel
+  unsigned int  maxOutputs;    // max outputs/input on channel
+  bool isVariable;             // is outputs/input fixed or variable?
+  bool isAggregate;            // is the channel used for aggregates?
   
   Channel(const std::string &iname,
 	  DataType *itype,
-	  int imaxOutputs,
-	  int iisVariable,
-          int iisAggregate)
+	  unsigned int imaxOutputs,
+	  bool iisVariable,
+          bool iisAggregate)
     : name(iname),
       type(itype),
       maxOutputs(imaxOutputs),
@@ -136,7 +136,7 @@ public:
   
   Node(const std::string &iname,
        ModuleType *imt,
-       int imIdx);
+       unsigned int imIdx);
   
   ~Node();
   
@@ -146,16 +146,16 @@ public:
   ModuleType *get_moduleType() const
   { return moduleType; }
   
-  int get_idxInModuleType() const
+  unsigned int get_idxInModuleType() const
   { return mIdx; }
 
-  int get_regionId() const
+  unsigned int get_regionId() const
   { return regionId; }
 
-  int get_enumerateId() const
+  unsigned int get_enumerateId() const
   { return enumerateId; }
   
-  int get_queueSize() const
+  unsigned int get_queueSize() const
   { return queueSize; }
   
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
@@ -166,9 +166,6 @@ public:
   
   void set_enumerateId(int e) { enumerateId = e; }
   
-  int get_refCount() const 
-  { return refCount; }
-  
   void print() const;
   
   friend class TopologyVerifier;
@@ -177,9 +174,9 @@ private:
 
   std::string name;
   ModuleType *moduleType;      // module of which we are an instance
-  int mIdx;                    // index of node in its module type
+  unsigned int mIdx;           // index of node in its module type
   
-  int queueSize;
+  unsigned int queueSize;
   
   Edge **dsEdges;              // one per channel
   
@@ -196,9 +193,8 @@ private:
   DfsStatus dfsStatus;
   long multiplier;
 
-  int regionId;
-  int enumerateId;
-  int refCount;
+  unsigned int regionId;
+  unsigned int enumerateId;
 };
 
 
@@ -212,15 +208,13 @@ public:
     F_isSource      = 0x01,
     F_isSink        = 0x02,
     F_isEnumerate   = 0x04,
-    //F_isAggregate   = 0x08,	//UNUSED, Aggregate is associated with Channel not ModuleType
     F_useAllThreads = 0x10,
-    F_isUserEnumerate = 0x20
   };
   
   ModuleType(const std::string &iname,
-	     int iidx,
+	     unsigned int iidx,
 	     DataType *iinputType,
-	     int inChannels,
+	     unsigned int inChannels,
 	     unsigned int flags);
   
   ~ModuleType();
@@ -232,35 +226,26 @@ public:
   const std::string &get_name() const 
   { return name; }
   
-  int get_idx() const 
+  unsigned int get_idx() const 
   { return idx; }
   
   const DataType *get_inputType() const
   { return inputType; }
   
-  int get_nChannels() const
+  unsigned int get_nChannels() const
   { return nChannels; }
   
-  int get_inputLimit() const
+  unsigned int get_inputLimit() const
   { return inputLimit; }
   
-  int get_nElements() const
+  unsigned int get_nElements() const
   { return nElements; }
   
-  int get_nThreads() const
+  unsigned int get_nThreads() const
   { return nThreads; }
-
-  bool get_isEnumerate() const
-  { return (flags & F_isEnumerate); }
-
-  bool get_isSink() const
-  { return (flags & F_isSink); }
   
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
-
-  bool get_isUserEnumerate() const
-  { return (flags & F_isUserEnumerate); }
   
   Channel *get_channel(int cId) const
   { 
@@ -273,19 +258,19 @@ public:
   // mutators
   //
   
-  void set_inputLimit(int il)
+  void set_inputLimit(unsigned int il)
   { inputLimit = il; }
 
-  void set_nElements(int ni)
+  void set_nElements(unsigned int ni)
   { nElements = ni; }
-
-  void set_nThreads(int nt)
+  
+  void set_nThreads(unsigned int nt)
   { nThreads = nt; }
   
   void set_useAllThreads()
   { flags |= F_useAllThreads; }
   
-  void set_channel(int cId, Channel *c)
+  void set_channel(unsigned int cId, Channel *c)
   {
     assert(cId < nChannels && channels[cId] == nullptr);
     channels[cId] = c;
@@ -325,21 +310,21 @@ public:
 
 private:
   
-  std::string name;     // module name
-  int idx;              // index in global module array
+  std::string name;        // module name
+  unsigned int idx;        // index in global module array
 
-  DataType *inputType;  // type of data we take in
+  DataType *inputType;     // type of data we take in
   
-  int nChannels;        // # of output channels
-  Channel **channels;   // array of output channels
+  unsigned int nChannels;  // # of output channels
+  Channel **channels;      // array of output channels
   
-  unsigned int flags;   // flags for special module properties
+  unsigned int flags;      // flags for special module properties
   
-  int inputLimit;       // max threads per firing
+  unsigned int inputLimit; // max threads per firing
 
   // for non-1:1 mappings (at most one of these is not 1)
-  int nElements;        // items allocated to each thread
-  int nThreads;         // threads per item
+  unsigned int nElements;  // items allocated to each thread
+  unsigned int nThreads;   // threads per item
 };  
 
 

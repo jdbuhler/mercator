@@ -356,12 +356,11 @@ moduletype:
 inputtype "->" outputtype 
 {
   $$ = new input::ModuleTypeStmt($1, $3);
-  $$->flags |= 0;
 }
 | "enumerate" inputtype "->" outputtype
 { 
   $$ = new input::ModuleTypeStmt($2, $4); 
-  $$->flags |= input::ModuleTypeStmt::isEnumerate;
+  $$->setEnumerate();
 };
 
 //qualifier:

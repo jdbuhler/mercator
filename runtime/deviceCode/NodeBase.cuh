@@ -263,19 +263,20 @@ namespace Mercator  {
     
     //
     // @brief ask a downstream neighboring node to start a new
-    // flush associated with our region.
+    // flush associated with a given region
     // Returns true iff status actually propagated
     //
     // @param dsNode the downstream node to start flushing
+    // @param flushRegion the region ID associated with the flush
     //
     __device__
-    bool initiateFlush(NodeBase *dsNode)
+    bool initiateFlush(NodeBase *dsNode, unsigned int flushRegion)
     {
       assert(IS_BOSS());
       
-      dsNode->flushStatus = min(dsNode->flushStatus, region);
+      dsNode->flushStatus = min(dsNode->flushStatus, flushRegion);
       
-      return (dsNode->flushStatus == region);
+      return (dsNode->flushStatus == flushRegion);
     }
 
     //

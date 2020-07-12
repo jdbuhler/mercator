@@ -66,9 +66,10 @@ namespace Mercator  {
     __device__
     Node_Enumerate(unsigned int queueSize,
 		   Scheduler *scheduler,
-		   unsigned int region)
+		   unsigned int region,
+		   unsigned int ienumId)
       : BaseType(queueSize, scheduler, region),
-	nFrontierNodes(1),	// FIXME: get this from compiler
+	enumId(ienumId),
 	dataCount(0),
 	currentCount(0),
 	parentBuffer(10 /*queueSize*/, this) // FIXME: for stress test
@@ -266,16 +267,15 @@ namespace Mercator  {
     }
 
   private:
-
-    // # of nodes in this enumeration region's frontier -- used
-    // for reference-counting signals for region
-    const unsigned int nFrontierNodes;  
     
     // total number of items in currently enumerating object
     unsigned int dataCount;
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
+    
+    // ID of node's enumeration region (used for flushing)
+    unsigned int enumId;
     
     // Where parent objects of the enumerate node are stored.  Size is
     // set to the same as data queue currently
@@ -320,7 +320,7 @@ namespace Mercator  {
 	    {
 	      NodeBase *dsNode = getChannel(0)->getDSNode();
 	      
-	      if (this->initiateFlush(dsNode))
+	      if (this->initiateFlush(dsNode, enumId))
 		dsNode->activate();
 	      
 	      this->block();
@@ -335,7 +335,8 @@ namespace Mercator  {
       __shared__ unsigned int eltCount;
       if (IS_BOSS())
 	{
-	  parentHandle = parentBuffer.alloc(item, nFrontierNodes);
+	  // new parent object already has refcount == 1
+	  parentHandle = parentBuffer.alloc(item);
 	  
 	  eltCount = this->findCount(item);
 	  
@@ -343,6 +344,7 @@ namespace Mercator  {
 	  Signal s_new(Signal::Enum);	
 	  s_new.handle = parentHandle;
 	  
+	  s_new.handle.ref(); // for handle in signal
 	  getChannel(0)->pushSignal(s_new);
 	}
       __syncthreads();
@@ -350,7 +352,7 @@ namespace Mercator  {
       *count = eltCount;
       return true;
     }
-
+    
     
     //
     // @brief finish processing a parent item.  We just pass on the
@@ -362,12 +364,14 @@ namespace Mercator  {
     {
       if (IS_BOSS())
 	{
+	  parentHandle.unref(); // drop reference to parent item
+	  
 	  Signal s_new(Signal::Agg);
 	  
 	  getChannel(0)->pushSignal(s_new);
 	}
     }
-
+    
   };
   
 }  // end Mercator namespace

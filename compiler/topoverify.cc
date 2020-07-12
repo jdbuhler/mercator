@@ -73,9 +73,6 @@ using namespace std;
 
 void TopologyVerifier::verifyTopology(App *app)
 {
-  refCount.clear();
-  refCount.push_back(0);     // reserve entry for global region 0
-  
   parentRegion.clear();
   parentRegion.push_back(0); // reserve entry for global region 0
   
@@ -101,7 +98,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	const ModuleType *usmod  = node->treeEdge->usNode->get_moduleType();
 	const Channel *usChannel = node->treeEdge->usChannel;
 	
-	int maxInputsPerFiring = 
+	unsigned int maxInputsPerFiring = 
 	  usmod->get_inputLimit() * 
 	  usmod->get_nElements()/usmod->get_nThreads();
 	
@@ -115,11 +112,12 @@ void TopologyVerifier::verifyTopology(App *app)
 	  const ModuleType *usmod  = node->cycleEdge->usNode->get_moduleType();
 	  const Channel *usChannel = node->cycleEdge->usChannel;
 	  
-	  int maxInputsPerFiring = 
+	  unsigned int maxInputsPerFiring = 
 	    usmod->get_inputLimit() * 
 	    usmod->get_nElements()/usmod->get_nThreads();
 	  
-	  int dsReservedSlots = maxInputsPerFiring * usChannel->maxOutputs;
+	  unsigned int dsReservedSlots = 
+	    maxInputsPerFiring * usChannel->maxOutputs;
 	  
 	  node->treeEdge->dsReservedSlots = dsReservedSlots;
 	  node->queueSize                += dsReservedSlots;
@@ -129,7 +127,7 @@ void TopologyVerifier::verifyTopology(App *app)
       // that from type did not leak through to sink
       if (node->enumerateId > 0)
 	{
-	  if (node->moduleType->get_isSink())
+	  if (node->moduleType->isSink())
 	    {
 	      cerr << "ERROR: Sink node "
 		   << node->get_name()
@@ -139,8 +137,6 @@ void TopologyVerifier::verifyTopology(App *app)
 		   << endl;
 	      abort();
 	    }
-	  
-	  node->refCount = refCount[node->enumerateId];
 	}
     }
 }
@@ -152,7 +148,7 @@ void TopologyVerifier::verifyTopology(App *app)
 Node *TopologyVerifier::dfsVisit(Node *node,
 				 Edge *parentEdge,
 				 long multiplier,
-				 int regionId,
+				 unsigned int regionId,
 				 App *app)
 {
   if (node->dfsStatus == Node::InProgress)
@@ -191,7 +187,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
       
       node->regionId = regionId;
       
-      if (node->moduleType->get_isEnumerate())
+      if (node->moduleType->isEnumerate())
 	{
 	  // New enumerate node gets a new, distinct enum ID greater
 	  // than that of the region that contains it, which becomes
@@ -201,8 +197,6 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  parentRegion.push_back(regionId); // remember parent of new region
 	  regionId = node->enumerateId;     // set new region for children
 	  
-	  refCount.push_back(0);   // reserve space for region refcount
-	  
 	  cout << "FOUND ENUMERATE:" << endl
 	       << "\t" << node->moduleType->get_name() << endl
 	       << "\tRegionID:\t" << node->regionId << endl
@@ -210,7 +204,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	}
       
       Node *head = nullptr;
-      for (int j = 0; j < mod->get_nChannels(); j++)
+      for (unsigned int j = 0; j < mod->get_nChannels(); j++)
 	{
 	  Edge *e = node->dsEdges[j];
 	  if (e == nullptr) // output channel is not connected
@@ -222,9 +216,6 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	    {
 	      // we are passing out of current region; revert to its parent
 	      regionId = parentRegion[regionId];
-	      
-	      // add a reference count for each edge leaving the region
-	      refCount[regionId]++;
 	    }
 	  
 	  Node *nextHead = dfsVisit(e->dsNode, 

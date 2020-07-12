@@ -67,104 +67,128 @@ void emitOutputFileNames(const string &sourceFile,
 }
 
 
+//
+// fix up the application spec to expand modules and nodes of
+// enumerated type into actual enumerating module/node and
+// receiver of enumeration
+//
 static
-void redefineEnum(input::AppSpec* appSpec)
+void redefineEnums(input::AppSpec* appSpec)
 {
-	//for(input::ModuleTypeStmt* mod : appSpec->modules)
-	for(unsigned int z = 0; z < appSpec->modules.size(); ++z)
+  vector<input::NodeStmt *> newNodes;
+  vector<input::ModuleTypeStmt *> newModules;
+  
+  //
+  // Expand each node A of an enumerating type into a pair of nodes
+  // __enumerateFor_A -> A
+  //
+  
+  for (input::NodeStmt* nodeSpec : appSpec->nodes)
+    {
+      input::ModuleTypeStmt *modSpec = nullptr;
+      
+      for (input::ModuleTypeStmt *ms : appSpec->modules) 
 	{
-		input::ModuleTypeStmt* mod = appSpec->modules.at(z);
-		cout << mod->name << endl;
-		//If the moduleType is an enumerate
-		if(mod->flags & 0x04 && !(mod->flags & 0x08))
-		{
-			cout << "IS AN ENUMERATE: " << mod->name << endl;
-			input::DataType* dt = new input::DataType("unsigned int");
-			input::DataType* dtt = new input::DataType(mod->inputType->name);
-			dt->from = dtt;
-			//stimcheck: TODO Set from type for __enumerateFor module here, so getParent can be codegen'd.
-			input::ChannelSpec* enumChanSpec = new input::ChannelSpec("out",
-									       dt,
-									       1,	//Max Outputs PER input
-									       true,
-									       false);
-
-			std::vector<input::ChannelSpec* >* enumChannels = new std::vector<input::ChannelSpec* >();
-
-			enumChannels->push_back(enumChanSpec);
-
-			input::OutputSpec* enumOutSpec = new input::OutputSpec(enumChannels);
-			cout << "HERE1" << endl;
-			input::ModuleTypeStmt* enumFor = new input::ModuleTypeStmt(mod->inputType, enumOutSpec);
-			cout << "HERE2" << endl;
-			enumFor->name = "__enumerateFor_" + mod->name;
-			enumFor->flags |= 0x04;
-			enumFor->flags |= 0x08;	//Set as finalized, so we don't enumerate this again by accident
-
-			appSpec->modules.push_back(enumFor);
-			cout << "HERE3" << endl;
-
-			
-			dt = new input::DataType("unsigned int");
-			dtt = new input::DataType(mod->inputType->name);
-			dt->from = dtt;
-			mod->flags = 0x00;	//Zero out this enumerate module's flags, not needed here anymore
-			enumFor->flags |= 0x20;	//Set the ignore type checking flag
-			mod->inputType = dt;	//Change the input type to the user defined enumerate module to unsigned int
-
-			cout << "HERE4" << endl;
-			//for(input::NodeStmt* node : appSpec->nodes)
-			for(unsigned int i = 0; i < appSpec->nodes.size(); ++i)
-			{
-				input::NodeStmt* node = appSpec->nodes.at(i);
-				//Check if the current node is of the enumerate module type we are currently replacing
-				cout << "HERE5" << endl;
-				if(node->type->name == mod->name)
-				{
-					cout << "HERE6" << endl;
-					input::NodeType* nt = new input::NodeType("__enumerateFor_" + mod->name);
-					cout << "HERE7" << endl;
-					input::NodeStmt* enumNode = new input::NodeStmt("__enumerateFor_" + node->name, nt);
-					cout << "HERE8" << endl;
-					appSpec->nodes.push_back(enumNode);
-					cout << "HERE9" << endl;
-
-					//Add the edge between the new node and the user defined one
-					input::EdgeStmt edge = input::EdgeStmt(enumNode->name, "out", node->name);
-					cout << "HERE10" << endl;
-
-					//for(input::EdgeStmt edge : appSpec->edges)
-					for(unsigned int j = 0; j < appSpec->edges.size(); ++j)
-					{
-						input::EdgeStmt* edgee = &(appSpec->edges.at(j));
-						cout << "HERE11" << endl;
-						//Check for the edge to this node, and re-route it to the new one
-						if(edgee->to == node->name)
-						{
-							cout << "HERE12" << endl;
-							edgee->to = enumNode->name;
-						}
-					}
-					cout << "HERE13" << endl;
-					appSpec->edges.push_back(edge);
-					cout << "HERE14" << endl;
-				}
-				cout << "HERE15" << endl;
-			}
-
-			/*
-			for(input::EdgeStmt edge : appSpec->edges)
-			{
-				//Check for the edge to this module, and re-route it to the new one
-				if(edge.to == mod->name)
-				{
-					
-				}
-			}
-			*/
-		}
+	  if (ms->name == nodeSpec->type->name)
+	    {
+	      modSpec = ms;
+	      break;
+	    }
 	}
-	cout << "EXITING ENUM FIXER" << endl;
+      
+      if (!modSpec) // don't try to fix nodes with nonexistent module types
+	continue;
+      
+      if (modSpec->isEnumerate())
+	{
+	  input::NodeType* enumNodeType = 
+	    new input::NodeType("__enumerateFor_" + modSpec->name);
+	  
+	  input::NodeStmt* enumNodeSpec = 
+	    new input::NodeStmt("__enumerateFor_" + nodeSpec->name, 
+				enumNodeType);
+	  newNodes.push_back(enumNodeSpec);
+	  
+	  for (input::EdgeStmt &edgeSpec : appSpec->edges)
+	    {
+	      //Check for the edge to this node, and re-route
+	      //it to the new one
+	      if (edgeSpec.to == nodeSpec->name)
+		edgeSpec.to = enumNodeSpec->name;
+	    }
+	  
+	  // Add the edge between the new node and the user defined one
+	  input::EdgeStmt newEdgeSpec = 
+	    input::EdgeStmt(enumNodeSpec->name, "out", nodeSpec->name);
+	  
+	  appSpec->edges.push_back(newEdgeSpec);
+	}
+    }
+  
+  appSpec->nodes.insert(appSpec->nodes.end(), 
+			newNodes.begin(),
+			newNodes.end());
+  
+  //
+  // Now fix up any module type A whose input is tagged "enumerate"
+  // to create the expected enumeration module type __enumerateFor_A
+  // and to make A itself take in integers from the parent type.
+  //
+  for (input::ModuleTypeStmt* modSpec : appSpec->modules)
+    {
+      if (modSpec->isEnumerate())
+	{
+	  //
+	  // create single output channel specifier of enumerate module
+	  //
+	  input::DataType* dt  = new input::DataType("unsigned int");
+	  input::DataType* dtt = new input::DataType(modSpec->inputType->name);
+	  dt->from = dtt;
+	  
+	  input::ChannelSpec* enumChanSpec = 
+	    new input::ChannelSpec("out",
+				   dt,
+				   1,	//Max Outputs PER input
+				   true,
+				   false);
+	  
+	  std::vector<input::ChannelSpec* >* enumChannels = 
+	    new std::vector<input::ChannelSpec* >();
+	  
+	  enumChannels->push_back(enumChanSpec);
+	  
+	  input::OutputSpec* enumOutSpec = 
+	    new input::OutputSpec(enumChannels);
+	  
+	  //
+	  // create and save the actual enumerate module type
+	  //
+	  
+	  input::ModuleTypeStmt* enumForSpec = 
+	    new input::ModuleTypeStmt(modSpec->inputType, enumOutSpec);
+	  
+	  enumForSpec->name = "__enumerateFor_" + modSpec->name;
+	  enumForSpec->setEnumerate();
+	  
+	  newModules.push_back(enumForSpec);
+	  
+	  //
+	  // change the original module to be non-enumerating but
+	  // take the integer output of the real enumerating type
+	  //
+	  
+	  dt = new input::DataType("unsigned int");
+	  dtt = new input::DataType(modSpec->inputType->name);
+	  dt->from = dtt;
+	  modSpec->clearEnumerate();
+	  
+	  modSpec->inputType = dt;
+	}
+    }
+  
+  appSpec->modules.insert(appSpec->modules.end(), 
+			  newModules.begin(),
+			  newModules.end());
 }
 
 //
@@ -174,16 +198,18 @@ static
 void compileApps(const vector<input::AppSpec *> &appSpecs,
 		 const vector<string> &references)
 {  
+  TopologyVerifier tv;
+  
   //stimcheck: Removed constness of appSpec, need to modify the appSpec
   //to add the mercator and user generated Enum nodes.
   for (input::AppSpec *appSpec : appSpecs)
     {
-      redefineEnum(appSpec);
+      redefineEnums(appSpec);
 
       appSpec->printAll();
 
       App *app = buildApp(appSpec);
-      TopologyVerifier tv;
+      
       tv.verifyTopology(app);
       
       if (options.appToBuild != "" &&

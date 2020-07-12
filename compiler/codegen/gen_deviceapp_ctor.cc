@@ -53,7 +53,10 @@ void genNodeConstruction(const string &nodeObj,
    
     nextStmt += ", &scheduler";
     
-    nextStmt += ", " + to_string(node->get_enumerateId());
+    nextStmt += ", " + to_string(node->get_regionId());
+    
+    if (mod->isEnumerate())
+      nextStmt += ", " + to_string(node->get_enumerateId());
     
     if (mod->hasNodeParams())
       nextStmt += ", &" + hostNodeParamObj;

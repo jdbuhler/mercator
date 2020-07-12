@@ -468,7 +468,10 @@ namespace Mercator  {
 	{
 	  // set the parent object for this node (specified
 	  // as a handle to an object in the ParentBuffer)
+	  
+	  s.handle.ref(); // reference for this node
 	  parentHandle = s.handle;
+	  
 	  
 	  //Reserve space downstream for the new signal
 	  for (unsigned int c = 0; c < numChannels; ++c)
@@ -478,8 +481,13 @@ namespace Mercator  {
 	      // propagate the signal unless we are at region
 	      // frontier
 	      if (!channel->isAggregate())
-		channel->pushSignal(s);
+		{
+		  s.handle.ref(); // reference for newly created signal
+		  channel->pushSignal(s);
+		}
 	    }
+	  
+	  s.handle.unref(); // this signal is destroyed
 	}
       
       //Call the begin stub of this node
@@ -497,7 +505,7 @@ namespace Mercator  {
       if (IS_BOSS())
 	{
 	  //Reserve space downstream for the new signal
-	  for(unsigned int c = 0; c < numChannels; ++c)
+	  for (unsigned int c = 0; c < numChannels; ++c)
 	    {
 	      ChannelBase *channel = getChannel(c);
 	      
@@ -505,10 +513,10 @@ namespace Mercator  {
 	      // the signal; if we are, we can remove our reference
 	      // to the parent object.
 	      if(!channel->isAggregate())
-		channel->pushSignal(s);
-	      else
-		parentHandle.unref();
+		channel->pushSignal(s);	    
 	    }
+	  
+	  parentHandle.unref(); // remove this node's reference
 	}
     }
     

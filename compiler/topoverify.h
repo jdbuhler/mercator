@@ -21,14 +21,13 @@ public:
   
 private:
 
-  int nextRegionId;
-  std::vector<int> parentRegion;
-  std::vector<int> refCount;
+  unsigned int nextRegionId;
+  std::vector<unsigned int> parentRegion;
   
   Node *dfsVisit(Node *node,
 		 Edge *parentEdge,
 		 long multiplier,
-		 int enumId,
+		 unsigned int enumId,
 		 App *app);
   
 };

@@ -79,7 +79,7 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	    "<" + inTypeString 
 	    + ", THREADS_PER_BLOCK>";
 	}
-      else if (mod->get_isEnumerate())
+      else if (mod->isEnumerate())
 	{
 	  baseType = 
 	    "Node_Enumerate<" + inTypeString
@@ -218,6 +218,12 @@ void genDeviceModuleConstructor(const App *app,
   args.push_back({"unsigned int", "region"});
   baseArgs.push_back("region");
   
+  if (mod->isEnumerate())
+    {
+      args.push_back({"unsigned int", "enumId"});
+      baseArgs.push_back("enumId");
+    }
+  
   // modules with per-node parameters have a node parameter accessor
   if (mod->hasNodeParams())
     {
@@ -335,7 +341,7 @@ void genDeviceModuleClass(const App *app,
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
   
-  if (!mod->isSource() && !mod->isSink() && !mod->get_isEnumerate())
+  if (!mod->isSource() && !mod->isSink() && !mod->isEnumerate())
     {
       // run function (public because of CRTP)
       f.add("__device__");
@@ -400,7 +406,7 @@ void genDeviceModuleClass(const App *app,
   
   // stimcheck: Add findCount function header to the codegened headers of
   // enumerate modules.
-  if (!mod->isSource() && !mod->isSink() && mod->get_isEnumerate())
+  if (!mod->isSource() && !mod->isSink() && mod->isEnumerate())
     {
       string inputType = mod->get_inputType()->name;
       
@@ -722,7 +728,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	}
       
       // stimcheck: Generate run functions for every module EXCEPT ENUMERATES.
-      if (!(mod->get_isEnumerate()))
+      if (!(mod->isEnumerate()))
 	{
           // generate run function
           f.add("__device__");
@@ -741,8 +747,8 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
       
           f.add("");
 	}
-
-      if (mod->get_isEnumerate())
+      
+      if (mod->isEnumerate())
 	{
 	  string fromType = mod->get_inputType()->name;
 	  

@@ -41,13 +41,13 @@ namespace input {
   struct ChannelSpec {
     std::string name; // channel names
     DataType *type;   // type of values emitted on channel
-    int maxOutputs;   // max outputs per input
+    unsigned int maxOutputs;   // max outputs per input
     bool isVariable;  // is outputs/input fixed or variable?
     bool isAggregate;
     
     ChannelSpec(const std::string &name,
 		DataType *type,
-		int maxOutputs,
+		unsigned int maxOutputs,
 		bool isVariable,
 		bool isAggregate)
       : name(name),
@@ -105,8 +105,7 @@ namespace input {
     
     // flags set when parsing module type spec
     enum { 
-      isEnumerate = 0x04,
-      isAggregate = 0x08 
+      F_isEnumerate = 0x04
     };
     
     std::string name;                     // name of module
@@ -135,6 +134,10 @@ namespace input {
       for (ChannelSpec *channel : channels)
 	delete channel;
     }
+    
+    bool isEnumerate() const { return flags & F_isEnumerate; }
+    void setEnumerate()   { flags |= F_isEnumerate; }
+    void clearEnumerate() { flags &= ~F_isEnumerate; }
   };
   
     
@@ -145,10 +148,10 @@ namespace input {
   
   struct ILimitStmt {
     std::string module;
-    int limit;
+    unsigned int limit;
     
     ILimitStmt(const std::string &module,
-	       int limit)
+	       unsigned int limit)
       : module(module),
 	limit(limit)
     {}
@@ -177,11 +180,11 @@ namespace input {
   
   struct MappingStmt {
     std::string module;
-    int nmap;
+    unsigned int nmap;
     bool isSIMD; // true if mapping is 1:nmap rather than nmap:1
     
     MappingStmt(const std::string &module,
-		int nmap, bool isSIMD = false)
+		unsigned int nmap, bool isSIMD = false)
       : module(module),
 	nmap(nmap),
 	isSIMD(isSIMD)
@@ -205,7 +208,7 @@ namespace input {
     Kind kind;           // indicates source or sink type
     DataType *dataType;  // element type of source or sink
     ModuleTypeStmt *mt;  // module type for gensym'd types
-
+    
     NodeType(const std::string &name)
       : name(name),
 	kind(isOther),

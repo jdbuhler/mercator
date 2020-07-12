@@ -38,7 +38,7 @@ DataType::DataType(const string &iname)
 
 Node::Node(const string &iname,
 	   ModuleType *imt,
-	   int imIdx)
+	   unsigned int imIdx)
   : name(iname),
     moduleType(imt),
     mIdx(imIdx),
@@ -48,19 +48,18 @@ Node::Node(const string &iname,
     dfsStatus(Node::NotVisited),
     multiplier(0),
     regionId(0),
-    enumerateId(0),
-    refCount(0)
+    enumerateId(0)
 {
-  int nChannels = moduleType->get_nChannels();
+  unsigned int nChannels = moduleType->get_nChannels();
   
   dsEdges = new Edge * [nChannels];
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     dsEdges[j] = nullptr;
 }
 
 Node::~Node()
 {
-  for (int j = 0; j < moduleType->get_nChannels(); j++)
+  for (unsigned int j = 0; j < moduleType->get_nChannels(); j++)
     {
       if (dsEdges[j])
 	delete dsEdges[j];
@@ -72,9 +71,9 @@ Node::~Node()
 //////////////////////////////////////////
 
 ModuleType::ModuleType(const string &iname,
-		       int iidx,
+		       unsigned int iidx,
 		       DataType *iinputType,
-		       int inChannels,
+		       unsigned int inChannels,
 		       unsigned int iflags)
   : name(iname),
     idx(iidx),
@@ -85,7 +84,7 @@ ModuleType::ModuleType(const string &iname,
     nElements(1), nThreads(1)
 {
   channels = new Channel * [nChannels];
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     channels[j] = nullptr;
 }
 
@@ -107,7 +106,7 @@ ModuleType::~ModuleType()
       delete node;
     }
   
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     {
       if (channels[j])
 	delete channels[j];
@@ -160,7 +159,7 @@ void Node::print() const
 {
   cout << "NODE " << name << " : " << moduleType->get_name() << endl;
   cout << " * " << moduleType->get_nChannels() << " outgoing edges" << endl;
-  for (int j = 0; j < moduleType->get_nChannels(); j++)
+  for (unsigned int j = 0; j < moduleType->get_nChannels(); j++)
     {
       cout << "  ";
       if (dsEdges[j])
@@ -189,11 +188,11 @@ void ModuleType::print() const
     cout << "NULL [source]";
   cout << endl << "  ->  " << endl;
   
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     {
       cout << "  ";
       channels[j]->print();
-      if (j < nChannels -1 )
+      if (j < nChannels - 1)
 	cout << ',';
       cout << endl;
     }

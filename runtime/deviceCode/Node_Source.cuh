@@ -235,7 +235,7 @@ namespace Mercator  {
 		{
 		  NodeBase *dsNode = getChannel(c)->getDSNode();
 		  
-		  if (this->initiateFlush(dsNode))
+		  if (this->initiateFlush(dsNode, 0)) // 0 = global region ID
 		    dsNode->activate();
 		}
 	    }

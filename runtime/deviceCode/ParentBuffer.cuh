@@ -47,14 +47,21 @@ namespace Mercator  {
       //
       __device__
       unsigned int getIdx() const { return idx; }
+
+      //
+      // @brief add a reference to the element that the handle
+      // points to.
+      //
+      __device__
+      void ref() const { arena->ref(idx); }
       
       //
       // @brief remove a reference to the element that the handle
       // points to, effectively invalidating it.
       //
       __device__
-      void unref() { arena->unref(idx); }
-      
+      void unref() const { arena->unref(idx); }
+
     private:
       
       RefCountedArena *arena; // memory area that Handle points to
@@ -90,9 +97,9 @@ namespace Mercator  {
     
     
     // Allocate a free entry in the buffer and return a handle to
-    // it. The entry starts with a reference count of nrefs.
+    // it. The entry starts with a reference count of 1.
     __device__
-    Handle alloc(unsigned int nrefs)
+    Handle alloc()
     {
       assert(IS_BOSS());
       
@@ -100,7 +107,7 @@ namespace Mercator  {
       
       unsigned int idx = freeList[--freeListSize];
       
-      refCounts[idx] = nrefs;
+      refCounts[idx] = 1;
       
       return Handle(this, idx);
     }
@@ -115,6 +122,16 @@ namespace Mercator  {
     unsigned int *refCounts;   // reference counts for allocated entries
     
     NodeBase *blockingNode;    // node that will block if arena fills
+    
+    // Increment the reference count of entry idx by 1.
+    __device__
+    void ref(unsigned int idx)
+    {
+      assert(IS_BOSS());
+      
+      assert(idx < size);
+      ++refCounts[idx];
+    }
     
     // Decrement the reference count of entry idx by 1. Free it 
     // if the count goes to 0.
@@ -163,11 +180,11 @@ namespace Mercator  {
     //
     
     __device__
-    RefCountedArena::Handle alloc(const T &v, unsigned int nrefs)
+    RefCountedArena::Handle alloc(const T &v)
     {
       assert(IS_BOSS());
       
-      Handle h = RefCountedArena::alloc(nrefs);
+      Handle h = RefCountedArena::alloc();
       data[h.getIdx()] = v;
       return h;
     }
