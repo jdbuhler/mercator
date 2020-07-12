@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
   
   // host-side input and output data
   PipeEltT* inputs = new PipeEltT [NUM_INPUTS];
-  PipeEltT* outputs     = new PipeEltT [MAX_OUTPUTS];
+  PipeEltT* outputs = new PipeEltT [MAX_OUTPUTS];
   
   // create buffers
   Mercator::Buffer<PipeEltT> inBuffer(NUM_INPUTS);
