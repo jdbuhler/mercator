@@ -33,6 +33,8 @@ struct DataType {
   
   DataType(const std::string &iname);
   
+  DataType(const std::string &iname, const std::string &fname);
+  
   ~DataType()
   {
     if (from) 
@@ -205,10 +207,11 @@ class ModuleType {
 public:
   // flags describing special module properties
   enum {
-    F_isSource      = 0x01,
-    F_isSink        = 0x02,
-    F_isEnumerate   = 0x04,
-    F_useAllThreads = 0x10,
+    F_isSource            = 0x01,
+    F_isSink              = 0x02,
+    F_isEnumerate         = 0x04,
+    F_isFormerlyEnumerate = 0x08,
+    F_useAllThreads       = 0x10,
   };
   
   ModuleType(const std::string &iname,
@@ -247,7 +250,7 @@ public:
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
   
-  Channel *get_channel(int cId) const
+  Channel *get_channel(unsigned int cId) const
   { 
     assert(cId < nChannels && channels[cId] != nullptr);
     return channels[cId]; 
@@ -257,6 +260,12 @@ public:
   //
   // mutators
   //
+  
+  void set_inputType(DataType *t)
+  {
+    if (inputType) delete inputType;
+    inputType = t;
+  }
   
   void set_inputLimit(unsigned int il)
   { inputLimit = il; }
@@ -276,10 +285,17 @@ public:
     channels[cId] = c;
   }
   
-  bool isSource() const { return flags & F_isSource; }
-  bool isSink()   const { return flags & F_isSink; }
-  bool isEnumerate()   const { return flags & F_isEnumerate; }
+  bool isSource()            const { return flags & F_isSource; }
+  bool isSink()              const { return flags & F_isSink; }
+  bool isEnumerate()         const { return flags & F_isEnumerate; }
+  bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
+  void makeFormerlyEnumerate()
+  { 
+    flags &=  ~F_isEnumerate;
+    flags |=  F_isFormerlyEnumerate;
+  }
+
   bool hasNodeParams() const 
   {
     return nodeParams.size() > 0;

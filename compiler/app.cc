@@ -33,6 +33,12 @@ DataType::DataType(const string &iname)
   from = nullptr;
 }
 
+DataType::DataType(const string &iname, const string &fname)
+{
+  name = iname;
+  from = new DataType(fname);
+}
+
 ///////////////////////////////////////////
 
 

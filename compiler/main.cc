@@ -68,130 +68,6 @@ void emitOutputFileNames(const string &sourceFile,
 
 
 //
-// fix up the application spec to expand modules and nodes of
-// enumerated type into actual enumerating module/node and
-// receiver of enumeration
-//
-static
-void redefineEnums(input::AppSpec* appSpec)
-{
-  vector<input::NodeStmt *> newNodes;
-  vector<input::ModuleTypeStmt *> newModules;
-  
-  //
-  // Expand each node A of an enumerating type into a pair of nodes
-  // __enumerateFor_A -> A
-  //
-  
-  for (input::NodeStmt* nodeSpec : appSpec->nodes)
-    {
-      input::ModuleTypeStmt *modSpec = nullptr;
-      
-      for (input::ModuleTypeStmt *ms : appSpec->modules) 
-	{
-	  if (ms->name == nodeSpec->type->name)
-	    {
-	      modSpec = ms;
-	      break;
-	    }
-	}
-      
-      if (!modSpec) // don't try to fix nodes with nonexistent module types
-	continue;
-      
-      if (modSpec->isEnumerate())
-	{
-	  input::NodeType* enumNodeType = 
-	    new input::NodeType("__enumerateFor_" + modSpec->name);
-	  
-	  input::NodeStmt* enumNodeSpec = 
-	    new input::NodeStmt("__enumerateFor_" + nodeSpec->name, 
-				enumNodeType);
-	  newNodes.push_back(enumNodeSpec);
-	  
-	  for (input::EdgeStmt &edgeSpec : appSpec->edges)
-	    {
-	      //Check for the edge to this node, and re-route
-	      //it to the new one
-	      if (edgeSpec.to == nodeSpec->name)
-		edgeSpec.to = enumNodeSpec->name;
-	    }
-	  
-	  // Add the edge between the new node and the user defined one
-	  input::EdgeStmt newEdgeSpec = 
-	    input::EdgeStmt(enumNodeSpec->name, "out", nodeSpec->name);
-	  
-	  appSpec->edges.push_back(newEdgeSpec);
-	}
-    }
-  
-  appSpec->nodes.insert(appSpec->nodes.end(), 
-			newNodes.begin(),
-			newNodes.end());
-  
-  //
-  // Now fix up any module type A whose input is tagged "enumerate"
-  // to create the expected enumeration module type __enumerateFor_A
-  // and to make A itself take in integers from the parent type.
-  //
-  for (input::ModuleTypeStmt* modSpec : appSpec->modules)
-    {
-      if (modSpec->isEnumerate())
-	{
-	  //
-	  // create single output channel specifier of enumerate module
-	  //
-	  input::DataType* dt  = new input::DataType("unsigned int");
-	  input::DataType* dtt = new input::DataType(modSpec->inputType->name);
-	  dt->from = dtt;
-	  
-	  input::ChannelSpec* enumChanSpec = 
-	    new input::ChannelSpec("out",
-				   dt,
-				   1,	//Max Outputs PER input
-				   true,
-				   false);
-	  
-	  std::vector<input::ChannelSpec* >* enumChannels = 
-	    new std::vector<input::ChannelSpec* >();
-	  
-	  enumChannels->push_back(enumChanSpec);
-	  
-	  input::OutputSpec* enumOutSpec = 
-	    new input::OutputSpec(enumChannels);
-	  
-	  //
-	  // create and save the actual enumerate module type
-	  //
-	  
-	  input::ModuleTypeStmt* enumForSpec = 
-	    new input::ModuleTypeStmt(modSpec->inputType, enumOutSpec);
-	  
-	  enumForSpec->name = "__enumerateFor_" + modSpec->name;
-	  enumForSpec->setEnumerate();
-	  
-	  newModules.push_back(enumForSpec);
-	  
-	  //
-	  // change the original module to be non-enumerating but
-	  // take the integer output of the real enumerating type
-	  //
-	  
-	  dt = new input::DataType("unsigned int");
-	  dtt = new input::DataType(modSpec->inputType->name);
-	  dt->from = dtt;
-	  modSpec->clearEnumerate();
-	  
-	  modSpec->inputType = dt;
-	}
-    }
-  
-  appSpec->modules.insert(appSpec->modules.end(), 
-			  newModules.begin(),
-			  newModules.end());
-}
-
-//
 // compile app specs to applications and generate their code
 //
 static
@@ -200,14 +76,8 @@ void compileApps(const vector<input::AppSpec *> &appSpecs,
 {  
   TopologyVerifier tv;
   
-  //stimcheck: Removed constness of appSpec, need to modify the appSpec
-  //to add the mercator and user generated Enum nodes.
-  for (input::AppSpec *appSpec : appSpecs)
+  for (const input::AppSpec *appSpec : appSpecs)
     {
-      redefineEnums(appSpec);
-
-      appSpec->printAll();
-
       App *app = buildApp(appSpec);
       
       tv.verifyTopology(app);
@@ -216,7 +86,7 @@ void compileApps(const vector<input::AppSpec *> &appSpecs,
 	  options.appToBuild != app->name)
 	continue;
       
-#if 1
+#if 0
       app->print();
 #endif
       

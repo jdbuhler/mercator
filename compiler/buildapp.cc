@@ -104,8 +104,47 @@ App *buildApp(const input::AppSpec *appSpec)
 	  
 	  module->set_channel(cId++, channel);
 	}
+
+      if (module->isEnumerate())
+	{
+	  //
+	  // create a new enumerating module
+	  //
+	  
+	  string enumModuleName = "__enumerateFor_" + module->get_name();
+	  
+	  ModuleType *enumModule = new ModuleType(enumModuleName,
+						  mId + 1,
+						  new DataType(mts->inputType),
+						  1, 
+						  ModuleType::F_isEnumerate);
+	  app->moduleNames.insertUnique(enumModuleName, mId + 1);
       
-      app->modules.push_back(module);
+	  // NB: max output count 1 is patently false, but it doesn't
+	  // matter excpet for cycle checking -- which doesn't work
+	  // with enumeration right now.
+	  Channel *channel = new Channel("__out",
+					 new DataType("unsigned int", 
+						      mts->inputType->name),
+					 1, true, false);
+	  
+	  enumModule->set_channel(0, channel);
+	  enumModule->channelNames.insertUnique("__out", 0);
+	  
+	  //
+	  // make the module labeled "enumerate" by the user
+	  // formerly enumerating, and fix its input type.
+	  //
+	  
+	  module->set_inputType(new DataType("unsigned int", 
+					     mts->inputType->name));
+	  module->makeFormerlyEnumerate();
+	  
+	  app->modules.push_back(module);
+	  app->modules.push_back(enumModule);
+	}
+      else
+	app->modules.push_back(module);
     }
   
   for (const input::AllThreadsStmt is : appSpec->allthreads)
@@ -283,14 +322,43 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
       
       ModuleType *module = app->modules[mId];
+      
       int nLocalId = module->nodes.size();
       
       Node *node = new Node(ns->name,
-			    app->modules[mId],
+			    module,
 			    nLocalId);
       
       app->nodes.push_back(node);
       module->nodes.push_back(node);
+      
+      if (module->isFormerlyEnumerate())
+	{
+	  //
+	  // we need an enumerate node prior to this node
+	  //
+	  string enumName = "__enumerateFor_" + ns->type->name;
+	  int emId = app->moduleNames.find(enumName);
+	  
+	  ModuleType *enumModule = app->modules[emId];
+	  
+	  int enLocalId = enumModule->nodes.size();
+	  
+	  string enumNodeName = "__enumerateFor_" + ns->name;
+	  Node *enumNode = new Node(enumNodeName,
+				    enumModule,
+				    enLocalId);
+	  
+	  app->nodes.push_back(enumNode);
+	  enumModule->nodes.push_back(enumNode);
+	  
+	  app->nodeNames.insertUnique(enumNodeName, nGlobalId + 1);
+	  
+	  // add an edge from the enumerate node to the given node
+	  Edge *edge = new Edge(enumNode, enumModule->get_channel(0), node);
+	  
+	  enumNode->set_dsEdge(0, edge);
+		}
       
       if (node->get_moduleType()->isSource())
 	{
@@ -339,6 +407,17 @@ App *buildApp(const input::AppSpec *appSpec)
       
       Node *usNode = app->nodes[usnId];
       Node *dsNode = app->nodes[dsnId];
+      
+      //
+      // redirect edges into a formerly enumerate node to its actual
+      // enumerate node.
+      //
+      if (dsNode->get_moduleType()->isFormerlyEnumerate())
+	{
+	  string enumName = "__enumerateFor_" + dsNode->get_name();
+	  int emId = app->nodeNames.find(enumName);
+	  dsNode = app->nodes[emId];
+	}
       
       //
       // VALIDATE that upstream channel of edge exists if specified,

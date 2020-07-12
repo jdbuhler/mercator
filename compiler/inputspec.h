@@ -137,10 +137,9 @@ namespace input {
     
     bool isEnumerate() const { return flags & F_isEnumerate; }
     void setEnumerate()   { flags |= F_isEnumerate; }
-    void clearEnumerate() { flags &= ~F_isEnumerate; }
   };
   
-    
+  
   //
   // Statement limiting the number of threads
   // that can concurrently execute a module.
@@ -328,41 +327,14 @@ namespace input {
     
     ~AppSpec()
     {
-      for (ModuleTypeStmt *module : modules)
-	delete module;
+      for (ModuleTypeStmt *modSpec : modules)
+	delete modSpec;
 
-      for (NodeStmt *node : nodes)
-	delete node;
+      for (NodeStmt *nodeSpec : nodes)
+	delete nodeSpec;
 
-      for (DataStmt *var : vars)
-	delete var;
-    }
-
-    void printAll()
-    {
-	printf("+++++++++++++++++++++++++++++++++++++\n");
-	printf("APP NAME: %s\n", name.c_str());
-	printf("MODULES:\n");
-      for (ModuleTypeStmt *module : modules) {
-	printf("\t%s\tchannels: %d\n", module->name.c_str(), (unsigned int)(module->channels.size()));
-	for(ChannelSpec* channel : module->channels)
-		printf("\t\t%s\n", channel->name.c_str());
-	printf("\t\tInput type: %s\t", module->inputType->name.c_str());
-	if(module->inputType->from)
-		printf("from type: %s\n", module->inputType->from->name.c_str());
-	else
-		printf("\n");
-	}
-
-	printf("NODES:\n");
-      for (NodeStmt *node : nodes)
-	printf("\t%s\n", node->name.c_str());
-
-	printf("EDGES:\n");
-      for (EdgeStmt edge : edges)
-	printf("\t%s -> %s\tchannel: %s\n", edge.from.c_str(), edge.to.c_str(), edge.fromchannel.c_str());
-
-	printf("+++++++++++++++++++++++++++++++++++++\n");
+      for (DataStmt *varSpec : vars)
+	delete varSpec;
     }
   };  
 }
