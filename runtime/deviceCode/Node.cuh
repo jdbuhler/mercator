@@ -241,7 +241,7 @@ namespace Mercator  {
     void printOccupancyCSV(unsigned int nodeId) const
     {
       assert(IS_BOSS());
-      printf("%d,%u,%u,%llu,%llu,%llu\n",
+      printf("%d,%u,%lluu,%llu,%llu,%llu\n",
 	     blockIdx.x, nodeId,
 	     occCounter.sizePerRun,
 	     occCounter.totalInputs,

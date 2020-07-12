@@ -6,32 +6,33 @@
 // Instrumentation to count itms into/out of a module
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 #ifdef INSTRUMENT_SCHED_COUNTS
 
-struct SchedCounter{
+struct SchedCounter {
   
   __device__
   SchedCounter()
   {
-      loopCount= 0;
+    loopCount= 0;
   }
   
   // multithreaded increment, using numInstances threads
   __device__
   void incr()
   {
-    if(IS_BOSS()){
-      loopCount+=1;
-    }
+    if (IS_BOSS())
+      loopCount++;
   }
+  
   __device__
-  unsigned long long getLoopCount()const {
+  unsigned long long getLoopCount()const 
+  {
     return loopCount;
   } 
- 
+  
   unsigned long long loopCount;
 };
 

@@ -73,7 +73,7 @@ namespace Mercator  {
     void printTimersCSV() const
     {
       printf("%d,%d,%llu,%llu,%llu\n",
-	     blockIdx.x, -1, schedulerTimer.getTotalTime(), 0, 0);
+	     blockIdx.x, -1, schedulerTimer.getTotalTime(), 0ULL, 0ULL);
     }
 #endif
 
