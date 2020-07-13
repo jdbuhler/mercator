@@ -18,6 +18,8 @@
 
 #include "Signal.cuh"
 
+#include "ParentBuffer.cuh"
+
 #include "device_config.cuh"
 
 #include "options.cuh"
@@ -115,7 +117,8 @@ namespace Mercator  {
 	 Scheduler *scheduler, unsigned int region)
       : NodeBase(scheduler, region),
 	queue(queueSize),
-        signalQueue(queueSize) // could be smaller?
+        signalQueue(queueSize), // could be smaller?
+	parentArena(nullptr)
     {
       // init channels array
       for (unsigned int c = 0; c < numChannels; ++c)
@@ -141,8 +144,7 @@ namespace Mercator  {
 	    delete channel;
 	}
     }
-
-
+    
 
     //
     // @brief Construct the edge between this node and a downstream
@@ -166,6 +168,12 @@ namespace Mercator  {
 			 dsNode->getQueue(), 
 			 dsNode->getSignalQueue(),
 			 reservedSlots);
+    }
+    
+    __device__
+    void setParentArena(RefCountedArena *a)
+    {
+      parentArena = a;
     }
     
     //
@@ -196,8 +204,7 @@ namespace Mercator  {
       return (!queue.empty() || !signalQueue.empty());
     }
 
-  //Begin and end stubs for enumeration and aggregation 
-  public: 
+    // begin and end stubs for enumeration and aggregation 
     __device__
     virtual
     void begin() {}
@@ -293,7 +300,8 @@ namespace Mercator  {
     Queue<Signal> signalQueue;          // node's input signal queue
     ChannelBase* channels[numChannels]; // node's output channels
     
-    RefCountedArena::Handle parentHandle; // handle to current parent object
+    RefCountedArena *parentArena;      // ptr to any associated parent buffer
+    unsigned int parentIdx;            // index of parent obj in buffer
 
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -467,10 +475,10 @@ namespace Mercator  {
       if (IS_BOSS())
 	{
 	  // set the parent object for this node (specified
-	  // as a handle to an object in the ParentBuffer)
+	  // as an index into its parent arena)
 	  
-	  s.handle.ref(); // reference for this node
-	  parentHandle = s.handle;
+	  parentIdx = s.parentIdx;
+	  parentArena->ref(parentIdx);
 	  
 	  
 	  //Reserve space downstream for the new signal
@@ -478,16 +486,16 @@ namespace Mercator  {
 	    {
 	      ChannelBase *channel = getChannel(c);
 	      
-	      // propagate the signal unless we are at region
-	      // frontier
+	      // propagate the signal unless we are at region frontier
 	      if (!channel->isAggregate())
 		{
-		  s.handle.ref(); // reference for newly created signal
+		  // add reference for newly created signal
+		  parentArena->ref(parentIdx); 
 		  channel->pushSignal(s);
 		}
 	    }
 	  
-	  s.handle.unref(); // this signal is destroyed
+	  parentArena->unref(parentIdx); // signal is destroyed
 	}
       
       //Call the begin stub of this node
@@ -516,7 +524,7 @@ namespace Mercator  {
 		channel->pushSignal(s);	    
 	    }
 	  
-	  parentHandle.unref(); // remove this node's reference
+	  parentArena->unref(parentIdx); // remove this node's reference
 	}
     }
     

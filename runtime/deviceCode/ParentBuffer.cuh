@@ -22,53 +22,6 @@ namespace Mercator  {
     
   public:
     
-    // A Handle is a pointer to an element of an arena that
-    // allows the reference count to be adjusted
-    class Handle {
-    public:
-      
-      __device__
-      Handle()
-      {}
-      
-      __device__
-      Handle(RefCountedArena *iarena, unsigned int iidx)
-	: arena(iarena), idx(iidx)
-      {}
-      
-      //
-      // @brief get the arena that the Handle points to
-      //
-      __device__
-      RefCountedArena *getArena() const { return arena; }
-      
-      //
-      // @brief get the index of the element within the arena
-      //
-      __device__
-      unsigned int getIdx() const { return idx; }
-
-      //
-      // @brief add a reference to the element that the handle
-      // points to.
-      //
-      __device__
-      void ref() const { arena->ref(idx); }
-      
-      //
-      // @brief remove a reference to the element that the handle
-      // points to, effectively invalidating it.
-      //
-      __device__
-      void unref() const { arena->unref(idx); }
-
-    private:
-      
-      RefCountedArena *arena; // memory area that Handle points to
-      unsigned int idx;       // index of object in arena
-    };
-    
-    
     __device__
     RefCountedArena(unsigned int isize,
 		    NodeBase *iblockingNode = nullptr)
@@ -96,10 +49,10 @@ namespace Mercator  {
     { return (freeListSize == 0); }
     
     
-    // Allocate a free entry in the buffer and return a handle to
-    // it. The entry starts with a reference count of 1.
+    // Allocate a free entry in the buffer and return its index.  The
+    // entry starts with a reference count of 1.
     __device__
-    Handle alloc()
+    unsigned int alloc()
     {
       assert(IS_BOSS());
       
@@ -109,20 +62,9 @@ namespace Mercator  {
       
       refCounts[idx] = 1;
       
-      return Handle(this, idx);
+      return idx;
     }
-    
-  private:
-    
-    unsigned int size;         // number of allocated entries
-    
-    unsigned int *freeList;    // array listing all free entries
-    unsigned int freeListSize; // # of entries on free list
-    
-    unsigned int *refCounts;   // reference counts for allocated entries
-    
-    NodeBase *blockingNode;    // node that will block if arena fills
-    
+
     // Increment the reference count of entry idx by 1.
     __device__
     void ref(unsigned int idx)
@@ -151,6 +93,17 @@ namespace Mercator  {
 	    blockingNode->unblock();	  
 	}
     }
+    
+  private:
+    
+    unsigned int size;         // number of allocated entries
+    
+    unsigned int *freeList;    // array listing all free entries
+    unsigned int freeListSize; // # of entries on free list
+    
+    unsigned int *refCounts;   // reference counts for allocated entries
+    
+    NodeBase *blockingNode;    // node that will block if arena fills
   };
   
   
@@ -175,26 +128,26 @@ namespace Mercator  {
     
     //
     // @brief allocate an entry in the buffer with nrefs references
-    // and set it to the item v.  Return a handle to the newly
+    // and set it to the item v.  Return the index of the newly
     // allocated entry.
     //
     
     __device__
-    RefCountedArena::Handle alloc(const T &v)
+    unsigned int alloc(const T &v)
     {
       assert(IS_BOSS());
       
-      Handle h = RefCountedArena::alloc();
-      data[h.getIdx()] = v;
-      return h;
+      unsigned int idx = RefCountedArena::alloc();
+      data[idx] = v;
+      return idx;
     }
     
     //
-    // @brief get a poitner to an item from its handle.
+    // @brief get a pointer to an item from its index in the buffer.
     //
     __device__
-    T *get(const RefCountedArena::Handle &h) const
-    { return &data[h.getIdx()]; }
+    T *get(unsigned int idx) const
+    { return &data[idx]; }
     
   private:
     

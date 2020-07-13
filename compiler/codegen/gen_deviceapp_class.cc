@@ -381,8 +381,8 @@ void genDeviceModuleClass(const App *app,
 	     "Mercator::ParentBuffer<" + fromType->name + ">";
 	   
 	   f.add(pbType + " *pb = static_cast<" + 
-		 pbType + " *>(parentHandle.getArena());");
-	   f.add("return pb->get(parentHandle);");
+		 pbType + " *>(parentArena);");
+	   f.add("return pb->get(parentIdx);");
            
 	   f.unindent();
 	   f.add("}");

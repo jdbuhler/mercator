@@ -1,8 +1,6 @@
 #ifndef __SIGNAL_CUH
 #define __SIGNAL_CUH
 
-#include "ParentBuffer.cuh"
-
 namespace Mercator {
   
   //
@@ -20,7 +18,7 @@ namespace Mercator {
     int credit;
     
     // fields for Enum
-    RefCountedArena::Handle handle;
+    unsigned int parentIdx;
     
     // fields for Agg
     // (no fields needed)

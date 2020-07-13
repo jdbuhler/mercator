@@ -359,6 +359,8 @@ struct App {
   
   std::vector<DataItem *> params;
   
+  std::vector<Node *> regionHeads; // maps regions to their head nodes
+  
   SymbolTable moduleNames;  // maps module name -> idx in modules
   
   SymbolTable nodeNames;    // maps node names -> idx in nodes

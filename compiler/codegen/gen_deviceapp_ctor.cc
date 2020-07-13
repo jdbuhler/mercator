@@ -126,6 +126,26 @@ void genEdgeInitStmts(const App *app,
     }
 }
 
+void
+connectRegionHeads(const App *app,
+		   Formatter &f)
+{
+  for (const Node *node : app->nodes)
+    {
+      if (node->get_regionId() > 0) // node is in a non-base region
+	{
+	  Node *enumNode = app->regionHeads[node->get_regionId()];
+	  
+	  string enumNodeObj = "d"  + enumNode->get_name();
+	  string childNodeObj = "d" + node->get_name();
+	  
+	  f.add(childNodeObj + "->setParentArena(" +
+		enumNodeObj + "->getParentArena());");
+	}
+    }
+}
+
+
 //
 // @brief Code-gen device-side app constructor
 //
@@ -164,7 +184,9 @@ void genDeviceAppConstructor(const App *app,
   
   // connect the instances of each module by edges
   genEdgeInitStmts(app, f);
-
+  f.add("");
+  connectRegionHeads(app, f);
+  
   // create an array of all modules to initialize the scheduler 
   int srcNode;
   int j = 0;

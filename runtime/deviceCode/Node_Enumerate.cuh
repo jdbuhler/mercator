@@ -45,7 +45,7 @@ namespace Mercator  {
     using BaseType::getChannel;
     using BaseType::maxRunSize; 
     
-    using BaseType::parentHandle;
+    using BaseType::parentIdx;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -74,6 +74,10 @@ namespace Mercator  {
 	currentCount(0),
 	parentBuffer(10 /*queueSize*/, this) // FIXME: for stress test
     {}
+    
+    __device__
+    RefCountedArena *getParentArena()
+    { return &parentBuffer; }
     
     //
     // @brief fire a node, consuming as much input 
@@ -294,12 +298,12 @@ namespace Mercator  {
         
     
     //
-    // @brief begin enumeration of a new parent object.  If we
-    // cannot begin an object becaues the parent buffer is full,
-    // block the node and flush its region to make space. Otherwise,
-    // add the object to the parent buffer, store a handle to
-    // it in the node's state, and pass the handle downstream as
-    // a signal to the rest of the region.
+    // @brief begin enumeration of a new parent object.  If we cannot
+    // begin an object becaues the parent buffer is full, block the
+    // node and flush its region to make space. Otherwise, add the
+    // object to the parent buffer, store its index in the buffer in
+    // the node's state, and pass the index downstream as a signal to
+    // the rest of the region.
     //
     // @param item new parent object
     // @param count output parameter; holds result of findCount(item)
@@ -336,15 +340,15 @@ namespace Mercator  {
       if (IS_BOSS())
 	{
 	  // new parent object already has refcount == 1
-	  parentHandle = parentBuffer.alloc(item);
+	  parentIdx = parentBuffer.alloc(item);
 	  
 	  eltCount = this->findCount(item);
 	  
 	  // Create new Enum signal to send downstream
 	  Signal s_new(Signal::Enum);	
-	  s_new.handle = parentHandle;
+	  s_new.parentIdx = parentIdx;
 	  
-	  s_new.handle.ref(); // for handle in signal
+	  parentBuffer.ref(parentIdx); // for use in signal
 	  getChannel(0)->pushSignal(s_new);
 	}
       __syncthreads();
@@ -364,7 +368,7 @@ namespace Mercator  {
     {
       if (IS_BOSS())
 	{
-	  parentHandle.unref(); // drop reference to parent item
+	  parentBuffer.unref(parentIdx); // drop reference to parent item
 	  
 	  Signal s_new(Signal::Agg);
 	  

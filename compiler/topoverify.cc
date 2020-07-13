@@ -76,6 +76,9 @@ void TopologyVerifier::verifyTopology(App *app)
   parentRegion.clear();
   parentRegion.push_back(0); // reserve entry for global region 0
   
+  // region 0's head is the source node
+  app->regionHeads.push_back(app->sourceNode);
+  
   nextRegionId = 1;          // ID of first non-global region
   
   dfsVisit(app->sourceNode, nullptr, 1, 0, app);
@@ -194,6 +197,8 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  // the region ID for its children.
 	  
 	  node->enumerateId = nextRegionId++;
+	  app->regionHeads.push_back(node);
+	  
 	  parentRegion.push_back(regionId); // remember parent of new region
 	  regionId = node->enumerateId;     // set new region for children
 	  
