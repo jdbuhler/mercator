@@ -60,7 +60,7 @@ namespace Mercator  {
     virtual
     unsigned int dsSignalCapacity() const = 0;
         
-
+    
     //
     // @brief After a call to run(), move node's output
     // from its temporary buffer to its downstream queue.
@@ -72,7 +72,7 @@ namespace Mercator  {
 
     __device__
     virtual
-    bool checkDSFull() = 0;
+    bool activateDSIfFull() = 0;
     
     __device__
     virtual

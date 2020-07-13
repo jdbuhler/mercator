@@ -245,7 +245,7 @@ namespace Mercator  {
 	      
 	      // activate any downstream nodes whose queues are now full
 	      for (unsigned int c = 0; c < numChannels; c++)
-		anyChildActive = getChannel(c)->checkDSFull();
+		anyChildActive = getChannel(c)->activateDSIfFull();
 	      
 	      // If we did not fill any downstream queues or exhaust
 	      // the input stream, we need to forcibly re-enqueue

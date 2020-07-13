@@ -236,7 +236,6 @@ namespace Mercator  {
   private:
 
     Sink<T> * sink;
-    
   };
   
 }; // namespace Mercator

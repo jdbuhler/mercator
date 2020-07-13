@@ -232,8 +232,9 @@ namespace Mercator  {
     
   private:
 
-    T* data;
     unsigned int dataSize; // space allocated
+    
+    T* data;               // actual queue space
     unsigned int head;     // head ptr -- pts to next *available elt*
     unsigned int tail;     // tail ptr -- pts to next *free slot*
     

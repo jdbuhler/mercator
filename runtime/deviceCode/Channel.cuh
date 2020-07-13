@@ -37,7 +37,7 @@ namespace Mercator  {
     using ChannelBase::itemCounter;
 #endif
     
-    enum Flags {FLAG_ISAGGREGATE = 0x01 };
+    enum Flags { FLAG_ISAGGREGATE = 0x01 };
     
   public:
     
@@ -49,7 +49,10 @@ namespace Mercator  {
     __device__
       Channel(unsigned int ioutputsPerInput, bool isAgg)
       : outputsPerInput(ioutputsPerInput),
-      propFlags(0),
+      propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
+      dsNode(nullptr),
+      dsQueue(nullptr),
+      dsSignalQueue(nullptr),
       numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
 	{
 	  // allocate enough total buffer capacity to hold outputs 
@@ -64,12 +67,6 @@ namespace Mercator  {
 	      
 	      crash();
 	    }
-	  
-	  dsQueue = nullptr;
-	  dsSignalQueue = nullptr;
-	  
-	  if (isAgg)
-	    propFlags |= FLAG_ISAGGREGATE;
 	  
 	  for (unsigned int j = 0; j < numThreadGroups; j++)
 	    nextSlot[j] = 0;
@@ -207,13 +204,15 @@ namespace Mercator  {
 	  nextSlot[tid] = 0;
 	}
     }
+  
     
+    //
+    // If we've managed to fill the downstream queue, activate its
+    // target node. Let our caller know if we activated the ds node.
+    //
     __device__
-      bool checkDSFull()
+      bool activateDSIfFull()
     {
-      // If we've managed to fill the downstream queue, activate its
-      // target node. Let our caller know if we activated the ds node.
-      //
       if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
 	  dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN)
 	{
@@ -293,13 +292,24 @@ namespace Mercator  {
   private:
     
     const unsigned int outputsPerInput;  // max # outputs per input to node
-    unsigned int propFlags;	//Signal propagation flags for this channel
+    const unsigned int propFlags; // Signal propagation flags for this channel
     
-    const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
-
+    //
+    // target (edge) for scattering items from output buffer
+    //
+    
+    NodeBase *dsNode;
+    Queue<T> *dsQueue;
+    Queue<Signal> *dsSignalQueue;
+    unsigned int reservedQueueEntries; // NB: will be used for cycles
+    
+    unsigned int numItemsProduced;     // # items produced since last signal
+    
     //
     // output buffer
     //
+    
+    const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
     
     T* data;                              // buffered output
     
@@ -309,21 +319,6 @@ namespace Mercator  {
     
     // next buffer slot avail for thread to push output
     unsigned char nextSlot[numThreadGroups];
-    
-    
-    // number of items produced since last signal
-    unsigned int numItemsProduced;
-    
-    //
-    // target (edge) for scattering items from output buffer
-    //
-
-    Queue<T> *dsQueue;
-    Queue<Signal> *dsSignalQueue;
-    NodeBase *dsNode;
-    
-    unsigned int reservedQueueEntries; // NB: will be used for cycles
-
 
   }; // end Channel class
 }  // end Mercator namespace

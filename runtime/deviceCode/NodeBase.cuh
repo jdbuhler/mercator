@@ -36,11 +36,11 @@ namespace Mercator  {
     NodeBase(Scheduler *ischeduler, unsigned int iregion)
       : scheduler(ischeduler),
 	parent(nullptr),
+	region(iregion),
 	isActive(false),
 	isBlocked(false),
 	nDSActive(0),
-	flushStatus(NO_FLUSH),
-	region(iregion)
+	flushStatus(NO_FLUSH)
     {}
     
     __device__
@@ -309,15 +309,12 @@ namespace Mercator  {
   private:
     
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    
     NodeBase *parent;          // parent of this node in dataflow graph
+    unsigned int region;       // region identifier for flushing
     
     bool isActive;             // is node active?
     bool isBlocked;            // is node blocked from execution?
-    
     unsigned int nDSActive;    // # of active downstream children of node
-    
-    unsigned int region;       // region identifier for flushing
     unsigned int flushStatus;  // is node flushing? If so, how far?
 
     

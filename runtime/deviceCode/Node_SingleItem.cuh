@@ -161,7 +161,7 @@ namespace Mercator  {
 	  
 	  TIMER_START(run);
 	  
-	  unsigned int nItems = min(limit, maxRunSize); 
+	  unsigned int nItems = min(limit, maxInputSize); 
 	  
 	  if (nItems > 0)
 	    {
@@ -214,7 +214,7 @@ namespace Mercator  {
 	  // Check whether any child has been activated
 	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    anyDSActive |= getChannel(c)->checkDSFull();
+	    anyDSActive |= getChannel(c)->activateDSIfFull();
 	  
 	  TIMER_STOP(output);
 	  

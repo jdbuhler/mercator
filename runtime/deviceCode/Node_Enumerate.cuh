@@ -224,7 +224,7 @@ namespace Mercator  {
 	  //
 	  // Check whether child has been activated by filling a queue
 	  //
-	  anyDSActive |= channel->checkDSFull();
+	  anyDSActive |= channel->activateDSIfFull();
 	  
 	  TIMER_STOP(output);
 	  

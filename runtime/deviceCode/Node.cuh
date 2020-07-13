@@ -298,6 +298,7 @@ namespace Mercator  {
     
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
+    
     ChannelBase* channels[numChannels]; // node's output channels
     
     RefCountedArena *parentArena;      // ptr to any associated parent buffer
