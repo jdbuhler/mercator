@@ -139,6 +139,9 @@ connectRegionHeads(const App *app,
 	  string enumNodeObj = "d"  + enumNode->get_name();
 	  string childNodeObj = "d" + node->get_name();
 	  
+	  f.add("// set parent arena ptr for node in region " + 
+		to_string(node->get_regionId()));
+	  
 	  f.add(childNodeObj + "->setParentArena(" +
 		enumNodeObj + "->getParentArena());");
 	}
@@ -186,6 +189,7 @@ void genDeviceAppConstructor(const App *app,
   genEdgeInitStmts(app, f);
   f.add("");
   connectRegionHeads(app, f);
+  f.add("");
   
   // create an array of all modules to initialize the scheduler 
   int srcNode;
