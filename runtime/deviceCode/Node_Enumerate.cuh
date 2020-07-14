@@ -4,13 +4,12 @@
 #include <cassert>
 
 #include "Node.cuh"
-#include "ChannelBase.cuh"
 
 #include "ParentBuffer.cuh"
 
 #include "timing_options.cuh"
 
-namespace Mercator  {
+namespace Mercator {
 
   //
   // @class Node_Enumerate
@@ -25,25 +24,24 @@ namespace Mercator  {
   template<typename T, 
 	   unsigned int THREADS_PER_BLOCK>
   class Node_Enumerate
-    : public Node< NodeProperties<T, 
-				  1,             // one output channel
-				  1, 1,          // no run/scatter functions
-				  THREADS_PER_BLOCK, // use all threads
-				  true,
-				  THREADS_PER_BLOCK> > {
+    : public Node<T,
+		  1,             // one output channel
+		  1, 1,          // no run/scatter functions
+		  THREADS_PER_BLOCK, // use all threads
+		  true,
+		  THREADS_PER_BLOCK> {
     
-    typedef Node< NodeProperties<T,
-				 1, 
-				 1, 1,
-				 THREADS_PER_BLOCK,
-				 true,
-				 THREADS_PER_BLOCK> > BaseType;
-    
+    using BaseType = Node<T,
+			  1, 
+			  1, 1,
+			  THREADS_PER_BLOCK,
+			  true,
+			  THREADS_PER_BLOCK>;
     
   private:
 
     using BaseType::getChannel;
-    using BaseType::maxRunSize; 
+    using BaseType::getDSNode;
     
     using BaseType::parentIdx;
     
@@ -55,10 +53,6 @@ namespace Mercator  {
 
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
 #endif
 
   public:
@@ -84,9 +78,9 @@ namespace Mercator  {
     // from its queue as possible
     //
     // PRECONDITION: node is active (hence either flushing or has at
-    // least maxRunSize inputs in its queue), and all its downstream
-    // nodes are inactive (hence have at least enough space to hold
-    // outputs from maxRunSize inputs in their queues).
+    // least THREADS_PER_BLOCK inputs in its queue), and all its
+    // downstream nodes are inactive (hence have at least enough space
+    // to hold outputs from THREADS_PER_BLOCK inputs in their queues).
     //
     // called with all threads
     
@@ -102,8 +96,8 @@ namespace Mercator  {
       Queue<T> &queue = this->queue; 
       Queue<Signal> &signalQueue = this->signalQueue; 
       
-      using Channel = typename BaseType::Channel<unsigned int>;
-      Channel *channel = static_cast<Channel *>(getChannel(0));
+      using MChannel = Channel<unsigned int, THREADS_PER_BLOCK>;
+      MChannel *channel = static_cast<MChannel *>(getChannel(0));
       
       // # of items available to consume from queue
       unsigned int nDataToConsume = queue.getOccupancy();
@@ -160,6 +154,8 @@ namespace Mercator  {
 		  if (!startItem(queue.getElt(nDataConsumed), &myDataCount))
 		    break;
 		  
+		  NODE_OCC_COUNT(1);
+		  
 		  myCurrentCount = 0;
 		}
 	      
@@ -173,18 +169,14 @@ namespace Mercator  {
 	      
 	      for (unsigned int base = 0; 
 		   base < nEltsToWrite; 
-		   base += maxRunSize)
+		   base += THREADS_PER_BLOCK)
 		{
+		  unsigned int vecSize = 
+		    min(THREADS_PER_BLOCK, nEltsToWrite - base);
+		  
 		  unsigned int v = base + tid;
 		  
-		  if (v < nEltsToWrite)
-		    this->push(v);
-		  
-		  __syncthreads();
-		  
-		  // move these items downstream immediately.
-		  // We know we won't overflow the dsqueue
-		  channel->moveOutputToDSQueue();
+		  channel->pushCount(v, vecSize);
 		}
 	      
 	      myCurrentCount += nEltsToWrite;
@@ -200,6 +192,8 @@ namespace Mercator  {
 	      currentCount = myCurrentCount;
 	    }
 	  nDataConsumed += nFinished;
+	  
+	  __syncthreads(); // protect channel # of items written
 	  
 	  if (nSignalsToConsume > 0)
 	    {
@@ -222,9 +216,15 @@ namespace Mercator  {
 	  __syncthreads();
 	  
 	  //
-	  // Check whether child has been activated by filling a queue
+	  // Check whether any child needs to be activated
 	  //
-	  anyDSActive |= channel->activateDSIfFull();
+	  if (channel->checkDSFull(THREADS_PER_BLOCK))
+	    {
+	      anyDSActive = true;
+	      
+	      if (IS_BOSS())
+		getDSNode(0)->activate();
+	    }
 	  
 	  TIMER_STOP(output);
 	  
@@ -236,8 +236,6 @@ namespace Mercator  {
       
       if (IS_BOSS())
 	{
-	  COUNT_ITEMS(nDataConsumed);  // instrumentation
-	  
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  
@@ -257,7 +255,7 @@ namespace Mercator  {
 		// already active).  Even if they have no input,
 		// they must fire once to propagate flush mode and
 		// activate *their* downstream nodes.
-		NodeBase *dsNode = channel->getDSNode();
+		NodeBase *dsNode = getDSNode(0);
 		if (this->propagateFlush(dsNode))
 		  dsNode->activate();
 		
@@ -313,8 +311,6 @@ namespace Mercator  {
     __device__
     bool startItem(const T &item, unsigned int *count)
     {
-      __syncthreads();
-
       // buffer is full -- initiate DS flushing to clear it out,
       // then terminate.  We'll reschedule ourselves to execute
       // once the buffer is no longer full.
@@ -322,7 +318,7 @@ namespace Mercator  {
 	{
 	  if (IS_BOSS())
 	    {
-	      NodeBase *dsNode = getChannel(0)->getDSNode();
+	      NodeBase *dsNode = getDSNode(0);
 	      
 	      if (this->initiateFlush(dsNode, enumId))
 		dsNode->activate();

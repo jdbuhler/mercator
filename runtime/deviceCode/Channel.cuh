@@ -6,7 +6,7 @@
 // @brief MERCATOR channel object
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
@@ -14,11 +14,7 @@
 
 #include "ChannelBase.cuh"
 
-#include "Signal.cuh"
-
 #include "options.cuh"
-
-#include "Queue.cuh"
 
 #include "support/collective_ops.cuh"
 
@@ -28,16 +24,9 @@ namespace Mercator  {
   // @class Channel
   // @brief Holds all data associated with an output stream from a node.
   //
-  template <typename Props>
-  template <typename T>
-  class Node<Props>::Channel final 
-    : public Node<Props>::ChannelBase {
-
-#ifdef INSTRUMENT_COUNTS    
-    using ChannelBase::itemCounter;
-#endif
-    
-    enum Flags { FLAG_ISAGGREGATE = 0x01 };
+  template <typename T,
+	    unsigned int THREADS_PER_BLOCK>
+  class Channel : public ChannelBase {
     
   public:
     
@@ -47,185 +36,129 @@ namespace Mercator  {
     // @param ioutputsPerInput Outputs per input for this channel
     //
     __device__
-      Channel(unsigned int ioutputsPerInput, bool isAgg)
-      : outputsPerInput(ioutputsPerInput),
-      propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
-      dsNode(nullptr),
-      dsQueue(nullptr),
-      dsSignalQueue(nullptr),
-      numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
+    Channel(unsigned int outputsPerInput, 
+	    unsigned int inumThreadGroups,
+	    unsigned int ithreadGroupSize,
+	    unsigned int numEltsPerGroup,
+	    bool isAgg)
+      : ChannelBase(outputsPerInput, isAgg),
+	numThreadGroups(inumThreadGroups),
+	threadGroupSize(ithreadGroupSize),
+	numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
+    {
+      // allocate enough total buffer capacity to hold outputs
+      // for one run() call
+      data = new T [numThreadGroups * numSlotsPerGroup];
+      
+      // verify that alloc succeeded
+      if (data == nullptr)
 	{
-	  // allocate enough total buffer capacity to hold outputs 
-	  // for one run() call
-	  data = new T [numThreadGroups * numSlotsPerGroup];
+	  printf("ERROR: failed to allocate channel buffer [block %d]\n",
+		 blockIdx.x);
 	  
-	  // verify that alloc succeeded
-	  if (data == nullptr)
-	    {
-	      printf("ERROR: failed to allocate channel buffer [block %d]\n",
-		     blockIdx.x);
-	      
-	      crash();
-	    }
-	  
-	  for (unsigned int j = 0; j < numThreadGroups; j++)
-	    nextSlot[j] = 0;
+	  crash();
 	}
-    
-    //
-    // @brief Destructor.
-    //
-    __device__
-      virtual
-      ~Channel()
-    {
-      delete [] data;
+      
+      nextSlot = new unsigned char [numThreadGroups];
+      for (unsigned int j = 0; j < numThreadGroups; j++)
+	nextSlot[j] = 0;
     }
     
-    // 
-    // @brief return the node at the other end of this channel's queue
-    //
     __device__
-      NodeBase* getDSNode() const
-    {
-      return dsNode;
+    virtual
+    ~Channel()
+    { 
+      delete [] nextSlot; 
+      delete [] data; 
     }
     
-    
-    //
-    // @brief Set the downstream target of the edge for
-    // this channel.
-    //
-    // @param idsNode downstream node
-    //
     __device__
-      void setDSEdge(NodeBase *idsNode, 
-		     Queue<T> *idsQueue,
-		     Queue<Signal> *idsSignalQueue,
-		     unsigned int ireservedSlots)
-
+    void push(const T &item)
     {
-      dsNode = idsNode;
-      dsQueue = idsQueue;
-      dsSignalQueue = idsSignalQueue;
-      reservedQueueEntries = ireservedSlots;
+      int groupId = threadIdx.x / threadGroupSize;
+      
+      assert(nextSlot[groupId] < numSlotsPerGroup);
+      
+      unsigned int slotIdx =
+	groupId * numSlotsPerGroup + nextSlot[groupId];
+      
+      data[slotIdx] = item;
+      
+      nextSlot[groupId]++;
     }
     
-    //
-    // @brief get the number of inputs whose output could
-    // be safely written to this channel's downstream queue.
-    //
     __device__
-      unsigned int dsCapacity() const
-    {
-      return dsQueue->getFreeSpace() / outputsPerInput;
-    }
-     
-    //
-    // @brief get the number of signals whose output could
-    // be safely written to this channel's downstream signal queue.
-    //
-    __device__
-      unsigned int dsSignalCapacity() const
-    {
-      return dsSignalQueue->getFreeSpace();
-    }
-    
-    //
-    // @brief move items in each (live) thread to the output buffer
-    // 
-    // @param item item to be pushed
-    // @param isWriter true iff thread is the writer for its group
-    //
-    __device__
-      void push(const T &item, bool isWriter)
-    {
-      if (isWriter)
-	{
-	  int groupId = threadIdx.x / threadGroupSize;
-	  
-	  assert(nextSlot[groupId] < numSlotsPerGroup);
-	  
-	  unsigned int slotIdx =
-	    groupId * numSlotsPerGroup + nextSlot[groupId];
-	  
-	  data[slotIdx] = item;
-	  
-	  nextSlot[groupId]++;
-	}
-    }
-    
-    
-    //
-    // @brief After a call to run(), collect and write any data generated
-    // to the downstream queue. NB: must be called with all threads
-    //
-    // RETURNS: true iff downstream node is active after copy
-    //
-    __device__
-      void moveOutputToDSQueue()
+    void completePush()
     {
       int tid = threadIdx.x;
       
-      // FIXME: can we ever call this function when the dsQueue is
-      // null  (i.e. the channel is not connected to anything)? If
-      // so, short-circuit here
-      assert(dsQueue != nullptr);
-      
-      BlockScan<unsigned int, Props::THREADS_PER_BLOCK> scanner;
+      BlockScan<unsigned int, THREADS_PER_BLOCK> scanner;
       unsigned int count = (tid < numThreadGroups ? nextSlot[tid] : 0);
-      unsigned int agg;
+      unsigned int totalToWrite;
       
-      unsigned int sum = scanner.exclusiveSum(count, agg);
+      unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
       __shared__ unsigned int dsBase;
       if ( IS_BOSS() )
 	{
-	  COUNT_ITEMS(agg);  // instrumentation
-	  dsBase = directReserve(agg);
-	    
+	  dsBase = dsReserve(totalToWrite);
+	  
 	  // track produced items for credit calculation
-	  numItemsProduced += agg;
+	  numItemsWritten += totalToWrite;
 	}
       __syncthreads(); // all threads must see updates to dsBase
       
       // for each thread group, copy all generated outputs downstream
       if (tid < numThreadGroups)
-	{
-	  for (unsigned int j = 0; j < count; j++)
-	    {
-	      unsigned int srcOffset = tid * outputsPerInput + j;
-	      unsigned int dstOffset = sum + j;
-	      const T &myData = data[srcOffset];
-	      directWrite(myData, dsBase, dstOffset);
+        {
+          for (unsigned int j = 0; j < count; j++)
+            {
+              unsigned int srcOffset = tid * outputsPerInput + j;
+              unsigned int dstIdx = dsOffset + j;
+              const T &myData = data[srcOffset];
+	      dsWrite(dsBase, dstIdx, myData);
 	    }
-	  
-	  // clear nextSlot for this thread group
-	  nextSlot[tid] = 0;
-	}
+
+          // clear nextSlot for this thread group
+          nextSlot[tid] = 0;
+        }
     }
-  
+    
     
     //
-    // If we've managed to fill the downstream queue, activate its
-    // target node. Let our caller know if we activated the ds node.
+    // @brief move items in each of first totalToWrite threads to the
+    // output buffer
+    // 
+    // @param item item to be pushed
+    // @param totalToWrite total number of items to be written
     //
     __device__
-      bool activateDSIfFull()
+    void pushCount(const T &item, unsigned int totalToWrite)
     {
-      if (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
-	  dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN)
+      int tid = threadIdx.x;
+      
+      __shared__ unsigned int dsBase;
+      if ( IS_BOSS() )
 	{
-	  if (IS_BOSS()) 
-	    dsNode->activate();
+	  dsBase = dsReserve(totalToWrite);
 	  
-	  return true;
+	  // track produced items for credit calculation
+	  numItemsWritten += totalToWrite;
 	}
-      else
-	{
-	  return false;
-	}
+      __syncthreads(); // all threads must see updates to dsBase
+      
+      if (tid < totalToWrite)
+	dsWrite(dsBase, tid, item);
     }
+    
+  private:    
+    
+    const unsigned int numThreadGroups;
+    const unsigned int threadGroupSize;
+    const unsigned int numSlotsPerGroup;
+    
+    T *data;
+    unsigned char *nextSlot;
     
     //
     // @brief prepare for a direct write to the downstream queue(s)
@@ -235,7 +168,7 @@ namespace Mercator  {
     // @return starting index of reserved segment.
     //
     __device__
-      unsigned int directReserve(unsigned int nToWrite) const
+    unsigned int dsReserve(unsigned int nToWrite) const
     {
       return dsQueue->reserve(nToWrite);
     }
@@ -249,77 +182,13 @@ namespace Mercator  {
     // @param offset offset at which to write item
     //
     __device__
-      void directWrite(const T &item, 
-		       unsigned int base,
-		       unsigned int offset) const
+    void dsWrite(unsigned int base,
+		 unsigned int offset,
+		 const T &item) const
     {
-      dsQueue->putElt(base, offset, item);
-    }
-
-
-    //
-    // @brief push a signal to a specified channel, and reset the number
-    // of items produced on that channel. This function is SINGLE THREADED.
-    //
-    // @param s the signal being sent downstream
-    // @param channel the channel on which the signal is being sent
-    //
-    __device__
-    void pushSignal(const Signal& s)
-    {
-      assert(dsSignalQueue->getFreeSpace() > 0);
-      
-      unsigned int credit = 
-	(dsSignalQueue->empty()
-	 ? dsSignalQueue->getOccupancy()
-	 : numItemsProduced);
-      
-      Signal &sNew = dsSignalQueue->enqueue(s);
-      sNew.credit = credit;
-      
-      numItemsProduced = 0;
+      static_cast<Queue<T>*>(dsQueue)->putElt(base, offset, item);
     }
     
-    //
-    //
-    //
-    __device__
-    bool isAggregate() const
-    {
-      return (propFlags & FLAG_ISAGGREGATE);
-    }
-    
-  private:
-    
-    const unsigned int outputsPerInput;  // max # outputs per input to node
-    const unsigned int propFlags; // Signal propagation flags for this channel
-    
-    //
-    // target (edge) for scattering items from output buffer
-    //
-    
-    NodeBase *dsNode;
-    Queue<T> *dsQueue;
-    Queue<Signal> *dsSignalQueue;
-    unsigned int reservedQueueEntries; // NB: will be used for cycles
-    
-    unsigned int numItemsProduced;     // # items produced since last signal
-    
-    //
-    // output buffer
-    //
-    
-    const unsigned int numSlotsPerGroup; // # buffer slots/group in one run
-    
-    T* data;                              // buffered output
-    
-    //
-    // tracking data for usage of output buffer slots
-    //
-    
-    // next buffer slot avail for thread to push output
-    unsigned char nextSlot[numThreadGroups];
-
   }; // end Channel class
 }  // end Mercator namespace
 

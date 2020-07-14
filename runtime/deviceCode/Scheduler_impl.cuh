@@ -21,11 +21,10 @@ namespace Mercator  {
     NODE_TIMER_START(scheduler);
     
     while (true)
-      {
-	__shared__ NodeBase *nextNode;
-	
+      {	
 	COUNT_SCHED_LOOP();
-	
+		
+	__shared__ NodeBase *nextNode;
 	if (IS_BOSS())
 	  {
 	    nextNode = (top < 0 ? nullptr : workList[top--]);
@@ -38,6 +37,8 @@ namespace Mercator  {
 	NODE_TIMER_STOP(scheduler);
 	
 	nextNode->fire();
+	
+	__syncthreads(); // protect state of workList from activations
 	
 	NODE_TIMER_START(scheduler);
       }

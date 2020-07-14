@@ -14,10 +14,10 @@
 
 #include "NodeBase.cuh"
 
+#include "Channel.cuh"
+
 #include "Queue.cuh"
-
 #include "Signal.cuh"
-
 #include "ParentBuffer.cuh"
 
 #include "device_config.cuh"
@@ -27,8 +27,8 @@
 namespace Mercator  {
 
   //
-  // @class NodeProperties
-  // @brief properties of a MERCATOR node known at compile time
+  // @class Node
+  // @brief most general typed node
   //
   // @tparam T type of input
   // @tparam numChannels  number of channels
@@ -38,72 +38,36 @@ namespace Mercator  {
   // @tparam runWithAllThreads call run() with all threads, or just as many
   //           as have inputs?
   //
-  template <typename _T, 
-	    unsigned int _numChannels,
-	    unsigned int _numEltsPerGroup,
-	    unsigned int _threadGroupSize,
-	    unsigned int _maxActiveThreads,
-	    bool _runWithAllThreads,
-	    unsigned int _THREADS_PER_BLOCK>
-  struct NodeProperties {
-    typedef _T T;
-    static const unsigned int numChannels      = _numChannels;
-    static const unsigned int numEltsPerGroup  = _numEltsPerGroup;
-    static const unsigned int threadGroupSize  = _threadGroupSize;
-    static const unsigned int maxActiveThreads = _maxActiveThreads;
-    static const bool runWithAllThreads        = _runWithAllThreads;
-    static const unsigned int THREADS_PER_BLOCK= _THREADS_PER_BLOCK;  
-  };
-
-
-  //
-  // @class Node
-  // @brief MERCATOR most general node type
-  //
-  // This class implements most of the interface in NodeBase,
-  // but it leaves the fire() function to subclasses (and hence is
-  // still pure virtual).
-  //
-  // @tparam Props properties structure for node
-  //
-  template<typename Props>
+  template <typename T, 
+	    unsigned int numChannels,
+	    unsigned int numEltsPerGroup,
+	    unsigned int threadGroupSize,
+	    unsigned int maxActiveThreads,
+	    bool runWithAllThreads,
+	    unsigned int THREADS_PER_BLOCK>
   class Node : public NodeBase {
-
-    using                                    T = typename Props::T;
-    static const unsigned int numChannels      = Props::numChannels;
-    static const unsigned int numEltsPerGroup  = Props::numEltsPerGroup;
-    static const unsigned int threadGroupSize  = Props::threadGroupSize;
-    static const unsigned int maxActiveThreads = Props::maxActiveThreads;
-    static const bool runWithAllThreads        = Props::runWithAllThreads;
-
+    
     // actual maximum # of possible active threads in this block
     static const unsigned int deviceMaxActiveThreads =
-      (maxActiveThreads > Props::THREADS_PER_BLOCK 
-       ? Props::THREADS_PER_BLOCK 
+      (maxActiveThreads > THREADS_PER_BLOCK 
+       ? THREADS_PER_BLOCK 
        : maxActiveThreads);
-
+    
     // number of thread groups (no partial groups allowed!)
     static const unsigned int numThreadGroups = 
       deviceMaxActiveThreads / threadGroupSize;
-
+    
     // max # of active threads assumes we only run full groups
     static const unsigned int numActiveThreads =
       numThreadGroups * threadGroupSize;
-
+    
   protected:
-
+    
     // maximum number of inputs that can be processed in a single 
     // call to the node's run() function
     static const unsigned int maxRunSize =
       numThreadGroups * numEltsPerGroup;
-
-    // forward-declare channel class
-
-    class ChannelBase;
     
-    template <typename T>
-    class Channel;
-
   public:
 
     //
@@ -122,14 +86,17 @@ namespace Mercator  {
     {
       // init channels array
       for (unsigned int c = 0; c < numChannels; ++c)
-	channels[c] = nullptr;
+	{
+	  channels[c] = nullptr;
+	  dsNodes[c] = nullptr;
+	}
       
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
     }
-
-
+    
+    
     //
     // @brief Destructor
     //
@@ -147,27 +114,24 @@ namespace Mercator  {
     
 
     //
-    // @brief Construct the edge between this node and a downstream
-    // neighbor on a particular channel.
+    // @brief set the generic channel object and downstream
+    // node pts for a given channel.
     //
     // @param channelIdx channel that holds edge
     // @param dsNode node at downstream end of edge
-    // @param reservedSlots reserved slot count for edge's queue
+    // @param channel channel object for downstream channel
     //
-    template <typename DSP>
     __device__
     void setDSEdge(unsigned int channelIdx,
-		   Node<DSP> *dsNode,
-		   unsigned int reservedSlots) 
-    { 
-      Channel<typename DSP::T> *channel = 
-	static_cast<Channel<typename DSP::T> *>(channels[channelIdx]);
+		   NodeBase *dsNode,
+		   QueueBase *dsQueue,
+		   Queue<Signal> *dsSignalQueue)
 
+    { 
+      dsNodes[channelIdx] = dsNode;
       dsNode->setParentNode(this);
-      channel->setDSEdge(dsNode, 
-			 dsNode->getQueue(), 
-			 dsNode->getSignalQueue(),
-			 reservedSlots);
+      
+      channels[channelIdx]->setDSEdge(dsQueue, dsSignalQueue);
     }
     
     __device__
@@ -177,7 +141,7 @@ namespace Mercator  {
     }
     
     //
-    // @brief return our queue (needed for setDSEdge()).
+    // @brief return our queue (needed for channel's setDSEdge()).
     //
     __device__
     Queue<T> *getQueue()
@@ -186,7 +150,7 @@ namespace Mercator  {
     }
     
     //
-    // @brief return our signal queue (needed for setDSEdge()).
+    // @brief return our signal queue (needed for channel's setDSEdge()).
     //
     __device__
     Queue<Signal> *getSignalQueue()
@@ -213,132 +177,18 @@ namespace Mercator  {
     virtual
     void end() {}
     
-    ///////////////////////////////////////////////////////////////////
-    // OUTPUT CODE FOR INSTRUMENTATION
-    ///////////////////////////////////////////////////////////////////
-    
-#ifdef INSTRUMENT_TIME
-    //
-    // @brief print the contents of the node's timers
-    // @param nodeId a numerical identifier to print along with the
-    //    output
-    //
-    __device__
-    void printTimersCSV(unsigned int nodeId) const
-    {
-      assert(IS_BOSS());
-    
-      DeviceTimer::DevClockT inputTime  = inputTimer.getTotalTime();
-      DeviceTimer::DevClockT runTime    = runTimer.getTotalTime();
-      DeviceTimer::DevClockT outputTime = outputTimer.getTotalTime();
-    
-      printf("%d,%u,%llu,%llu,%llu\n",
-	     blockIdx.x, nodeId, inputTime, runTime, outputTime);
-    }
-  
-#endif
-  
-#ifdef INSTRUMENT_OCC
-    //
-    // @brief print the contents of the node's occupancy counter
-    // @param nodeId a numerical identifier to print along with the
-    //    output
-    //
-    __device__
-    void printOccupancyCSV(unsigned int nodeId) const
-    {
-      assert(IS_BOSS());
-      printf("%d,%u,%lluu,%llu,%llu,%llu\n",
-	     blockIdx.x, nodeId,
-	     occCounter.sizePerRun,
-	     occCounter.totalInputs,
-	     occCounter.totalRuns,
-	     occCounter.totalFullRuns);
-    }
-#endif
-  
-#ifdef INSTRUMENT_COUNTS
-    //
-    // @brief print the contents of the node's item counters
-    // @param nodeId a node identifier to print along with the
-    //    output
-    // @param inputOnly print only the input counts, not the channel
-    //    counts
-    __device__
-    void printCountsCSV(unsigned int nodeId, bool inputOnly) const
-    {
-      assert(IS_BOSS());
-    
-      printCountsSingle(itemCounter, nodeId, -1);
-    
-      if (!inputOnly)
-	for (unsigned int c = 0; c < numChannels; c++)
-	  printCountsSingle(channels[c]->itemCounter, nodeId, c);
-    }
-    
-    //
-    // @brief print the contents of one item counter
-    // @param counter the counter to print
-    // @param nodeId a node identifier to print along with the
-    //         output
-    // @param channelId a channel identifier to print along with the 
-    //         output
-    //
-    __device__
-    void printCountsSingle(const ItemCounter &counter,
-			   unsigned int nodeId, int channelId) const
-    {
-      printf("%d,%u,%d,%llu\n",
-	     blockIdx.x, nodeId, channelId, counter.count);
-    }
-  
-#endif
-
   protected:
     
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
     ChannelBase* channels[numChannels]; // node's output channels
+    NodeBase*    dsNodes[numChannels];  // node's downstream neighbors
     
-    RefCountedArena *parentArena;      // ptr to any associated parent buffer
-    unsigned int parentIdx;            // index of parent obj in buffer
+    // state for nodes in enumerated regions
+    RefCountedArena *parentArena;       // ptr to any associated parent buffer
+    unsigned int parentIdx;             // index of parent obj in buffer
 
-#ifdef INSTRUMENT_TIME
-    DeviceTimer inputTimer;
-    DeviceTimer runTimer;
-    DeviceTimer outputTimer;
-#endif
-  
-#ifdef INSTRUMENT_OCC
-    OccCounter occCounter;
-#endif
-  
-#ifdef INSTRUMENT_COUNTS
-    ItemCounter itemCounter; // counts inputs to node
-#endif
-    
-    //
-    // @brief inspector for the channels array (for subclasses)
-    // @param c index of channel to get
-    //
-    __device__
-    ChannelBase *getChannel(unsigned int c) const 
-    { 
-      assert(c < numChannels);
-      return channels[c]; 
-    }
-
-    //
-    // @brief number of inputs currently enqueued for this node.
-    //
-    __device__
-    virtual
-    unsigned int numInputsPending() const
-    {
-      return queue.getOccupancy();
-    }
-    
     //
     // @brief Create and initialize an output channel.
     //
@@ -357,18 +207,41 @@ namespace Mercator  {
       // init the output channel -- should only happen once!
       assert(channels[c] == nullptr);
       
-      channels[c] = new Channel<DST>(outputsPerInput, isAgg);
+      channels[c] = new Channel<DST,THREADS_PER_BLOCK>(outputsPerInput, 
+						       numThreadGroups,
+						       threadGroupSize,
+						       numEltsPerGroup,
+						       isAgg);
 
       // make sure alloc succeeded
       if (channels[c] == nullptr)
 	{
 	  printf("ERROR: failed to allocate channel object [block %d]\n",
 		 blockIdx.x);
-
+	  
 	  crash();
 	}
     }
+    
+    //
+    // @brief inspector for the channels array (for subclasses)
+    // @param c index of channel to get
+    //
+    __device__
+    ChannelBase *getChannel(unsigned int c) const 
+    { 
+      assert(c < numChannels);
+      return channels[c]; 
+    }
 
+    __device__
+    NodeBase *getDSNode(unsigned int c) const
+    {
+      assert(c < numChannels);
+      return dsNodes[c];
+    }
+    
+    
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
@@ -388,7 +261,7 @@ namespace Mercator  {
     __device__
     unsigned int getThreadGroupSize() const
     { return threadGroupSize; }
-
+    
     //
     // @brief return true iff we are the 0th thread in our group
     //
@@ -405,13 +278,12 @@ namespace Mercator  {
     //
     template<typename DST>
     __device__
-    void push(const DST &item, 
-	      unsigned int channelIdx = 0) const
+    void push(const DST &item, unsigned int channelIdx = 0) const
     {
-      Channel<DST>* channel = 
-	static_cast<Channel<DST> *>(channels[channelIdx]);
+      Channel<DST,THREADS_PER_BLOCK>* channel = 
+	static_cast<Channel<DST,THREADS_PER_BLOCK> *>(channels[channelIdx]);
       
-      channel->push(item, isThreadGroupLeader());
+      channel->push(item);
     }
 
     
@@ -531,7 +403,5 @@ namespace Mercator  {
     
   };  // end Node class
 }  // end Mercator namespace
-
-#include "Channel.cuh"
 
 #endif

@@ -34,9 +34,9 @@ namespace Mercator  {
     
     __device__
     NodeBase(Scheduler *ischeduler, unsigned int iregion)
-      : scheduler(ischeduler),
-	parent(nullptr),
-	region(iregion),
+      : region(iregion),
+	scheduler(ischeduler),
+	parentNode(nullptr),
 	isActive(false),
 	isBlocked(false),
 	nDSActive(0),
@@ -54,11 +54,11 @@ namespace Mercator  {
     // @param iparent parent node
     ///
     __device__
-    void setParentNode(NodeBase *iparent)
+    void setParentNode(NodeBase *iparentNode)
     { 
       assert(IS_BOSS());
       
-      parent = iparent;
+      parentNode = iparentNode;
     }
 
     //
@@ -104,8 +104,8 @@ namespace Mercator  {
       if (!isActive)
 	{
 	  isActive = true;
-	  if (parent) //source has no parent
-	    parent->incrDSActive();
+	  if (parentNode) //source has no parent
+	    parentNode->incrDSActive();
 	  
 	  if (nDSActive == 0) // inactive nodes cannot be blocked
 	    scheduler->addFireableNode(this);
@@ -123,8 +123,8 @@ namespace Mercator  {
       if (isActive) // we never actually call deactivate on an inactive node
 	{
 	  isActive = false;
-	  if (parent)  // source has no parent
-	    parent->decrDSActive();
+	  if (parentNode)  // source has no parent
+	    parentNode->decrDSActive();
 	}
     }
     
@@ -191,29 +191,62 @@ namespace Mercator  {
     virtual
     void cleanup() {}
     
-    //////////////////////////////////////////////////////////////
-    // INSTRUMENTATION PRINTING (see Node.h for details)
-    //////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////
+    // OUTPUT CODE FOR INSTRUMENTATION
+    ///////////////////////////////////////////////////////////////////
     
 #ifdef INSTRUMENT_TIME
-    __device__
-    virtual
-    void printTimersCSV(unsigned int nodeId) const = 0;
-#endif
     
+    //
+    // @brief print the contents of the node's timers
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    void printTimersCSV(unsigned int nodeId) const
+    {
+      assert(IS_BOSS());
+    
+      DeviceTimer::DevClockT inputTime  = inputTimer.getTotalTime();
+      DeviceTimer::DevClockT runTime    = runTimer.getTotalTime();
+      DeviceTimer::DevClockT outputTime = outputTimer.getTotalTime();
+    
+      printf("%d,%u,%llu,%llu,%llu\n",
+	     blockIdx.x, nodeId, inputTime, runTime, outputTime);
+    }
+  
+#endif
+  
 #ifdef INSTRUMENT_OCC
+    //
+    // @brief print the contents of the node's occupancy counter
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
     __device__
-    virtual
-    void printOccupancyCSV(unsigned int nodeId) const = 0;
-#endif
-    
-#ifdef INSTRUMENT_COUNTS
-    __device__
-    virtual
-    void printCountsCSV(unsigned int nodeId, bool inputOnly = false) const = 0;
+    void printOccupancyCSV(unsigned int nodeId) const
+    {
+      assert(IS_BOSS());
+      printf("%d,%u,%lluu,%llu,%llu,%llu\n",
+	     blockIdx.x, nodeId,
+	     occCounter.sizePerRun,
+	     occCounter.totalInputs,
+	     occCounter.totalRuns,
+	     occCounter.totalFullRuns);
+    }
 #endif
     
   protected:
+    
+#ifdef INSTRUMENT_TIME
+    DeviceTimer inputTimer;
+    DeviceTimer runTimer;
+    DeviceTimer outputTimer;
+#endif
+  
+#ifdef INSTRUMENT_OCC
+    OccCounter occCounter;
+#endif
     
     ///////////////////////////////////////////////////////////////
     // FLUSHING API
@@ -307,10 +340,10 @@ namespace Mercator  {
     }
 
   private:
-    
+
+    const unsigned int region; // region identifier for flushing    
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    NodeBase *parent;          // parent of this node in dataflow graph
-    unsigned int region;       // region identifier for flushing
+    NodeBase *parentNode;      // parent of this node in dataflow graph
     
     bool isActive;             // is node active?
     bool isBlocked;            // is node blocked from execution?

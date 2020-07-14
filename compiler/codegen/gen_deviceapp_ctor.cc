@@ -117,7 +117,8 @@ void genEdgeInitStmts(const App *app,
 			deviceModuleType +
 			"::Out::" + channelName + ", " +
 			dsNodeObj + ", " +
-			to_string(dsEdge->dsReservedSlots) +  ");");
+			dsNodeObj + "->getQueue(), " +
+			dsNodeObj + "->getSignalQueue());");
 		}
 	    }
 	  
@@ -126,6 +127,11 @@ void genEdgeInitStmts(const App *app,
     }
 }
 
+
+//
+// @brief Connect every node in a region other than 0 to its head
+// node.
+//
 void
 connectRegionHeads(const App *app,
 		   Formatter &f)
@@ -175,8 +181,6 @@ void genDeviceAppConstructor(const App *app,
   
   for (const ModuleType *mod : app->modules)
     {
-      string deviceModuleType = mod->get_name();
-
       for (const Node *node : mod->nodes)
 	{
 	  string nodeObj = "d" + node->get_name();
@@ -188,6 +192,8 @@ void genDeviceAppConstructor(const App *app,
   // connect the instances of each module by edges
   genEdgeInitStmts(app, f);
   f.add("");
+  
+  // connect each node in a nonzero region to its region's head
   connectRegionHeads(app, f);
   f.add("");
   

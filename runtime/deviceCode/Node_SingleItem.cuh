@@ -14,8 +14,6 @@
 
 #include "Node.cuh"
 
-#include "ChannelBase.cuh"
-
 #include "timing_options.cuh"
 
 
@@ -43,23 +41,22 @@ namespace Mercator  {
 	   unsigned int THREADS_PER_BLOCK,
 	   typename DerivedNodeType>
   class Node_SingleItem
-    : public Node< NodeProperties<T, 
-				  numChannels,
-				  1, 
-				  threadGroupSize,
-				  maxActiveThreads,
-				  runWithAllThreads,
-				  THREADS_PER_BLOCK> > {
+    : public Node<T,
+		  numChannels,
+		  1, 
+		  threadGroupSize,
+		  maxActiveThreads,
+		  runWithAllThreads,
+		  THREADS_PER_BLOCK> {
     
-    typedef Node< NodeProperties<T,
-				 numChannels,
-				 1,
-				 threadGroupSize,
-				 maxActiveThreads,
-				 runWithAllThreads,
-				 THREADS_PER_BLOCK> > BaseType;
+    using BaseType = Node<T,
+			  numChannels,
+			  1,
+			  threadGroupSize,
+			  maxActiveThreads,
+			  runWithAllThreads,
+			  THREADS_PER_BLOCK>;
     
-
   protected:
     
     // make these downwardly available to the user
@@ -70,6 +67,7 @@ namespace Mercator  {
   private:
     
     using BaseType::getChannel;
+    using BaseType::getDSNode;
     using BaseType::maxRunSize; 
     
 #ifdef INSTRUMENT_TIME
@@ -81,11 +79,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
-#endif
-
+    
   public:
     
     __device__
@@ -185,7 +179,7 @@ namespace Mercator  {
 	      __syncthreads();
 	      
 	      for (unsigned int c = 0; c < numChannels; c++)
-		getChannel(c)->moveOutputToDSQueue();
+		getChannel(c)->completePush();
 	      
 	      nDataConsumed += nItems;
 	    }
@@ -197,24 +191,34 @@ namespace Mercator  {
 	    {
 	      nCredits -= nItems;
 	      
+	      __syncthreads(); // protect channel # of items written
+	      
 	      if (nCredits == 0)
 		{
 		  nCredits = this->handleSignal(nSignalsConsumed);
 		  nSignalsConsumed++;
 		}
 	    }
-
+	  
 	  TIMER_STOP(run);
 	  
 	  TIMER_START(output);
 	  
 	  __syncthreads(); // protect channel changes
-	      
+	  
 	  //
-	  // Check whether any child has been activated
+	  // Check whether any child needs to be activated
 	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    anyDSActive |= getChannel(c)->activateDSIfFull();
+	    {
+	      if (getChannel(c)->checkDSFull(maxRunSize))
+		{
+		  anyDSActive = true;
+		  
+		  if (IS_BOSS())
+		    getDSNode(c)->activate();
+		}
+	    }
 	  
 	  TIMER_STOP(output);
 	  
@@ -226,8 +230,6 @@ namespace Mercator  {
 
       if (IS_BOSS())
 	{
-	  COUNT_ITEMS(nDataConsumed);  // instrumentation
-	  
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  
@@ -249,7 +251,7 @@ namespace Mercator  {
 		// activate *their* downstream nodes.
 		for (unsigned int c = 0; c < numChannels; c++)
 		  {
-		    NodeBase *dsNode = getChannel(c)->getDSNode();
+		    NodeBase *dsNode = getDSNode(c);
 		    
 		    if (this->propagateFlush(dsNode))
 		      dsNode->activate();

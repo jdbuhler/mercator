@@ -1,93 +1,155 @@
-#ifndef __CHANNEL_BASE_CUH
-#define __CHANNEL_BASE_CUH
+#ifndef __CHANNELBASE_CUH
+#define __CHANNELBASE_CUH
 
 //
 // @file ChannelBase.cuh
-// @brief Base class of MERCATOR channel object
+// @brief MERCATOR channel base object
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
-#include "options.cuh"
+#include <cassert>
+#include <cstdio>
 
-#include "instrumentation/item_counter.cuh"
+#include "Queue.cuh"
+
+#include "Signal.cuh"
+
+#include "options.cuh"
 
 namespace Mercator  {
 
   //
   // @class ChannelBase
-  // @brief Base class for an output channel of a node.  This is
-  // a pure interface class, so that we can mix channels with different
-  // properties in a node's channels[] array.
+  // @brief Holds all data associated with an output stream from a node.
   //
-  template <class Props>
-  class Node<Props>::ChannelBase {
+  class ChannelBase {
+    
+    enum Flags { FLAG_ISAGGREGATE = 0x01 };
+    
   public:
     
+    //
+    // @brief Constructor (called single-threaded)
+    //
+    // @param ioutputsPerInput Outputs per input for this channel
+    //
     __device__
-    ChannelBase() {}
+    ChannelBase(unsigned int ioutputsPerInput, bool isAgg)
+      : outputsPerInput(ioutputsPerInput),
+	propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
+	numItemsWritten(0),
+	dsQueue(nullptr),
+	dsSignalQueue(nullptr)
+    {}
     
     __device__
     virtual
-    ~ChannelBase() {}
+    ~ChannelBase()
+    {}
     
     //
-    // @brief get the downstream node associated with this channel.
-    // Virtual because it requires access to the channel's queue,
-    // which does not have an untyped base.
+    // @brief Set the downstream target of the edge for
+    // this channel.
     //
-
+    // @param idsNode downstream node
+    //
+    __device__
+    void setDSEdge(QueueBase     *idsQueue,
+		   Queue<Signal> *idsSignalQueue)
+    {
+      dsQueue = idsQueue;
+      dsSignalQueue = idsSignalQueue;
+    }
+    
+    //
+    // @brief determine if this channel is aggregating
+    //
+    __device__
+    bool isAggregate() const
+    {
+      return (propFlags & FLAG_ISAGGREGATE);
+    }
+    
+    //
+    // @brief get the number of inputs whose output could
+    // be safely written to this channel's downstream queue.
+    //
+    __device__
+    unsigned int dsCapacity() const
+    {
+      return dsQueue->getFreeSpace() / outputsPerInput;
+    }
+     
+    //
+    // @brief get the number of signals whose output could
+    // be safely written to this channel's downstream signal queue.
+    //
+    __device__
+    unsigned int dsSignalCapacity() const
+    {
+      return dsSignalQueue->getFreeSpace();
+    }
+      
+    
+    //
+    // If we've managed to fill the downstream queue, activate its
+    // target node. Let our caller know if we activated the ds node.
+    //
+    // @param maxRunSize maximum # of inputs that can be emitted in
+    //        a single run
+    __device__
+    bool checkDSFull(unsigned int maxRunSize) const
+    {
+      return (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
+	      dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
+    }
+    
+    
     __device__
     virtual 
-    NodeBase* getDSNode() const = 0;
+    void completePush() = 0;
     
     //
-    // @brief get # of inputs whose outputs can safely be written
-    // to channel's downstream queue
+    // @brief push a signal to a specified channel, and reset the number
+    // of items produced on that channel. This function is SINGLE THREADED.
     //
-    
-    __device__
-    virtual
-    unsigned int dsCapacity() const = 0;
-
-    //
-    // @brief get # of signals whose outputs can safely be written
-    // to channel's downstream signal queue
-    //
-    
-    __device__
-    virtual
-    unsigned int dsSignalCapacity() const = 0;
-        
-    
-    //
-    // @brief After a call to run(), move node's output
-    // from its temporary buffer to its downstream queue.
-    // NB: must be called with all threads
+    // @param s the signal being sent downstream
+    // @param channel the channel on which the signal is being sent
     //
     __device__
-    virtual
-    void moveOutputToDSQueue() = 0;
-
-    __device__
-    virtual
-    bool activateDSIfFull() = 0;
+    void pushSignal(const Signal& s)
+    {
+      assert(dsSignalQueue->getFreeSpace() > 0);
+      
+      unsigned int credit = 
+	(dsSignalQueue->empty()
+	 ? dsSignalQueue->getOccupancy()
+	 : numItemsWritten);
+      
+      Signal &sNew = dsSignalQueue->enqueue(s);
+      sNew.credit = credit;
+      
+      numItemsWritten = 0;
+    }
     
-    __device__
-    virtual
-    void pushSignal(const Signal &s) = 0;
+  protected:
     
-    __device__
-    virtual
-    bool isAggregate() const = 0;
+    const unsigned int outputsPerInput;  // max # outputs per input to node
+    const unsigned int propFlags;        // Signal propagation flags
     
-#ifdef INSTRUMENT_COUNTS
-    // counts outputs on channel
-    ItemCounter itemCounter;
-#endif
-
-  };
-}   // end Mercator namespace
+    unsigned int numItemsWritten;        // # items produced since last signal
+    
+    //
+    // target (edge) for writing items downstream
+    //
+    
+    QueueBase *dsQueue;
+    Queue<Signal> *dsSignalQueue;
+    
+    
+  }; // end ChannelBase class
+}  // end Mercator namespace
 
 #endif

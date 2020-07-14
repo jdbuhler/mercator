@@ -41,10 +41,6 @@ namespace Mercator   {
       deviceAppObjs[blockIdx.x]->printOccupancy();
 #endif
 
-#ifdef INSTRUMENT_COUNTS
-    if (IS_BOSS())
-      deviceAppObjs[blockIdx.x]->printCounts();
-#endif
 #ifdef INSTRUMENT_SCHED_COUNTS
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printSchedLoopCount();
@@ -53,13 +49,15 @@ namespace Mercator   {
     __syncthreads();
     BlockReduce<unsigned long long, 128> reducer;
 
-    unsigned long long max= reducer.max(stop);
-    unsigned long long min= reducer.min(start);
+    unsigned long long max = reducer.max(stop);
+    unsigned long long min = reducer.min(start);
   
 #ifdef INSTRUMENT_TIME
-    if(threadIdx.x==0){
-      printf("%u: deviceAppObjs[] runtime: %llu, stop %llu, start, %llu\n",blockIdx.x, max-min, max, min);
-    }
+    if(threadIdx.x==0)
+      {
+	printf("%u: deviceAppObjs[] runtime: %llu, stop %llu, start, %llu\n",
+	       blockIdx.x, max-min, max, min);
+      }
 #endif
   }
 }    // end Mercator namespace

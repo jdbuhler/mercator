@@ -5,25 +5,20 @@
 // @brief Define execution options for MERCATOR
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 //
 // Enable device instrumenation
 //
 
-//count trips thru sched loop
+// instrument # of trips through scheduling loop?
 //#define INSTRUMENT_SCHED_COUNTS
 
 // instrument code timing for performance model parameters?
 //#define INSTRUMENT_TIME
 
-// instrument code for performance model parameters?
-//#define INSTRUMENT_COUNTS
-
-// instrument code for occupancy of each node firing?
-// NB: For unknown reasons, in some cases running with INSTRUMENT_TIME
-//       set to 1 causes interference with this option.
+// instrument code for input counts and occupancy of each node firing?
 //#define INSTRUMENT_OCC
 
 // collect data from tail of app's execution?

@@ -28,24 +28,21 @@ namespace Mercator  {
   template<typename T, 
 	   unsigned int THREADS_PER_BLOCK>
   class Node_Sink : 
-    public Node< 
-    NodeProperties<T,
-		   0,                 // no output channels
-		   1, 1,              // no run/scatter functions
-		   THREADS_PER_BLOCK, // use all threads
-		   true,
-		   THREADS_PER_BLOCK> > {
+    public Node<T, 
+		0,                 // no output channels
+		1, 1,              // no run/scatter functions
+		THREADS_PER_BLOCK, // use all threads
+		true,
+		THREADS_PER_BLOCK> {
     
-    typedef Node< NodeProperties<T,
-				 0,
-				 1, 1,
-				 THREADS_PER_BLOCK,
-				 true,
-				 THREADS_PER_BLOCK> > BaseType;
+    using BaseType = Node<T, 
+			  0,
+			  1, 1,
+			  THREADS_PER_BLOCK,
+			  true,
+			  THREADS_PER_BLOCK>;
     
   private:
-    
-    using BaseType::maxRunSize;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -55,10 +52,6 @@ namespace Mercator  {
 
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
 #endif
     
   public: 
@@ -120,7 +113,7 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
-      const unsigned int maxInputSize = maxRunSize;
+      const unsigned int maxInputSize = THREADS_PER_BLOCK;
       
       TIMER_START(input);
       
@@ -182,7 +175,7 @@ namespace Mercator  {
 	      __syncthreads(); // make sure all threads see base ptr
 	      
 	      // use every thread to copy from our queue to sink
-	      for (int base = 0; base < nItems; base += maxRunSize)
+	      for (int base = 0; base < nItems; base += THREADS_PER_BLOCK)
 		{
 		  int srcIdx = base + tid;
 		  
@@ -217,8 +210,6 @@ namespace Mercator  {
       
       if (IS_BOSS())
 	{
-	  COUNT_ITEMS(nDataConsumed);  // instrumentation
-	  
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  

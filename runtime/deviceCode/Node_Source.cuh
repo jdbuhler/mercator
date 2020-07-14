@@ -31,26 +31,24 @@ namespace Mercator  {
 	   unsigned int numChannels,
 	   unsigned int THREADS_PER_BLOCK>
   class Node_Source : 
-    public Node< 
-    NodeProperties<T,
-		   numChannels,
-		   1, 1,              // no run/scatter functions
-		   THREADS_PER_BLOCK, // use all threads
-		   true,              
-		   THREADS_PER_BLOCK> > { 
-    
-    typedef Node< NodeProperties<T,
-				 numChannels,
-				 1, 1,
-				 THREADS_PER_BLOCK,
-				 true,
-				 THREADS_PER_BLOCK> > BaseType;
-    
+    public Node<T, 
+		numChannels,
+		1, 1,              // no run/scatter functions
+		THREADS_PER_BLOCK, // use all threads
+		true,              
+		THREADS_PER_BLOCK> { 
+ 
+    using BaseType = Node<T, 
+			  numChannels,
+			  1, 1,              // no run/scatter functions
+			  THREADS_PER_BLOCK, // use all threads
+			  true,              
+			  THREADS_PER_BLOCK>;
     
   private:
-
-    using BaseType::maxRunSize;
+    
     using BaseType::getChannel;
+    using BaseType::getDSNode;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
@@ -60,10 +58,6 @@ namespace Mercator  {
 
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
-#endif
-
-#ifdef INSTRUMENT_COUNTS
-    using BaseType::itemCounter;
 #endif
     
   public: 
@@ -140,10 +134,6 @@ namespace Mercator  {
     __device__
     void fire()
     {
-      // type of our downstream channels matchses our input type,
-      // since the source module just copies its inputs downstream
-      using Channel = typename BaseType::Channel<T>;
-      
       int tid = threadIdx.x;
       
       TIMER_START(input);
@@ -159,7 +149,7 @@ namespace Mercator  {
       // least available space still has at least one ensemble's worth
       // (given that it was inactive when fire() was called), and
       // we can still get its free space to < one ensemble width.
-      numToRequest = (numToRequest / maxRunSize) * maxRunSize;
+      numToRequest = (numToRequest / THREADS_PER_BLOCK) * THREADS_PER_BLOCK;
       
       // if the source advises a lower request size than what we planned,
       // honor that.  Note that this may cause us to neither fill any
@@ -170,49 +160,38 @@ namespace Mercator  {
       __shared__ size_t numToWrite;
       
       if (IS_BOSS())
-	{	  
+	{
 	  // ask the source buffer for as many inputs as we want
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
-	  COUNT_ITEMS(numToWrite);
 	}
-      
       __syncthreads(); // all threads must see shared vars
       
       TIMER_STOP(input);
       
       TIMER_START(output);
       
-      if (numToWrite > 0)
+      for (size_t base = 0; base < numToWrite; base += THREADS_PER_BLOCK)
 	{
-	  __shared__ unsigned int dsBase[numChannels];
-	  if (tid < numChannels)
+	  unsigned int vecSize = 
+	    min(numToWrite - base, (size_t) THREADS_PER_BLOCK);
+	  
+	  NODE_OCC_COUNT(vecSize);
+	  
+	  size_t srcIdx = base + tid;
+	  
+	  T myData = (srcIdx < numToWrite 
+		      ? source->get(pendingOffset + srcIdx)
+		      : source->get(pendingOffset)); // dummy
+	  
+	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
-	      const Channel *channel = 
-		static_cast<Channel *>(getChannel(tid));
+	      Channel<T,THREADS_PER_BLOCK> *channel = 
+		static_cast<Channel<T,THREADS_PER_BLOCK> *>(getChannel(c));
 	      
-	      dsBase[tid] = channel->directReserve(numToWrite);
+	      channel->pushCount(myData, vecSize);
 	    }
 	  
-	  __syncthreads(); // all threads must see dsBase[] values
-	  
-	  // use every thread to copy from source to downstream queues
-	  for (int base = 0; base < numToWrite; base += maxRunSize)
-	    {
-	      int srcIdx = base + tid;
-	      
-	      if (srcIdx < numToWrite)
-		{
-		  T myData = source->get(pendingOffset + srcIdx);
-		  
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      const Channel *channel = 
-			static_cast<Channel *>(getChannel(c));
-		      
-		      channel->directWrite(myData, dsBase[c], srcIdx);
-		    }
-		}
-	    }
+	  __syncthreads();
 	}
       
       TIMER_STOP(output);
@@ -233,7 +212,7 @@ namespace Mercator  {
 	      // *their* downstream nodes.
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  NodeBase *dsNode = getChannel(c)->getDSNode();
+		  NodeBase *dsNode = getDSNode(c);
 		  
 		  if (this->initiateFlush(dsNode, 0)) // 0 = global region ID
 		    dsNode->activate();
@@ -243,9 +222,17 @@ namespace Mercator  {
 	    {
 	      bool anyChildActive = false;
 	      
-	      // activate any downstream nodes whose queues are now full
+	      //
+	      // Check whether any child needs to be activated
+	      //
 	      for (unsigned int c = 0; c < numChannels; c++)
-		anyChildActive = getChannel(c)->activateDSIfFull();
+		{
+		  if (getChannel(c)->checkDSFull(THREADS_PER_BLOCK))
+		    {
+		      anyChildActive = true;
+		      getDSNode(c)->activate();
+		    }
+		}
 	      
 	      // If we did not fill any downstream queues or exhaust
 	      // the input stream, we need to forcibly re-enqueue
