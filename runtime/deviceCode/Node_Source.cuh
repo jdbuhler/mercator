@@ -190,8 +190,6 @@ namespace Mercator  {
 	      
 	      channel->pushCount(myData, vecSize);
 	    }
-	  
-	  __syncthreads();
 	}
       
       TIMER_STOP(output);

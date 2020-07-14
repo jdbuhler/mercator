@@ -122,6 +122,8 @@ namespace Mercator  {
           // clear nextSlot for this thread group
           nextSlot[tid] = 0;
         }
+      
+      __syncthreads(); // protect use of dsBase from any later write
     }
     
     
@@ -149,6 +151,8 @@ namespace Mercator  {
       
       if (tid < totalToWrite)
 	dsWrite(dsBase, tid, item);
+      
+      __syncthreads(); // protect use of dsBase from any later write
     }
     
   private:    
