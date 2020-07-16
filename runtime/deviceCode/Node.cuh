@@ -370,6 +370,8 @@ namespace Mercator  {
       if (parentIdx != RefCountedArena::NONE) // is old parent valid?
 	this->end();
       
+      __syncthreads(); // protect parent above against unref below
+      
       if (IS_BOSS())
 	{
 	  parentArena->unref(parentIdx); // remove this node's reference
