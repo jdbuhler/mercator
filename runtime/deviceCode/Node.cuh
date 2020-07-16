@@ -499,6 +499,8 @@ namespace Mercator  {
 	  parentArena->unref(parentIdx); // signal is destroyed
 	}
       
+      __syncthreads(); // for parentidx
+      
       //Call the begin stub of this node
       this->begin();
     }
@@ -510,6 +512,8 @@ namespace Mercator  {
     {
       //Call the end stub of this node
       this->end();
+      
+      __syncthreads(); // protect parent above against unref below
       
       if (IS_BOSS())
 	{
