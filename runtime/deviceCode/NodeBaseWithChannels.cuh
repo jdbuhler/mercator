@@ -1,0 +1,126 @@
+#ifndef __NODEBASEWITHCHANNELS_CUH
+#define __NODEBASEWITHCHANNELS_CUH
+
+//
+// @file NodeBaseWithChannels.cuh
+// @brief a MERCATOR node that knows its input type
+//
+// MERCATOR
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+//
+
+#include <cassert>
+
+#include "NodeBase.cuh"
+
+#include "Channel.cuh"
+
+#include "device_config.cuh"
+
+#include "options.cuh"
+
+namespace Mercator  {
+
+  //
+  // @class Node
+  // @brief most general typed node
+  //
+  // @tparam T type of input
+  // @tparam numChannels  number of channels
+  // @tparam numEltsPerGroup number of input elements/thread
+  // @tparam threadGroupSize  number of threads in a thread group
+  // @tparam maxActiveThreads max # of live threads in any call to run()
+  // @tparam runWithAllThreads call run() with all threads, or just as many
+  //           as have inputs?
+  //
+  template <unsigned int numChannels>
+  class NodeBaseWithChannels : public NodeBase {
+    
+  public:
+
+    //
+    // @brief Constructor
+    //
+    // @param maxActiveThreads max allowed # of active threads per run
+    // @param queueSize requested size for node's input queue
+    //
+    __device__
+    NodeBaseWithChannels(Scheduler *scheduler, unsigned int region)
+      : NodeBase(scheduler, region)
+    {
+      // init channels array
+      for (unsigned int c = 0; c < numChannels; ++c)
+	{
+	  channels[c] = nullptr;
+	  dsNodes[c] = nullptr;
+	}
+      
+#ifdef INSTRUMENT_OCC
+      occCounter.setMaxRunSize(maxRunSize);
+#endif
+    }
+    
+    
+    //
+    // @brief Destructor
+    //
+    __device__
+    virtual
+    ~NodeBaseWithChannels()
+    {
+      for (unsigned int c = 0; c < numChannels; ++c)
+	{
+	  ChannelBase *channel = channels[c];
+	  if (channel)
+	    delete channel;
+	}
+    }
+    
+    __device__
+    void setDSEdge(unsigned int channelIdx,
+		   NodeBase *dsNode,
+		   QueueBase *queue,
+		   Queue<Signal> *signalQueue)
+    {
+      channels[channelIdx]->setDSQueues(queue, signalQueue);
+      
+      dsNodes[channelIdx] = dsNode;
+      dsNode->setUSNode(this);
+    }
+        
+  protected:
+    
+    ChannelBase *channels[numChannels]; // node's output channels
+    NodeBase    *dsNodes[numChannels];  // node's downstream neighbors
+    
+    //
+    // @brief inspector for the channels array (for subclasses)
+    // @param c index of channel to get
+    //
+    __device__
+    ChannelBase *getChannel(unsigned int c) const 
+    { 
+      assert(c < numChannels);
+      return channels[c]; 
+    }
+
+    __device__
+    void setChannel(unsigned int c, ChannelBase *channel)
+    {
+      assert(c < numChannels);
+      channels[c] = channel;
+    }
+    
+    __device__
+    NodeBase *getDSNode(unsigned int c) const
+    {
+      assert(c < numChannels);
+      return dsNodes[c];
+    }
+    
+
+    
+  };  // end NodeBaseWithChannels class
+}  // end Mercator namespace
+
+#endif
