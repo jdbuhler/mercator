@@ -125,18 +125,28 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
 {
   // create output channels
   int nChannels = mod->get_nChannels();
-  if (nChannels > 0) // false for SINK modules
-    {
-      // init output channels
-      for (int j=0; j < nChannels; ++j)
-	{
-	  const Channel *channel = mod->get_channel(j);
 
-	  // format: initChannel<type>(outstream-enum, outputsPerInput)
-	  f.add("initChannel<"
+  // init output channels
+  for (int j=0; j < nChannels; ++j)
+    {
+      const Channel *channel = mod->get_channel(j);
+      
+      if (mod->isUser())
+	{
+	  f.add("initBufferedChannel<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
 		+ to_string(channel->maxOutputs)
+		+ (channel->isAggregate ? ", true);" : ");"));
+		  
+	}
+      else
+	{
+	  // FIXME: what should minFreeSpace be?
+	  f.add("initChannel<"
+		+ channel->type->name + ">("
+		+ "Out::" + channel->name + ", "
+		+ to_string(1)
 		+ (channel->isAggregate ? ", true);" : ");"));
 	}
     }
@@ -341,7 +351,7 @@ void genDeviceModuleClass(const App *app,
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
   
-  if (!mod->isSource() && !mod->isSink() && !mod->isEnumerate())
+  if (mod->isUser())
     {
       // run function (public because of CRTP)
       f.add("__device__");
@@ -406,7 +416,7 @@ void genDeviceModuleClass(const App *app,
   f.add("private:", true);
   f.add("");
   
-  if (!mod->isSource() && !mod->isSink())
+  if (mod->isUser())
     {
       // generate reflectors for user code to learn about this module
       f.add("using " + baseType + "::getNumActiveThreads;");

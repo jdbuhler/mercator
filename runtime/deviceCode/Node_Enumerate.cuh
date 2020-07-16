@@ -5,9 +5,9 @@
 
 #include "Node.cuh"
 
-#include "ParentBuffer.cuh"
+#include "Channel.cuh"
 
-#include "timing_options.cuh"
+#include "ParentBuffer.cuh"
 
 namespace Mercator {
 
@@ -26,31 +26,19 @@ namespace Mercator {
   class Node_Enumerate
     : public Node<T,
 		  1,             // one output channel
-		  1, 1,          // no run/scatter functions
-		  THREADS_PER_BLOCK, // use all threads
-		  true,
 		  THREADS_PER_BLOCK> {
     
     using BaseType = Node<T,
 			  1, 
-			  1, 1,
-			  THREADS_PER_BLOCK,
-			  true,
 			  THREADS_PER_BLOCK>;
     
   private:
-
+    
     using BaseType::getChannel;
     using BaseType::getDSNode;
     
     using BaseType::parentIdx;
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
@@ -67,207 +55,85 @@ namespace Mercator {
 	dataCount(0),
 	currentCount(0),
 	parentBuffer(10 /*queueSize*/, this) // FIXME: for stress test
-    {}
+    {
+#ifdef INSTRUMENT_OCC
+      occCounter.setMaxRunSize(1);
+#endif
+    }
     
     __device__
     RefCountedArena *getParentArena()
     { return &parentBuffer; }
     
-    //
-    // @brief fire a node, consuming as much input 
-    // from its queue as possible
-    //
-    // PRECONDITION: node is active (hence either flushing or has at
-    // least THREADS_PER_BLOCK inputs in its queue), and all its
-    // downstream nodes are inactive (hence have at least enough space
-    // to hold outputs from THREADS_PER_BLOCK inputs in their queues).
-    //
-    // called with all threads
-    
     __device__
-    void fire()
+    unsigned int getMaxInputs() const
+    { return 1; }
+
+    __device__
+    unsigned int doRun(const Queue<T> &queue, 
+		       unsigned int start,
+		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
       
-      const unsigned int maxInputSize = 1; // we consume one parent at a time
+      using Channel = Channel<int>;
+      Channel *channel = static_cast<Channel*>(getChannel(0));
       
-      TIMER_START(input);
-      
-      Queue<T> &queue = this->queue; 
-      Queue<Signal> &signalQueue = this->signalQueue; 
-      
-      using MChannel = Channel<unsigned int, THREADS_PER_BLOCK>;
-      MChannel *channel = static_cast<MChannel *>(getChannel(0));
-      
-      // # of items available to consume from queue
-      unsigned int nDataToConsume = queue.getOccupancy();
-      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
-      
-      unsigned int nCredits = (nSignalsToConsume == 0
-			       ? 0
-			       : signalQueue.getHead().credit);
-            
-      // # of items already consumed from queue
-      unsigned int nDataConsumed = 0;
-      unsigned int nSignalsConsumed = 0;
-      
-      // threshold for declaring data queue "empty" for scheduling
-      unsigned int emptyThreshold = (this->isFlushing() 
-				     ? 0 
-				     : maxInputSize - 1);
-      
-      bool anyDSActive = false;
-      
-      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
-	      nSignalsConsumed < nSignalsToConsume) &&
-	     !anyDSActive)
+      unsigned int nFinished = 0;
+      if (limit > 0)
 	{
-#if 0
-	  if (IS_BOSS())
-	    printf("%d %p %d %d %d %d %d\n", 
-		   blockIdx.x, this, 
-		   nDataConsumed, nDataToConsume,  
-		   nSignalsConsumed, nSignalsToConsume,
-		   nCredits);
-#endif
+	  // recover state of partially emitted parent, if any
+	  unsigned int myDataCount    = dataCount;
+	  unsigned int myCurrentCount = currentCount;
 	  
-	  unsigned int limit =
-	    (nSignalsConsumed < nSignalsToConsume
-	     ? nCredits 
-	     : nDataToConsume - nDataConsumed);
-	  
-	  unsigned int nFinished = 0;
-	  if (limit > 0)
+	  // begin a new parent if it's time.  IF we cannot
+	  // (due to full parent buffer), indicate that we've read nothing 
+	  if (myCurrentCount == myDataCount)
 	    {
-	      TIMER_STOP(input);
+	      if (!startItem(queue.getElt(start), &myDataCount))
+		return 0;
 	      
-	      TIMER_START(run);
+	      NODE_OCC_COUNT(1);
 	      
-	      // recover state of partially emitted parent, if any
-	      unsigned int myDataCount = dataCount;
-	      unsigned int myCurrentCount = currentCount;
-	      
-	      // begin a new parent if it's time.  IF we cannot
-	      // (due to full parent buffer), terminate the main loop.
-	      if (myCurrentCount == myDataCount)
-		{
-		  if (!startItem(queue.getElt(nDataConsumed), &myDataCount))
-		    break;
-		  
-		  NODE_OCC_COUNT(1);
-		  
-		  myCurrentCount = 0;
-		}
-	      
-	      // push as many elements as we can from the current
-	      // item to the DS node
-	      
-	      unsigned int nEltsToWrite = 
-		min(myDataCount - myCurrentCount, channel->dsCapacity());
-	      
-	      __syncthreads(); // protect read of dsCapacity from updates below
-	      
-	      for (unsigned int base = 0; 
-		   base < nEltsToWrite; 
-		   base += THREADS_PER_BLOCK)
-		{
-		  unsigned int vecSize = 
-		    min(THREADS_PER_BLOCK, nEltsToWrite - base);
-		  
-		  unsigned int v = base + tid;
-		  
-		  channel->pushCount(v, vecSize);
-		}
-	      
-	      myCurrentCount += nEltsToWrite;
-	      
-	      if (myCurrentCount == myDataCount)
-		{
-		  finishItem();
-		  nFinished = 1;
-		}
-	      
-	      // save any partial parent state
-	      dataCount = myDataCount;
-	      currentCount = myCurrentCount;
-	    }
-	  nDataConsumed += nFinished;
-	  
-	  __syncthreads(); // protect channel # of items written
-	  
-	  if (nSignalsToConsume > 0)
-	    {
-	      //
-	      // Track credit to next signal, and consume if needed.
-	      //
-	      nCredits -= nFinished;
-	      
-	      if (nCredits == 0)
-		{
-		  nCredits = this->handleSignal(nSignalsConsumed);
-		  nSignalsConsumed++;
-		}
+	      myCurrentCount = 0;
 	    }
 	  
-	  TIMER_STOP(run);
+	  // push as many elements as we can from the current
+	  // item to the DS node
 	  
-	  TIMER_START(output);
+	  unsigned int nEltsToWrite = 
+	    min(myDataCount - myCurrentCount, channel->dsCapacity());
 	  
-	  __syncthreads();
+	  __syncthreads(); // protect read of dsCapacity from updates below
 	  
-	  //
-	  // Check whether any child needs to be activated
-	  //
-	  if (channel->checkDSFull(THREADS_PER_BLOCK))
+	  for (unsigned int base = 0; 
+	       base < nEltsToWrite; 
+	       base += THREADS_PER_BLOCK)
 	    {
-	      anyDSActive = true;
+	      unsigned int vecSize = 
+		min(THREADS_PER_BLOCK, nEltsToWrite - base);
 	      
-	      if (IS_BOSS())
-		getDSNode(0)->activate();
+	      unsigned int v = myCurrentCount + base + tid;
+	      
+	      channel->pushCount(v, vecSize);
 	    }
 	  
-	  TIMER_STOP(output);
+	  myCurrentCount += nEltsToWrite;
 	  
-	  TIMER_START(input);
+	  if (myCurrentCount == myDataCount)
+	    {
+	      finishItem();
+	      nFinished++;
+	    }
+	  
+	  // save any partial parent state
+	  dataCount    = myDataCount;
+	  currentCount = myCurrentCount;
 	}
       
-      // protect code above from queue changes below
-      __syncthreads();
-      
-      if (IS_BOSS())
-	{
-	  queue.release(nDataConsumed);
-	  signalQueue.release(nSignalsConsumed);
-	  
-	  if (!signalQueue.empty())
-	    signalQueue.getHead().credit = nCredits;
-	  
-	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
-	      nSignalsConsumed == nSignalsToConsume)
-	  {
-	    // less than a full ensemble remains, or 0 if flushing
-	    this->deactivate(); 
-	    
-	    if (this->isFlushing())
-	      {
-		// no more inputs to read -- force downstream nodes
-		// into flushing mode and activate them (if not
-		// already active).  Even if they have no input,
-		// they must fire once to propagate flush mode and
-		// activate *their* downstream nodes.
-		NodeBase *dsNode = getDSNode(0);
-		if (this->propagateFlush(dsNode))
-		  dsNode->activate();
-		
-		this->clearFlush(); // disable
-	      }
-
-	  }
-	}
-      
-      TIMER_STOP(input);
+      return nFinished;
     }
-
+    
   private:
     
     // total number of items in currently enumerating object
@@ -365,7 +231,7 @@ namespace Mercator {
       if (IS_BOSS())
 	{
 	  parentBuffer.unref(parentIdx); // drop reference to parent item
-	  
+
 	  Signal s_new(Signal::Agg);
 	  
 	  getChannel(0)->pushSignal(s_new);

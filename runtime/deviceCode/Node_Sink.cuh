@@ -13,8 +13,6 @@
 
 #include "io/Sink.cuh"
 
-#include "timing_options.cuh"
-
 namespace Mercator  {
 
   //
@@ -30,26 +28,14 @@ namespace Mercator  {
   class Node_Sink : 
     public Node<T, 
 		0,                 // no output channels
-		1, 1,              // no run/scatter functions
-		THREADS_PER_BLOCK, // use all threads
-		true,
 		THREADS_PER_BLOCK> {
     
     using BaseType = Node<T, 
 			  0,
-			  1, 1,
-			  THREADS_PER_BLOCK,
-			  true,
 			  THREADS_PER_BLOCK>;
     
   private:
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
@@ -66,7 +52,11 @@ namespace Mercator  {
 	      unsigned int region)
       : BaseType(queueSize, scheduler, region),
 	sink(nullptr)
-    {}
+    {
+#ifdef INSTRUMENT_OCC
+      occCounter.setMaxRunSize(THREADS_PER_BLOCK);
+#endif
+    }
     
     //
     // @brief construct a Sink object from the raw data passed down
@@ -103,125 +93,48 @@ namespace Mercator  {
       sink = isink;
     }
     
-    //
-    // @brief fire the node, consuming pending inputs and
-    // moving them directly to the output sink
-    //
 
     __device__
-    void fire()
+    unsigned int getMaxInputs() const
+    { return THREADS_PER_BLOCK; }
+    
+    __device__
+    unsigned int doRun(const Queue<T> &queue, 
+		       unsigned int start,
+		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
       
-      const unsigned int maxInputSize = THREADS_PER_BLOCK;
-      
-      TIMER_START(input);
-      
-      Queue<T> &queue = this->queue; 
-      Queue<Signal> &signalQueue = this->signalQueue; 
-      
-      // # of items available to consume from queue
-      unsigned int nDataToConsume = queue.getOccupancy();
-      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
-      
-      unsigned int nCredits = (nSignalsToConsume == 0
-			       ? 0
-			       : signalQueue.getHead().credit);
-      
-      // # of items already consumed from queue
-      unsigned int nDataConsumed = 0;
-      unsigned int nSignalsConsumed = 0;
-
-      // threshold for declaring data queue "empty" for scheduling      
-      unsigned int emptyThreshold = (this->isFlushing() 
-				     ? 0 
-				     : maxInputSize - 1);
-      
-      bool anyDSActive = false;
-
-      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
-	      nSignalsConsumed < nSignalsToConsume) &&
-	     !anyDSActive)
+      if (limit > 0)
 	{
-#if 0
+	  //
+	  // Consume next nItems data items
+	  //
+	  
+	  __shared__ unsigned int basePtr;
 	  if (IS_BOSS())
-	    printf("%d %p %d %d %d %d %d\n", 
-		   blockIdx.x, this, 
-		   nDataConsumed, nDataToConsume,  
-		   nSignalsConsumed, nSignalsToConsume,
-		   nCredits);
+	    basePtr = sink->reserve(limit);
+	  __syncthreads(); // make sure all threads see base ptr
+	  
+	  // use every thread to copy from our queue to sink
+	  for (unsigned int base = 0; base < limit; base += THREADS_PER_BLOCK)
+	    {
+#ifdef INSTRUMENT_OCC
+	      unsigned int vecSize = min(limit - base, THREADS_PER_BLOCK);
+	      NODE_OCC_COUNT(vecSize);
 #endif
-	  
-	  unsigned int nItems = 
-	    (nSignalsConsumed < nSignalsToConsume
-	     ? nCredits 
-	     : nDataToConsume - nDataConsumed);
-	  
-	  TIMER_STOP(input);
-	  
-	  TIMER_START(run);
-	  
-	  if (nItems > 0)
-	    {
-	      //
-	      // Consume next nItems data items
-	      //
+
+	      int srcIdx = base + tid;
 	      
-	      NODE_OCC_COUNT(nItems);
-	      
-	      __shared__ unsigned int basePtr;
-	      if (IS_BOSS())
-		basePtr = sink->reserve(nItems);
-	      __syncthreads(); // make sure all threads see base ptr
-	      
-	      // use every thread to copy from our queue to sink
-	      for (int base = 0; base < nItems; base += THREADS_PER_BLOCK)
+	      if (srcIdx < limit)
 		{
-		  int srcIdx = base + tid;
-		  
-		  if (srcIdx < nItems)
-		    {
-		      const T &myData = queue.getElt(srcIdx);
-		      sink->put(basePtr, srcIdx, myData);
-		    }
+		  const T &myData = queue.getElt(start + srcIdx);
+		  sink->put(basePtr, srcIdx, myData);
 		}
-	      
-	      nDataConsumed += nItems;
 	    }
-	  
-	  //
-	  // Track credit to next signal, and consume if needed.
-	  //
-	  if (nSignalsToConsume > 0)
-	    {
-	      nCredits -= nItems;
-	      
-	      if (nCredits == 0)
-		nCredits = this->handleSignal(nSignalsConsumed++);
-	    }
-	  
-	  TIMER_STOP(run);
-	  
-	  TIMER_START(input);
 	}
       
-      // protect code above from queue changes below
-      __syncthreads();
-      
-      if (IS_BOSS())
-	{
-	  queue.release(nDataConsumed);
-	  signalQueue.release(nSignalsConsumed);
-	  
-	  // sink is never output blocked, so we always stop
-	  // because of our input lower bound.
-	  assert(signalQueue.empty());
-	  this->deactivate(); 
-	  
-	  this->clearFlush(); // disable flushing
-	}
-      
-      TIMER_STOP(input);
+      return limit;
     }
     
   private:

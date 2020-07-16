@@ -14,8 +14,7 @@
 
 #include "Node.cuh"
 
-#include "timing_options.cuh"
-
+#include "BufferedChannel.cuh"
 
 namespace Mercator  {
 
@@ -43,42 +42,38 @@ namespace Mercator  {
   class Node_SingleItem
     : public Node<T,
 		  numChannels,
-		  1, 
-		  threadGroupSize,
-		  maxActiveThreads,
-		  runWithAllThreads,
 		  THREADS_PER_BLOCK> {
     
     using BaseType = Node<T,
 			  numChannels,
-			  1,
-			  threadGroupSize,
-			  maxActiveThreads,
-			  runWithAllThreads,
 			  THREADS_PER_BLOCK>;
-    
-  protected:
-    
-    // make these downwardly available to the user
-    using BaseType::getNumActiveThreads;
-    using BaseType::getThreadGroupSize;
-    using BaseType::isThreadGroupLeader;
 
-  private:
-    
     using BaseType::getChannel;
-    using BaseType::getDSNode;
-    using BaseType::maxRunSize; 
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
+    
+    // actual maximum # of possible active threads in this block
+    static const unsigned int deviceMaxActiveThreads =
+      (maxActiveThreads > THREADS_PER_BLOCK 
+       ? THREADS_PER_BLOCK 
+       : maxActiveThreads);
+    
+    // number of thread groups (no partial groups allowed!)
+    static const unsigned int numThreadGroups = 
+      deviceMaxActiveThreads / threadGroupSize;
+    
+    // max # of active threads assumes we only run full groups
+    static const unsigned int numActiveThreads =
+      numThreadGroups * threadGroupSize;
+    
+  protected:
+    
+    // maximum number of inputs that can be processed in a single 
+    // call to the node's run() function
+    static const unsigned int maxRunSize =
+      numThreadGroups /* * numEltsPerGroup*/;
     
   public:
     
@@ -87,8 +82,15 @@ namespace Mercator  {
 		    Scheduler *scheduler,
 		    unsigned int region)
       : BaseType(queueSize, scheduler, region)
-    {}
+    {
+#ifdef INSTRUMENT_OCC
+      occCounter.setMaxRunSize(maxRunSize);
+#endif
+    }
     
+    __device__
+    unsigned int getMaxInputs() const
+    { return maxRunSize; }
     
     //
     // @brief fire a node, consuming as much input 
@@ -102,167 +104,121 @@ namespace Mercator  {
     // called with all threads
     
     __device__
-    void fire()
+    unsigned int doRun(const Queue<T> &queue, 
+		       unsigned int start,
+		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
       
-      const unsigned int maxInputSize = maxRunSize;
+      unsigned int nItems = min(limit, maxRunSize);
       
-      TIMER_START(input);
-      
-      Queue<T> &queue = this->queue;
-      Queue<Signal> &signalQueue = this->signalQueue; 
-      
-      // # of items available to consume from queue
-      unsigned int nDataToConsume = queue.getOccupancy();
-      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
-      
-      unsigned int nCredits = (nSignalsToConsume == 0
-			       ? 0
-			       : signalQueue.getHead().credit);
-      
-      // # of items already consumed from queue
-      unsigned int nDataConsumed = 0;
-      unsigned int nSignalsConsumed = 0;
-      
-      // threshold for declaring data queue "empty" for scheduling
-      unsigned int emptyThreshold = (this->isFlushing() 
-				     ? 0
-				     : maxInputSize - 1);
-
-      bool anyDSActive = false;
-      
-      while ((nDataToConsume - nDataConsumed > emptyThreshold || 
-	      nSignalsConsumed < nSignalsToConsume) &&
-	     !anyDSActive)
+      if (nItems > 0)
 	{
-#if 0
-	  if (IS_BOSS())
-	    printf("%d %p %d %d %d %d %d\n", 
-		   blockIdx.x, this, 
-		   nDataConsumed, nDataToConsume,  
-		   nSignalsConsumed, nSignalsToConsume,
-		   nCredits);
-#endif
+	  //
+	  // Consume next nItems data items
+	  //
 	  
-	  // determine the max # of items we may safely consume 
-	  unsigned int limit =
-	    (nSignalsConsumed < nSignalsToConsume
-	     ? nCredits 
-	     : nDataToConsume - nDataConsumed);
-	  	  
-	  TIMER_STOP(input);
+	  NODE_OCC_COUNT(nItems);
 	  
-	  TIMER_START(run);
+	  const T &myData =
+	    (tid < nItems
+	     ? queue.getElt(start + tid)
+	     : queue.getDummy()); // don't create a null reference
 	  
-	  unsigned int nItems = min(limit, maxInputSize); 
-	  
-	  if (nItems > 0)
+	  if (runWithAllThreads || tid < nItems)
 	    {
-	      //
-	      // Consume next nItems data items
-	      //
-	      
-	      NODE_OCC_COUNT(nItems);
-	      
-	      const T &myData = 
-		(tid < nItems
-		 ? queue.getElt(nDataConsumed + tid)
-		 : queue.getDummy()); // don't create a null reference
-	      
-	      if (runWithAllThreads || tid < nItems)
-		{
-		  DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-		  n->run(myData);
-		}
-	      
-	      __syncthreads();
-	      
-	      for (unsigned int c = 0; c < numChannels; c++)
-		getChannel(c)->completePush();
-	      
-	      nDataConsumed += nItems;
+	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
+	      n->run(myData);
 	    }
 	  
-	  //
-	  // Track credit to next signal, and consume if needed.
-	  //
-	  if (nSignalsToConsume > 0)
-	    {
-	      nCredits -= nItems;
-	      
-	      __syncthreads(); // protect channel # of items written
-	      
-	      if (nCredits == 0)
-		{
-		  nCredits = this->handleSignal(nSignalsConsumed);
-		  nSignalsConsumed++;
-		}
-	    }
+	  __syncthreads();
 	  
-	  TIMER_STOP(run);
-	  
-	  TIMER_START(output);
-	  
-	  __syncthreads(); // protect channel changes
-	  
-	  //
-	  // Check whether any child needs to be activated
-	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    {
-	      if (getChannel(c)->checkDSFull(maxRunSize))
-		{
-		  anyDSActive = true;
-		  
-		  if (IS_BOSS())
-		    getDSNode(c)->activate();
-		}
-	    }
-	  
-	  TIMER_STOP(output);
-	  
-	  TIMER_START(input);
+	    getChannel(c)->completePush();
 	}
       
-      // protect code above from queue changes below
-      __syncthreads();
+      return nItems;
+    }
+    
+  protected:
 
-      if (IS_BOSS())
+    //
+    // @brief Create and initialize a buffered output channel.
+    //
+    // @param c index of channel to initialize
+    // @param outputsperInput max # of outputs produced per input
+    //
+    template<typename DST>
+    __device__
+    void initBufferedChannel(unsigned int c, 
+			     unsigned int outputsPerInput,
+			     bool isAgg = false)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      setChannel(c, 
+		 new BufferedChannel<DST, THREADS_PER_BLOCK>(outputsPerInput,
+							     isAgg,
+							     numThreadGroups,
+							     threadGroupSize,
+							     1 /* numEltsPerGroup*/));
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
 	{
-	  queue.release(nDataConsumed);
-	  signalQueue.release(nSignalsConsumed);
-	  
-	  if (!signalQueue.empty())
-	    signalQueue.getHead().credit = nCredits;
-	  
-	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
-	      nSignalsConsumed == nSignalsToConsume)
-	  {
-	    // less than a full ensemble remains, or 0 if flushing
-	    this->deactivate(); 
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
 
-	    if (this->isFlushing())
-	      {
-		// no more inputs to read -- force downstream nodes
-		// into flushing mode and activate them (if not
-		// already active).  Even if they have no input,
-		// they must fire once to propagate flush mode and
-		// activate *their* downstream nodes.
-		for (unsigned int c = 0; c < numChannels; c++)
-		  {
-		    NodeBase *dsNode = getDSNode(c);
-		    
-		    if (this->propagateFlush(dsNode))
-		      dsNode->activate();
-		  }
-		
-		this->clearFlush();  // disable flushing
-	      }
-	  }
+	  crash();
 	}
+    }
+    
+    ///////////////////////////////////////////////////////////////////
+    // RUN-FACING FUNCTIONS 
+    // These functions expose documented properties and behavior of the 
+    // node to the user's run(), init(), and cleanup() functions.
+    ///////////////////////////////////////////////////////////////////
+  
+    //
+    // @brief get the max number of active threads
+    //
+    __device__
+    unsigned int getNumActiveThreads() const
+    { return numActiveThreads; }
+
+    //
+    // @brief get the size of a thread group
+    //
+    __device__
+    unsigned int getThreadGroupSize() const
+    { return threadGroupSize; }
+    
+    //
+    // @brief return true iff we are the 0th thread in our group
+    //
+    __device__
+    bool isThreadGroupLeader() const
+    { return (threadIdx.x % threadGroupSize == 0); }
+    
+    //
+    // @brief Write an output item to the indicated channel.
+    //
+    // @tparam DST Type of item to be written
+    // @param item Item to be written
+    // @param channelIdx channel to which to write the item
+    //
+    template<typename DST>
+    __device__
+    void push(const DST &item, unsigned int channelIdx = 0) const
+    {
+      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
       
-      TIMER_STOP(input);
+      Channel *channel = static_cast<Channel*>(getChannel(channelIdx));
+      
+      channel->push(item);
     }
   };
 }  // end Mercator namespace

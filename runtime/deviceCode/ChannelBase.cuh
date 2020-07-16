@@ -33,11 +33,11 @@ namespace Mercator  {
     //
     // @brief Constructor (called single-threaded)
     //
-    // @param ioutputsPerInput Outputs per input for this channel
+    // @param minFreeSpace minimum space required for ds queue to be non-full
     //
     __device__
-    ChannelBase(unsigned int ioutputsPerInput, bool isAgg)
-      : outputsPerInput(ioutputsPerInput),
+    ChannelBase(unsigned int iminFreeSpace, bool isAgg)
+      : minFreeSpace(iminFreeSpace),
 	propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
 	numItemsWritten(0),
 	dsQueue(nullptr),
@@ -53,11 +53,12 @@ namespace Mercator  {
     // @brief Set the downstream target of the edge for
     // this channel.
     //
-    // @param idsNode downstream node
+    // @param idsQueue downstream data queue
+    // @param idsSignalQueue downstream signal queue
     //
     __device__
-    void setDSEdge(QueueBase     *idsQueue,
-		   Queue<Signal> *idsSignalQueue)
+    void setDSQueues(QueueBase     *idsQueue,
+		     Queue<Signal> *idsSignalQueue)
     {
       dsQueue = idsQueue;
       dsSignalQueue = idsSignalQueue;
@@ -73,25 +74,13 @@ namespace Mercator  {
     }
     
     //
-    // @brief get the number of inputs whose output could
-    // be safely written to this channel's downstream queue.
+    // @brief get free space of the downstream data queue
     //
     __device__
     unsigned int dsCapacity() const
     {
-      return dsQueue->getFreeSpace() / outputsPerInput;
+      return dsQueue->getFreeSpace();
     }
-     
-    //
-    // @brief get the number of signals whose output could
-    // be safely written to this channel's downstream signal queue.
-    //
-    __device__
-    unsigned int dsSignalCapacity() const
-    {
-      return dsSignalQueue->getFreeSpace();
-    }
-      
     
     //
     // If we've managed to fill the downstream queue, activate its
@@ -100,16 +89,16 @@ namespace Mercator  {
     // @param maxRunSize maximum # of inputs that can be emitted in
     //        a single run
     __device__
-    bool checkDSFull(unsigned int maxRunSize) const
+    bool checkDSFull() const
     {
-      return (dsQueue->getFreeSpace() < maxRunSize * outputsPerInput ||
+      return (dsQueue->getFreeSpace() < minFreeSpace ||
 	      dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
     }
     
-    
     __device__
     virtual 
-    void completePush() = 0;
+    void completePush() 
+    {}
     
     //
     // @brief push a signal to a specified channel, and reset the number
@@ -125,7 +114,7 @@ namespace Mercator  {
       
       unsigned int credit = 
 	(dsSignalQueue->empty()
-	 ? dsSignalQueue->getOccupancy()
+	 ? dsQueue->getOccupancy()
 	 : numItemsWritten);
       
       Signal &sNew = dsSignalQueue->enqueue(s);
@@ -136,10 +125,10 @@ namespace Mercator  {
     
   protected:
     
-    const unsigned int outputsPerInput;  // max # outputs per input to node
-    const unsigned int propFlags;        // Signal propagation flags
+    const unsigned int minFreeSpace;  // min space for queue not to be full
+    const unsigned int propFlags;     // Signal propagation flags
     
-    unsigned int numItemsWritten;        // # items produced since last signal
+    unsigned int numItemsWritten;     // # items produced since last signal
     
     //
     // target (edge) for writing items downstream

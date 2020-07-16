@@ -288,6 +288,7 @@ public:
   bool isSource()            const { return flags & F_isSource; }
   bool isSink()              const { return flags & F_isSink; }
   bool isEnumerate()         const { return flags & F_isEnumerate; }
+  bool isUser()              const { return (flags & (F_isSource | F_isSink | F_isEnumerate)) == 0; }
   bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
   void makeFormerlyEnumerate()

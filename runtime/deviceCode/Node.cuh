@@ -12,9 +12,9 @@
 #include <cstdio>
 #include <cassert>
 
-#include "NodeBase.cuh"
+#include "NodeBaseWithChannels.cuh"
 
-#include "Channel.cuh"
+#include "ChannelBase.cuh"
 
 #include "Queue.cuh"
 #include "Signal.cuh"
@@ -23,6 +23,8 @@
 #include "device_config.cuh"
 
 #include "options.cuh"
+
+#include "timing_options.cuh"
 
 namespace Mercator  {
 
@@ -40,34 +42,16 @@ namespace Mercator  {
   //
   template <typename T, 
 	    unsigned int numChannels,
-	    unsigned int numEltsPerGroup,
-	    unsigned int threadGroupSize,
-	    unsigned int maxActiveThreads,
-	    bool runWithAllThreads,
 	    unsigned int THREADS_PER_BLOCK>
-  class Node : public NodeBase {
+  class Node : public NodeBaseWithChannels<numChannels> {
     
-    // actual maximum # of possible active threads in this block
-    static const unsigned int deviceMaxActiveThreads =
-      (maxActiveThreads > THREADS_PER_BLOCK 
-       ? THREADS_PER_BLOCK 
-       : maxActiveThreads);
-    
-    // number of thread groups (no partial groups allowed!)
-    static const unsigned int numThreadGroups = 
-      deviceMaxActiveThreads / threadGroupSize;
-    
-    // max # of active threads assumes we only run full groups
-    static const unsigned int numActiveThreads =
-      numThreadGroups * threadGroupSize;
+    using BaseType = NodeBaseWithChannels<numChannels>;
     
   protected:
     
-    // maximum number of inputs that can be processed in a single 
-    // call to the node's run() function
-    static const unsigned int maxRunSize =
-      numThreadGroups * numEltsPerGroup;
-    
+    using BaseType::getChannel;
+    using BaseType::getDSNode;
+
   public:
 
     //
@@ -79,60 +63,11 @@ namespace Mercator  {
     __device__
     Node(const unsigned int queueSize,
 	 Scheduler *scheduler, unsigned int region)
-      : NodeBase(scheduler, region),
+      : BaseType(scheduler, region),
 	queue(queueSize),
         signalQueue(queueSize), // could be smaller?
 	parentArena(nullptr)
-    {
-      // init channels array
-      for (unsigned int c = 0; c < numChannels; ++c)
-	{
-	  channels[c] = nullptr;
-	  dsNodes[c] = nullptr;
-	}
-      
-#ifdef INSTRUMENT_OCC
-      occCounter.setMaxRunSize(maxRunSize);
-#endif
-    }
-    
-    
-    //
-    // @brief Destructor
-    //
-    __device__
-    virtual
-    ~Node()
-    {
-      for (unsigned int c = 0; c < numChannels; ++c)
-	{
-	  ChannelBase *channel = channels[c];
-	  if (channel)
-	    delete channel;
-	}
-    }
-    
-
-    //
-    // @brief set the generic channel object and downstream
-    // node pts for a given channel.
-    //
-    // @param channelIdx channel that holds edge
-    // @param dsNode node at downstream end of edge
-    // @param channel channel object for downstream channel
-    //
-    __device__
-    void setDSEdge(unsigned int channelIdx,
-		   NodeBase *dsNode,
-		   QueueBase *dsQueue,
-		   Queue<Signal> *dsSignalQueue)
-
-    { 
-      dsNodes[channelIdx] = dsNode;
-      dsNode->setParentNode(this);
-      
-      channels[channelIdx]->setDSEdge(dsQueue, dsSignalQueue);
-    }
+    {}
     
     __device__
     void setParentArena(RefCountedArena *a)
@@ -167,7 +102,161 @@ namespace Mercator  {
     {
       return (!queue.empty() || !signalQueue.empty());
     }
+    
+    __device__
+    virtual
+    unsigned int doRun(const Queue<T> &queue,
+		       unsigned int start,
+		       unsigned int limit) = 0;
+    
+    __device__
+    virtual
+    unsigned int getMaxInputs() const = 0;
+    
+    __device__
+    void fire()
+    {
+      TIMER_START(input);
+      
+      Queue<T> &queue = this->queue;
+      Queue<Signal> &signalQueue = this->signalQueue; 
+      
+      // # of items available to consume from queue
+      unsigned int nDataToConsume = queue.getOccupancy();
+      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
+      
+      unsigned int nCredits = (nSignalsToConsume == 0
+			       ? 0
+			       : signalQueue.getHead().credit);
+      
+      // # of items already consumed from queue
+      unsigned int nDataConsumed = 0;
+      unsigned int nSignalsConsumed = 0;
+      
+      // threshold for declaring data queue "empty" for scheduling
+      unsigned int emptyThreshold = (this->isFlushing() 
+				     ? 0
+				     : getMaxInputs() - 1);
+      
+      bool anyDSActive = false;
+      
+      while ((nDataToConsume - nDataConsumed > emptyThreshold || 
+	      nSignalsConsumed < nSignalsToConsume) &&
+	     !anyDSActive)
+	{
+#if 0
+	  if (IS_BOSS())
+	    printf("%d %p %d %d %d %d %d\n", 
+		   blockIdx.x, this, 
+		   nDataConsumed, nDataToConsume,  
+		   nSignalsConsumed, nSignalsToConsume,
+		   nCredits);
+#endif
+	  
+	  // determine the max # of items we may safely consume 
+	  unsigned int limit =
+	    (nSignalsConsumed < nSignalsToConsume
+	     ? nCredits 
+	     : nDataToConsume - nDataConsumed);
+	  
+	  TIMER_STOP(input);
+	  
+	  TIMER_START(run);
+	  
+	  unsigned int nFinished;
+	  if (limit > 0)
+	    {
+	      nFinished = doRun(queue, nDataConsumed, limit);
+	      
+	      nDataConsumed += nFinished;
+	    }
+	  else
+	    nFinished = 0;
+	  
+	  //
+	  // Track credit to next signal, and consume if needed.
+	  //
+	  if (nSignalsConsumed < nSignalsToConsume)
+	    {
+	      nCredits -= nFinished;
+	      
+	      __syncthreads(); // protect channel # of items written
+	      
+	      if (nCredits == 0 && !this->isBlocked())
+		{
+		  nCredits = this->handleSignal(nSignalsConsumed);
+		  nSignalsConsumed++;
+		}
+	    }
+	  
+	  TIMER_STOP(run);
+	  
+	  TIMER_START(output);
+	  
+	  __syncthreads(); // protect channel changes
+	  
+	  //
+	  // Check whether any child needs to be activated
+	  //
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      if (getChannel(c)->checkDSFull())
+		{
+		  anyDSActive = true;
+		  
+		  if (IS_BOSS())
+		    getDSNode(c)->activate();
+		}
+	    }
+	  
+	  TIMER_STOP(output);
+	  
+	  if (this->isBlocked())
+	    break;
+	  
+	  TIMER_START(input);
+	}
+      
+      // protect code above from queue changes below
+      __syncthreads();
 
+      if (IS_BOSS())
+	{
+	  queue.release(nDataConsumed);
+	  signalQueue.release(nSignalsConsumed);
+	  
+	  if (!signalQueue.empty())
+	    signalQueue.getHead().credit = nCredits;
+	  
+	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
+	      nSignalsConsumed == nSignalsToConsume)
+	  {
+	    // less than a full ensemble remains, or 0 if flushing
+	    this->deactivate(); 
+
+	    if (this->isFlushing())
+	      {
+		// no more inputs to read -- force downstream nodes
+		// into flushing mode and activate them (if not
+		// already active).  Even if they have no input,
+		// they must fire once to propagate flush mode and
+		// activate *their* downstream nodes.
+		for (unsigned int c = 0; c < numChannels; c++)
+		  {
+		    NodeBase *dsNode = getDSNode(c);
+		    
+		    if (this->propagateFlush(dsNode))
+		      dsNode->activate();
+		  }
+		
+		this->clearFlush();  // disable flushing
+	      }
+	  }
+	}
+      
+      TIMER_STOP(input);
+    }
+    
     // begin and end stubs for enumeration and aggregation 
     __device__
     virtual
@@ -182,9 +271,6 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
-    ChannelBase* channels[numChannels]; // node's output channels
-    NodeBase*    dsNodes[numChannels];  // node's downstream neighbors
-    
     // state for nodes in enumerated regions
     RefCountedArena *parentArena;       // ptr to any associated parent buffer
     unsigned int parentIdx;             // index of parent obj in buffer
@@ -193,99 +279,32 @@ namespace Mercator  {
     // @brief Create and initialize an output channel.
     //
     // @param c index of channel to initialize
-    // @param outputsPerInput Num outputs/input for the channel
+    // @param minFreeSpace minimum free space before channel's
+    // downstream queue is considered full
     //
     template<typename DST>
     __device__
     void initChannel(unsigned int c, 
-		     unsigned int outputsPerInput,
+		     unsigned int minFreeSpace,
 		     bool isAgg = false)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
       
       // init the output channel -- should only happen once!
-      assert(channels[c] == nullptr);
+      assert(getChannel(c) == nullptr);
       
-      channels[c] = new Channel<DST,THREADS_PER_BLOCK>(outputsPerInput, 
-						       numThreadGroups,
-						       threadGroupSize,
-						       numEltsPerGroup,
-						       isAgg);
-
+      setChannel(c, new Channel<DST>(minFreeSpace, isAgg));
+      
       // make sure alloc succeeded
-      if (channels[c] == nullptr)
+      if (getChannel(c) == nullptr)
 	{
 	  printf("ERROR: failed to allocate channel object [block %d]\n",
 		 blockIdx.x);
-	  
+
 	  crash();
 	}
     }
-    
-    //
-    // @brief inspector for the channels array (for subclasses)
-    // @param c index of channel to get
-    //
-    __device__
-    ChannelBase *getChannel(unsigned int c) const 
-    { 
-      assert(c < numChannels);
-      return channels[c]; 
-    }
-
-    __device__
-    NodeBase *getDSNode(unsigned int c) const
-    {
-      assert(c < numChannels);
-      return dsNodes[c];
-    }
-    
-    
-    ///////////////////////////////////////////////////////////////////
-    // RUN-FACING FUNCTIONS 
-    // These functions expose documented properties and behavior of the 
-    // node to the user's run(), init(), and cleanup() functions.
-    ///////////////////////////////////////////////////////////////////
-  
-    //
-    // @brief get the max number of active threads
-    //
-    __device__
-    unsigned int getNumActiveThreads() const
-    { return numActiveThreads; }
-
-    //
-    // @brief get the size of a thread group
-    //
-    __device__
-    unsigned int getThreadGroupSize() const
-    { return threadGroupSize; }
-    
-    //
-    // @brief return true iff we are the 0th thread in our group
-    //
-    __device__
-    bool isThreadGroupLeader() const
-    { return (threadIdx.x % threadGroupSize == 0); }
-    
-    //
-    // @brief Write an output item to the indicated channel.
-    //
-    // @tparam DST Type of item to be written
-    // @param item Item to be written
-    // @param channelIdx channel to which to write the item
-    //
-    template<typename DST>
-    __device__
-    void push(const DST &item, unsigned int channelIdx = 0) const
-    {
-      Channel<DST,THREADS_PER_BLOCK>* channel = 
-	static_cast<Channel<DST,THREADS_PER_BLOCK> *>(channels[channelIdx]);
-      
-      channel->push(item);
-    }
-
     
     ////////////////////////////////////////////////////////////////////
     // SIGNAL HANDLING LOGIC
@@ -352,7 +371,6 @@ namespace Mercator  {
 	  
 	  parentIdx = s.parentIdx;
 	  parentArena->ref(parentIdx);
-	  
 	  
 	  //Reserve space downstream for the new signal
 	  for (unsigned int c = 0; c < numChannels; ++c)

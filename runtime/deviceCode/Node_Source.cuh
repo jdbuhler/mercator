@@ -11,7 +11,9 @@
 
 #include <climits>
 
-#include "Node.cuh"
+#include "NodeBaseWithChannels.cuh"
+
+#include "Channel.cuh"
 
 #include "io/Source.cuh"
 
@@ -31,19 +33,9 @@ namespace Mercator  {
 	   unsigned int numChannels,
 	   unsigned int THREADS_PER_BLOCK>
   class Node_Source : 
-    public Node<T, 
-		numChannels,
-		1, 1,              // no run/scatter functions
-		THREADS_PER_BLOCK, // use all threads
-		true,              
-		THREADS_PER_BLOCK> { 
- 
-    using BaseType = Node<T, 
-			  numChannels,
-			  1, 1,              // no run/scatter functions
-			  THREADS_PER_BLOCK, // use all threads
-			  true,              
-			  THREADS_PER_BLOCK>;
+    public NodeBaseWithChannels<numChannels> {
+    
+    using BaseType = NodeBaseWithChannels<numChannels>;
     
   private:
     
@@ -73,10 +65,14 @@ namespace Mercator  {
     Node_Source(size_t *itailPtr,
 		Scheduler *scheduler,
 		unsigned int region)
-      : BaseType(0, scheduler, region),
+      : BaseType(scheduler, region),
 	source(nullptr),
 	tailPtr(itailPtr)
-    {}
+    {
+#ifdef INSTRUMENT_OCC
+      occCounter.setMaxRunSize(THREADS_PER_BLOCK);
+#endif
+    }
     
     //
     // @brief construct a Source object from the raw data passed down
@@ -125,6 +121,16 @@ namespace Mercator  {
       source = isource;
     }
     
+    //
+    // @brief is any input queued for this node?
+    // (Only used for debugging.)
+    //
+    __device__
+    bool hasPending() const
+    {
+      return false; // cannot get this info from source
+    }
+
     //
     // @brief fire the node, copying as much input as possible from
     // the source to the downstream queues.  This will cause at least
@@ -185,8 +191,9 @@ namespace Mercator  {
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
-	      Channel<T,THREADS_PER_BLOCK> *channel = 
-		static_cast<Channel<T,THREADS_PER_BLOCK> *>(getChannel(c));
+	      using Channel = Channel<T>;
+	      
+	      Channel *channel = static_cast<Channel*>(getChannel(c));
 	      
 	      channel->pushCount(myData, vecSize);
 	    }
@@ -225,7 +232,7 @@ namespace Mercator  {
 	      //
 	      for (unsigned int c = 0; c < numChannels; c++)
 		{
-		  if (getChannel(c)->checkDSFull(THREADS_PER_BLOCK))
+		  if (getChannel(c)->checkDSFull())
 		    {
 		      anyChildActive = true;
 		      getDSNode(c)->activate();
@@ -245,13 +252,45 @@ namespace Mercator  {
       TIMER_STOP(input);
     }
     
-  private:
+  protected:
 
+    //
+    // @brief Create and initialize an output channel.
+    //
+    // @param c index of channel to initialize
+    // @param minFreeSpace minimum free space before channel's
+    // downstream queue is considered full
+    //
+    template<typename DST>
+    __device__
+    void initChannel(unsigned int c, 
+		     unsigned int minFreeSpace)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      setChannel(c, new Channel<DST>(minFreeSpace, false));
+      
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+
+	  crash();
+	}
+    }
+
+  private:
+    
     Source<T>* source;
     
     size_t *tailPtr;
   };
-
+  
 }; // namespace Mercator
 
 #endif

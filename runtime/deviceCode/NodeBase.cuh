@@ -29,16 +29,17 @@ namespace Mercator  {
     
     // largest possible flushing status -- any flush will override it
     static const unsigned int NO_FLUSH = UINT_MAX;
-  
+    
+    enum Status { F_ACTIVE = 0x01, F_BLOCKED = 0x02 };
+    
   public:
     
     __device__
     NodeBase(Scheduler *ischeduler, unsigned int iregion)
       : region(iregion),
 	scheduler(ischeduler),
-	parentNode(nullptr),
-	isActive(false),
-	isBlocked(false),
+	usNode(nullptr),
+	status(0),
 	nDSActive(0),
 	flushStatus(NO_FLUSH)
     {}
@@ -48,19 +49,19 @@ namespace Mercator  {
     ~NodeBase() {}
     
     //
-    // @brief set the parent of this node (the node at the upstream
-    // end of its incoming edge).
+    // @brief set the upstream neighbor of this node (the node at the
+    // upstream end of its incoming edge).
     //
-    // @param iparent parent node
+    // @param iusNode the upstream node
     ///
     __device__
-    void setParentNode(NodeBase *iparentNode)
+    void setUSNode(NodeBase *iusNode)
     { 
       assert(IS_BOSS());
       
-      parentNode = iparentNode;
+      usNode = iusNode;
     }
-
+    
     //
     // @brief is any input queued for this node?
     // (Only used for debugging.)
@@ -89,7 +90,15 @@ namespace Mercator  {
     // queues, e.g., waiting for space to free up in an internal
     // buffer due to the activity of downstream nodes.
     ///////////////////////////////////////////////////////////
-
+    
+    __device__
+    bool isActive() const
+    { return (status & F_ACTIVE); }
+    
+    __device__
+    bool isBlocked() const
+    { return (status & F_BLOCKED); }
+    
     //
     // @brief set node to be active for scheduling purposes.
     // If this makes node fireable, schedule it for execution.
@@ -101,11 +110,11 @@ namespace Mercator  {
 
       // do not reschedule already-active nodes -- we can activate
       // an active node when we put it into flush mode.
-      if (!isActive)
+      if (!isActive())
 	{
-	  isActive = true;
-	  if (parentNode) //source has no parent
-	    parentNode->incrDSActive();
+	  status |= F_ACTIVE;
+	  if (usNode) //source has no upstream neighbor
+	    usNode->incrDSActive();
 	  
 	  if (nDSActive == 0) // inactive nodes cannot be blocked
 	    scheduler->addFireableNode(this);
@@ -120,11 +129,11 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      if (isActive) // we never actually call deactivate on an inactive node
+      if (isActive()) // we never actually call deactivate on an inactive node
 	{
-	  isActive = false;
-	  if (parentNode)  // source has no parent
-	    parentNode->decrDSActive();
+	  status &= ~F_ACTIVE;
+	  if (usNode)  // source has no upstream neighbor
+	    usNode->decrDSActive();
 	}
     }
     
@@ -138,7 +147,7 @@ namespace Mercator  {
     void forceReschedule()
     {
       assert(IS_BOSS());
-      assert(isActive && nDSActive == 0 && !isBlocked);
+      assert(isActive() && nDSActive == 0 && !isBlocked());
       
       scheduler->addFireableNode(this);
     }
@@ -152,7 +161,7 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      isBlocked = true;
+      status |= F_BLOCKED;
     }
     
 
@@ -168,9 +177,9 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      if (isBlocked)
+      if (isBlocked())
 	{
-	  isBlocked = false;
+	  status &= ~F_BLOCKED;
 	  if (nDSActive == 0)
 	    scheduler->addFireableNode(this);
 	}
@@ -343,10 +352,9 @@ namespace Mercator  {
 
     const unsigned int region; // region identifier for flushing    
     Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    NodeBase *parentNode;      // parent of this node in dataflow graph
+    NodeBase *usNode;          // upstream neighbor in dataflow graph
     
-    bool isActive;             // is node active?
-    bool isBlocked;            // is node blocked from execution?
+    unsigned int status;       // active/blocking status
     unsigned int nDSActive;    // # of active downstream children of node
     unsigned int flushStatus;  // is node flushing? If so, how far?
 
@@ -379,7 +387,7 @@ namespace Mercator  {
       assert(nDSActive > 0);
 
       nDSActive--;
-      if (nDSActive == 0 && isActive && !isBlocked)
+      if (nDSActive == 0 && isActive() && !isBlocked())
 	scheduler->addFireableNode(this);
     }
         

@@ -66,7 +66,7 @@ void genNodeConstruction(const string &nodeObj,
     
     if (app->hasParams())
       nextStmt += ", &" + hostAppParamObj;
-
+    
     nextStmt += ");";
     
     f.add(nextStmt);

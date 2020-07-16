@@ -33,8 +33,8 @@ A node's firing ends when either
 * NODE STATUS CHANGES
 
 An inactive node becomes active when either its data or signal queue
-becomes FULL, or when its parent explicitly sets it to FLUSHING mode
-and activates it.
+becomes FULL, or when its upstream neighbor explicitly sets it to
+FLUSHING mode and activates it.
 
   - for the data queue, FULL means that there is insufficient space
     remaining for the previous node to write the maximum possible
