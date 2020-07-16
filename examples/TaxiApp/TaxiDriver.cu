@@ -124,6 +124,11 @@ int main(int argc, char** argv)
     }
   
   ifstream file(argv[1]);
+  if (!file)
+    {
+      cerr << "Error: could not open file " << argv[1] << endl;
+      exit(1);
+    }
   
   // skip the header
   file.ignore(numeric_limits<streamsize>::max(), '\n');
