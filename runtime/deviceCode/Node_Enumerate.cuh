@@ -175,7 +175,7 @@ namespace Mercator  {
 		   base < nEltsToWrite; 
 		   base += maxRunSize)
 		{
-		  unsigned int v = base + tid;
+		  unsigned int v = myCurrentCount + base + tid;
 		  
 		  if (v < nEltsToWrite)
 		    this->push(v);
@@ -201,7 +201,7 @@ namespace Mercator  {
 	    }
 	  nDataConsumed += nFinished;
 	  
-	  if (nSignalsToConsume > 0)
+	  if (nSignalsConsumed < nSignalsToConsume)
 	    {
 	      //
 	      // Track credit to next signal, and consume if needed.

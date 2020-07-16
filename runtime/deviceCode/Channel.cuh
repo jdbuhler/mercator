@@ -203,6 +203,8 @@ namespace Mercator  {
 	  // clear nextSlot for this thread group
 	  nextSlot[tid] = 0;
 	}
+      
+      __syncthreads(); // protect read of dsBase from any subsequent write
     }
   
     
@@ -271,7 +273,7 @@ namespace Mercator  {
       
       unsigned int credit = 
 	(dsSignalQueue->empty()
-	 ? dsSignalQueue->getOccupancy()
+	 ? dsQueue->getOccupancy()
 	 : numItemsProduced);
       
       Signal &sNew = dsSignalQueue->enqueue(s);

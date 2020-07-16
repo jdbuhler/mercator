@@ -193,7 +193,7 @@ namespace Mercator  {
 	  //
 	  // Track credit to next signal, and consume if needed.
 	  //
-	  if (nSignalsToConsume > 0)
+	  if (nSignalsConsumed < nSignalsToConsume)
 	    {
 	      nCredits -= nItems;
 	      

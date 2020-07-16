@@ -39,6 +39,8 @@ namespace Mercator  {
 	
 	nextNode->fire();
 	
+	__syncthreads(); // protect writes to workList from next read of it
+	
 	NODE_TIMER_START(scheduler);
       }
     
