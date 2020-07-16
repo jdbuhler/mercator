@@ -66,7 +66,8 @@ namespace Mercator  {
       : BaseType(scheduler, region),
 	queue(queueSize),
         signalQueue(queueSize), // could be smaller?
-	parentArena(nullptr)
+	parentArena(nullptr),
+	parentIdx(RefCountedArena::NONE)
     {}
     
     __device__
@@ -249,6 +250,7 @@ namespace Mercator  {
 		      dsNode->activate();
 		  }
 		
+		flushComplete();
 		this->clearFlush();  // disable flushing
 	      }
 	  }
@@ -306,6 +308,11 @@ namespace Mercator  {
 	}
     }
     
+    __device__
+    virtual
+    void flushComplete()
+    {}
+    
     ////////////////////////////////////////////////////////////////////
     // SIGNAL HANDLING LOGIC
     //
@@ -342,10 +349,6 @@ namespace Mercator  {
 	  handleEnum(s);
 	  break;
 	  
-	case Signal::Agg:
-	  handleAgg(s);
-	  break;
-	  
 	default:
 	  if (IS_BOSS())
 	    printf("ERROR: unhandled signal type %d detected\n", s.tag);
@@ -364,12 +367,18 @@ namespace Mercator  {
     virtual
     void handleEnum(const Signal &s)
     {
+      if (parentIdx != RefCountedArena::NONE) // is old parent valid?
+	this->end();
+      
       if (IS_BOSS())
 	{
+	  parentArena->unref(parentIdx); // remove this node's reference
+	  
 	  // set the parent object for this node (specified
 	  // as an index into its parent arena)
 	  
 	  parentIdx = s.parentIdx;
+	  
 	  parentArena->ref(parentIdx);
 	  
 	  //Reserve space downstream for the new signal
@@ -389,36 +398,11 @@ namespace Mercator  {
 	  parentArena->unref(parentIdx); // signal is destroyed
 	}
       
-      //Call the begin stub of this node
-      this->begin();
-    }
-    
-    
-    __device__
-    virtual
-    void handleAgg(const Signal &s)
-    {
-      //Call the end stub of this node
-      this->end();
+      __syncthreads(); // for parentIdx
       
-      if (IS_BOSS())
-	{
-	  //Reserve space downstream for the new signal
-	  for (unsigned int c = 0; c < numChannels; ++c)
-	    {
-	      ChannelBase *channel = getChannel(c);
-	      
-	      // if we're not at a region frontier, propagate
-	      // the signal; if we are, we can remove our reference
-	      // to the parent object.
-	      if(!channel->isAggregate())
-		channel->pushSignal(s);	    
-	    }
-	  
-	  parentArena->unref(parentIdx); // remove this node's reference
-	}
+      if (parentIdx != RefCountedArena::NONE) // is new parent valid?
+	this->begin();
     }
-    
   };  // end Node class
 }  // end Mercator namespace
 

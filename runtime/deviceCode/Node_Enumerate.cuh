@@ -159,7 +159,22 @@ namespace Mercator {
     __device__
     virtual
     unsigned int findCount(const T &item) = 0;
-        
+      
+    // called single-threaded
+    __device__
+    void flushComplete()
+    {
+      if (parentIdx != RefCountedArena::NONE)
+	parentBuffer.unref(parentIdx); // drop reference to parent item
+      
+      parentIdx = RefCountedArena::NONE;
+      
+      // push a signal to force downstream nodes to finish off prev parent
+      Signal s_new(Signal::Enum);	
+      s_new.parentIdx = RefCountedArena::NONE;
+      
+      getChannel(0)->pushSignal(s_new);
+    }
     
     //
     // @brief begin enumeration of a new parent object.  If we cannot
@@ -231,10 +246,6 @@ namespace Mercator {
       if (IS_BOSS())
 	{
 	  parentBuffer.unref(parentIdx); // drop reference to parent item
-
-	  Signal s_new(Signal::Agg);
-	  
-	  getChannel(0)->pushSignal(s_new);
 	}
     }
     

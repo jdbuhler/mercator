@@ -2,6 +2,7 @@
 #define __PARENTBUFFER_CUH
 
 #include <cassert>
+#include <climits>
 
 #include "NodeBase.cuh"
 
@@ -21,6 +22,8 @@ namespace Mercator  {
   class RefCountedArena {
     
   public:
+    
+    static const unsigned int NONE = UINT_MAX;
     
     __device__
     RefCountedArena(unsigned int isize,
@@ -71,8 +74,10 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      assert(idx < size);
-      ++refCounts[idx];
+      assert(idx < size || idx == NONE);
+      
+      if (idx != NONE)
+	++refCounts[idx];
     }
     
     // Decrement the reference count of entry idx by 1. Free it 
@@ -82,15 +87,19 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      assert(idx < size);
-      assert(refCounts[idx] > 0);
+      assert(idx < size || idx == NONE);
       
-      if (--refCounts[idx] == 0)
+      if (idx != NONE)
 	{
-	  freeList[freeListSize++] = idx;
-	  if (freeListSize == 1 &&  // buffer was full, now is not
-	      blockingNode != nullptr)
-	    blockingNode->unblock();	  
+	  assert(refCounts[idx] > 0);
+	  
+	  if (--refCounts[idx] == 0)
+	    {
+	      freeList[freeListSize++] = idx;
+	      if (freeListSize == 1 &&  // buffer was full, now is not
+		  blockingNode != nullptr)
+		blockingNode->unblock();	  
+	    }
 	}
     }
     

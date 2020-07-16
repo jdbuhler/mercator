@@ -12,16 +12,13 @@ namespace Mercator {
   
   struct Signal {
     
-    enum SignalTag {Invalid, Enum, Agg};
+    enum SignalTag {Invalid, Enum};
     
     SignalTag tag;   
     int credit;
     
     // fields for Enum
     unsigned int parentIdx;
-    
-    // fields for Agg
-    // (no fields needed)
     
     __device__
     Signal()
