@@ -132,7 +132,8 @@ namespace Mercator  {
     
   protected:
 
-    unsigned int dataSize; // space allocated
+    const unsigned int dataSize; // space allocated
+    
     unsigned int head;     // head ptr -- pts to next *available elt*
     unsigned int tail;     // tail ptr -- pts to next *free slot*
     

@@ -292,10 +292,9 @@ namespace Mercator  {
     }
     
   private:
+    size_t* const tailPtr;
     
     Source<T>* source;
-    
-    size_t *tailPtr;
   };
   
 }; // namespace Mercator

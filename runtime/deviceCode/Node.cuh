@@ -308,8 +308,8 @@ namespace Mercator  {
   protected:
     
     // state for nodes in enumerated regions
-    RefCountedArena *parentArena;       // ptr to any associated parent buffer
-    unsigned int parentIdx;             // index of parent obj in buffer
+    RefCountedArena *parentArena;   // ptr to any associated parent buffer
+    unsigned int parentIdx;         // index of parent obj in buffer
     
   private:
     

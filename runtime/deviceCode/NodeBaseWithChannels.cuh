@@ -64,7 +64,6 @@ namespace Mercator  {
 #endif
     }
     
-    
     //
     // @brief Destructor
     //
@@ -80,25 +79,43 @@ namespace Mercator  {
 	}
     }
     
+    //
+    // @brief associate a downstream edge with a channel
+    //
     __device__
     void setDSEdge(unsigned int channelIdx,
 		   NodeBase *dsNode,
 		   QueueBase *queue,
 		   Queue<Signal> *signalQueue)
     {
+      assert(IS_BOSS());
+      assert(channelidx < numChannels);
+      
       channels[channelIdx]->setDSQueues(queue, signalQueue);
       
       dsNodes[channelIdx] = dsNode;
       dsNode->setUSNode(this);
     }
     
-    ///////////////////////////////////////////////////////////
     
   protected:
     
-    ChannelBase *channels[numChannels]; // node's output channels
-    NodeBase    *dsNodes[numChannels];  // node's downstream neighbors
+    //
+    // @brief set a channel entry for this node
+    // (called from node constructors)
+    //
+    __device__
+    void setChannel(unsigned int c, ChannelBase *channel)
+    {
+      assert(IS_BOSS());
+      
+      assert(c < numChannels);
+      channels[c] = channel;
+    }
     
+    ///////////////////////////////////////////////////////////
+    
+  protected:
     
     //
     // @brief inspector for the dsNodes array (for subclasses)
@@ -123,18 +140,11 @@ namespace Mercator  {
       return channels[c]; 
     }
     
-    //
-    // @brief set a channel entry for this node
-    // [called only from INIT KERNEL]
-    //
-    __device__
-    void setChannel(unsigned int c, ChannelBase *channel)
-    {
-      assert(IS_BOSS());
-      
-      assert(c < numChannels);
-      channels[c] = channel;
-    }
+  private:
+    
+    ChannelBase *channels[numChannels]; // node's output channels
+    NodeBase    *dsNodes[numChannels];  // node's downstream neighbors
+    
   };  // end NodeBaseWithChannels class
 }  // end Mercator namespace
 

@@ -357,13 +357,13 @@ namespace Mercator  {
 
   private:
 
-    const unsigned int region; // region identifier for flushing    
-    Scheduler *scheduler;      // scheduler used to enqueue fireable nodes
-    NodeBase *usNode;          // upstream neighbor in dataflow graph
+    const unsigned int region;   // region identifier for flushing    
+    Scheduler* const scheduler;  // scheduler used to enqueue fireable nodes
+    NodeBase *usNode;            // upstream neighbor in dataflow graph
     
-    unsigned int status;       // active/blocking status
-    unsigned int nDSActive;    // # of active downstream children of node
-    unsigned int flushStatus;  // is node flushing? If so, how far?
+    unsigned int status;         // active/blocking status
+    unsigned int nDSActive;      // # of active downstream children of node
+    unsigned int flushStatus;    // is node flushing? If so, how far?
 
     
     ////////////////////////////////////////////////////////////////

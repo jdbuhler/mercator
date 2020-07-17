@@ -56,9 +56,9 @@ namespace Mercator {
 		   unsigned int ienumId)
       : BaseType(queueSize, scheduler, region),
 	enumId(ienumId),
+	parentBuffer(10 /*queueSize*/, this), // FIXME: for stress test
 	dataCount(0),
-	currentCount(0),
-	parentBuffer(10 /*queueSize*/, this) // FIXME: for stress test
+	currentCount(0)
     {
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(1);
@@ -77,18 +77,18 @@ namespace Mercator {
 
   private:
 
+    // ID of node's enumeration region (used for flushing)
+    const unsigned int enumId;
+    
+    // Where parent objects of the enumerate node are stored.  Size is
+    // set to the same as data queue currently
+    ParentBuffer<T> parentBuffer;
+
     // total number of items in currently enumerating object
     unsigned int dataCount;
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
-    
-    // ID of node's enumeration region (used for flushing)
-    unsigned int enumId;
-    
-    // Where parent objects of the enumerate node are stored.  Size is
-    // set to the same as data queue currently
-    ParentBuffer<T> parentBuffer;
     
     //
     // @brief find the number of data items that need to be enumerated

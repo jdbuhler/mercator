@@ -111,14 +111,14 @@ namespace Mercator  {
     
   private:
     
-    unsigned int size;         // number of allocated entries
+    const unsigned int size;         // number of allocated entries
+    NodeBase* const blockingNode;    // node that will block if arena fills
     
     unsigned int *freeList;    // array listing all free entries
     unsigned int freeListSize; // # of entries on free list
     
     unsigned int *refCounts;   // reference counts for allocated entries
     
-    NodeBase *blockingNode;    // node that will block if arena fills
   };
   
   
