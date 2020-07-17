@@ -56,10 +56,12 @@ namespace Mercator  {
     //
     // @brief run the MERCATOR application to consume all input
     //
-
     __device__
     void run();
-    
+
+    //
+    // @brief add a node to the scheduler's list of fireable nodes
+    //
     __device__
     void addFireableNode(NodeBase *node)
     {

@@ -32,6 +32,7 @@ namespace Mercator  {
   // @tparam runWithAllThreads call run with all threads, or just as many
   //           as have inputs?
   // @tparam DerivedNodeType subtype that defines the run() function
+  //
   template<typename T, 
 	   unsigned int numChannels,
 	   unsigned int threadGroupSize,

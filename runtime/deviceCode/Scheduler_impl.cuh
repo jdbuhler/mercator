@@ -6,7 +6,7 @@
 // @brief MERCATOR device-side node scheduler
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
 #include "Scheduler.cuh"
@@ -14,7 +14,11 @@
 #include "NodeBase.cuh"
 
 namespace Mercator  {
-  
+
+  //
+  // @brief run the MERCATOR application while any node is present
+  // in the fireable list.
+  //
   __device__
   void Scheduler::run()
   {

@@ -77,6 +77,7 @@ namespace Mercator  {
     {}
     
   protected:
+    
     //
     // @brief Create and initialize an output channel.
     //
@@ -306,7 +307,7 @@ namespace Mercator  {
   protected:
     
     // state for nodes in enumerated regions
-    RefCountedArena* const parentArena;   // ptr to any associated parent buffer
+    RefCountedArena* const parentArena;   // ptr to my region's parent buffer
     unsigned int parentIdx;               // index of parent obj in buffer
     
   private:

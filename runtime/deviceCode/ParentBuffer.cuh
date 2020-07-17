@@ -52,14 +52,14 @@ namespace Mercator  {
     
     ///////////////////////////////////////////////////////
     
-    // true iff every entry in the buffer is in use
+    // @brief true iff every entry in the buffer is in use
     __device__
     bool isFull() const
     { return (freeListSize == 0); }
     
     
-    // Allocate a free entry in the buffer and return its index.  The
-    // entry starts with a reference count of 1.
+    // @brief allocate a free entry in the buffer and return its
+    // index.  The entry starts with a reference count of 1.
     __device__
     unsigned int alloc()
     {
@@ -74,7 +74,7 @@ namespace Mercator  {
       return idx;
     }
 
-    // Increment the reference count of entry idx by 1.
+    // @brief increment the reference count of entry idx by 1.
     __device__
     void ref(unsigned int idx)
     {
@@ -86,7 +86,7 @@ namespace Mercator  {
 	++refCounts[idx];
     }
     
-    // Decrement the reference count of entry idx by 1. Free it 
+    // @brief decrement the reference count of entry idx by 1. Free it
     // if the count goes to 0.
     __device__
     void unref(unsigned int idx)
@@ -152,7 +152,6 @@ namespace Mercator  {
     // and set it to the item v.  Return the index of the newly
     // allocated entry.
     //
-    
     __device__
     unsigned int alloc(const T &v)
     {
