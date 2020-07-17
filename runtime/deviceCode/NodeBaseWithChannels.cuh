@@ -89,7 +89,7 @@ namespace Mercator  {
 		   Queue<Signal> *signalQueue)
     {
       assert(IS_BOSS());
-      assert(channelidx < numChannels);
+      assert(channelIdx < numChannels);
       
       channels[channelIdx]->setDSQueues(queue, signalQueue);
       
