@@ -76,6 +76,10 @@ namespace Mercator  {
       numThreadGroups /* * numEltsPerGroup*/;
     
   public:
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     __device__
     Node_SingleItem(unsigned int queueSize,
@@ -87,6 +91,47 @@ namespace Mercator  {
       occCounter.setMaxRunSize(maxRunSize);
 #endif
     }
+
+  protected:
+    
+    //
+    // @brief Create and initialize a buffered output channel.
+    //
+    // @param c index of channel to initialize
+    // @param outputsperInput max # of outputs produced per input
+    //
+    template<typename DST>
+    __device__
+    void initBufferedChannel(unsigned int c, 
+			     unsigned int outputsPerInput,
+			     bool isAgg = false)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
+      setChannel(c, new Channel(outputsPerInput,
+				isAgg,
+				numThreadGroups,
+				threadGroupSize,
+				1 /* numEltsPerGroup*/));
+      
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+
+	  crash();
+	}
+    }
+    
+    ////////////////////////////////////////////////////////
+    
+  private:
     
     __device__
     unsigned int getMaxInputs() const
@@ -141,40 +186,6 @@ namespace Mercator  {
     }
     
   protected:
-
-    //
-    // @brief Create and initialize a buffered output channel.
-    //
-    // @param c index of channel to initialize
-    // @param outputsperInput max # of outputs produced per input
-    //
-    template<typename DST>
-    __device__
-    void initBufferedChannel(unsigned int c, 
-			     unsigned int outputsPerInput,
-			     bool isAgg = false)
-    {
-      assert(c < numChannels);
-      assert(outputsPerInput > 0);
-      
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      setChannel(c, 
-		 new BufferedChannel<DST, THREADS_PER_BLOCK>(outputsPerInput,
-							     isAgg,
-							     numThreadGroups,
-							     threadGroupSize,
-							     1 /* numEltsPerGroup*/));
-      // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-
-	  crash();
-	}
-    }
     
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 

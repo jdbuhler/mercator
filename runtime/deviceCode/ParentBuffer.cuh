@@ -25,6 +25,10 @@ namespace Mercator  {
     
     static const unsigned int NONE = UINT_MAX;
     
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     __device__
     RefCountedArena(unsigned int isize,
 		    NodeBase *iblockingNode = nullptr)
@@ -45,6 +49,8 @@ namespace Mercator  {
       delete [] refCounts;
       delete [] freeList;
     }
+    
+    ///////////////////////////////////////////////////////
     
     // true iff every entry in the buffer is in use
     __device__
@@ -125,6 +131,10 @@ namespace Mercator  {
   class ParentBuffer : public RefCountedArena {
   public:
     
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     __device__
     ParentBuffer(unsigned int size,
 		 NodeBase *blockingNode = nullptr)
@@ -135,6 +145,8 @@ namespace Mercator  {
     ~ParentBuffer()
     { delete [] data; }
     
+    ////////////////////////////////////////////////////////
+
     //
     // @brief allocate an entry in the buffer with nrefs references
     // and set it to the item v.  Return the index of the newly

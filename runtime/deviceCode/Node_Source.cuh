@@ -53,6 +53,10 @@ namespace Mercator  {
 #endif
     
   public: 
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     //
     // @brief constructor
@@ -103,7 +107,40 @@ namespace Mercator  {
       
       return source;
     }
+
+  protected:
+
+    //
+    // @brief Create and initialize an output channel.
+    //
+    // @param c index of channel to initialize
+    // @param minFreeSpace minimum free space before channel's
+    // downstream queue is considered full
+    //
+    template<typename DST>
+    __device__
+    void initChannel(unsigned int c, 
+		     unsigned int minFreeSpace)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      setChannel(c, new Channel<DST>(minFreeSpace, false));
+      
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+	  
+	  crash();
+	}
+    }
     
+    /////////////////////////////////////////////////////////////////
     
     //
     // @brief prepare for the app's main kernel to run
@@ -118,6 +155,7 @@ namespace Mercator  {
     __device__
     void setInputSource(Source<T> *isource)
     {
+      assert(IS_BOSS());
       source = isource;
     }
     
@@ -136,7 +174,8 @@ namespace Mercator  {
     // the source to the downstream queues.  This will cause at least
     // one downstream queue to activate OR will exhaust the source.
     //
-    
+    // MUST BE CALLED WITH ALL THREADS
+    //
     __device__
     void fire()
     {
@@ -225,7 +264,7 @@ namespace Mercator  {
 	    }
 	  else
 	    {
-	      bool anyChildActive = false;
+	      bool dsActive = false;
 	      
 	      //
 	      // Check whether any child needs to be activated
@@ -234,7 +273,7 @@ namespace Mercator  {
 		{
 		  if (getChannel(c)->checkDSFull())
 		    {
-		      anyChildActive = true;
+		      dsActive = true;
 		      getDSNode(c)->activate();
 		    }
 		}
@@ -244,7 +283,7 @@ namespace Mercator  {
 	      // ourselves and fire again.  This can happen only if
 	      // the source artificially limited our input request
 	      // size.
-	      if (!anyChildActive)
+	      if (!dsActive)
 		this->forceReschedule();
 	    }
 	}
@@ -252,38 +291,6 @@ namespace Mercator  {
       TIMER_STOP(input);
     }
     
-  protected:
-
-    //
-    // @brief Create and initialize an output channel.
-    //
-    // @param c index of channel to initialize
-    // @param minFreeSpace minimum free space before channel's
-    // downstream queue is considered full
-    //
-    template<typename DST>
-    __device__
-    void initChannel(unsigned int c, 
-		     unsigned int minFreeSpace)
-    {
-      assert(c < numChannels);
-      assert(outputsPerInput > 0);
-      
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      setChannel(c, new Channel<DST>(minFreeSpace, false));
-      
-      // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-
-	  crash();
-	}
-    }
-
   private:
     
     Source<T>* source;

@@ -35,6 +35,10 @@ namespace Mercator  {
     using BaseType::numItemsWritten;
     
   public:
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     //
     // @brief Constructor (called single-threaded)
@@ -78,6 +82,14 @@ namespace Mercator  {
       delete [] data; 
     }
     
+    /////////////////////////////////////////////////////////////
+    
+    //
+    // @brief push item to per-thread output buffer
+    // May be called MULTI-THREADED, but does not synchronize
+    //
+    // @param item item to write to buffer
+    //
     __device__
     void push(const T &item)
     {
@@ -93,6 +105,10 @@ namespace Mercator  {
       nextSlot[groupId]++;
     }
     
+    //
+    // @brief move any pushed data from output buffer to downstream queue
+    // MUST BE CALLED WITH ALL THREADS
+    //
     __device__
     void completePush()
     {
@@ -105,7 +121,7 @@ namespace Mercator  {
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
       __shared__ unsigned int dsBase;
-      if ( IS_BOSS() )
+      if (IS_BOSS())
 	{
 	  dsBase = dsReserve(totalToWrite);
 	  

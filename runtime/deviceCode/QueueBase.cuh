@@ -32,7 +32,11 @@ namespace Mercator  {
   class QueueBase {
   
   public:
-
+    
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+    
     //
     // @brief Constructor.
     //
@@ -49,6 +53,8 @@ namespace Mercator  {
     virtual
       ~QueueBase()
     {}
+    
+    /////////////////////////////////////////////////////////
     
     //
     // @brief get free space on queue
@@ -98,6 +104,7 @@ namespace Mercator  {
     __device__
     unsigned int reserve(unsigned int nElts)
     {
+      assert(IS_BOSS());
       assert(getOccupancy() <= getCapacity() - nElts);
       
       unsigned int oldTail = tail;
@@ -117,6 +124,7 @@ namespace Mercator  {
     __device__
     void release(unsigned int nElts)
     {
+      assert(IS_BOSS());
       assert(getOccupancy() >= nElts);
       
       head = addModulo(head, nElts, dataSize);

@@ -23,6 +23,10 @@ namespace Mercator  {
   class Channel : public ChannelBase {
     
   public:
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     //
     // @brief Constructor (called single-threaded)
@@ -34,9 +38,11 @@ namespace Mercator  {
       : ChannelBase(minFreeSpace, isAgg)
     {}
     
+    ///////////////////////////////////////////////////////
+    
     //
     // @brief move items in each of first totalToWrite threads to the
-    // output buffer
+    // output buffer. MUST BE CALLED WITH ALL THREADS.
     // 
     // @param item item to be pushed
     // @param totalToWrite total number of items to be written
@@ -47,7 +53,7 @@ namespace Mercator  {
       int tid = threadIdx.x;
       
       __shared__ unsigned int dsBase;
-      if ( IS_BOSS() )
+      if (IS_BOSS())
 	{
 	  dsBase = dsReserve(totalToWrite);
 	  
@@ -74,12 +80,15 @@ namespace Mercator  {
     __device__
     unsigned int dsReserve(unsigned int nToWrite) const
     {
+      assert(IS_BOSS());
       return dsQueue->reserve(nToWrite);
     }
     
     
     //
     // @brief Write items directly to the downstream queue.
+    //
+    // May be called MULTI-THREADED
     //
     // @param item item to be written
     // @param base base pointer to writable block in queue

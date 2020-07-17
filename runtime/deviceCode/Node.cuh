@@ -54,6 +54,10 @@ namespace Mercator  {
 
   public:
 
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     //
     // @brief Constructor
     //
@@ -69,30 +73,62 @@ namespace Mercator  {
 	parentArena(nullptr),
 	parentIdx(RefCountedArena::NONE)
     {}
+
+  protected:
+    //
+    // @brief Create and initialize an output channel.
+    //
+    // @param c index of channel to initialize
+    // @param minFreeSpace minimum free space before channel's
+    // downstream queue is considered full
+    //
+    template<typename DST>
+    __device__
+    void initChannel(unsigned int c, 
+		     unsigned int minFreeSpace,
+		     bool isAgg = false)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      setChannel(c, new Channel<DST>(minFreeSpace, isAgg));
+      
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+
+	  crash();
+	}
+    }
+    
+  public:
     
     __device__
     void setParentArena(RefCountedArena *a)
-    {
-      parentArena = a;
-    }
+    { parentArena = a; }
     
     //
-    // @brief return our queue (needed for channel's setDSEdge()).
+    // @brief return our queue (needed for upstream channel's
+    // setDSEdge()).
     //
     __device__
-    Queue<T> *getQueue()
-    { 
-      return &queue; 
-    }
+    QueueBase *getQueue()
+    { return &queue; }
     
     //
-    // @brief return our signal queue (needed for channel's setDSEdge()).
+    // @brief return our signal queue (needed for upstream channel's
+    // setDSEdge()).
     //
     __device__
     Queue<Signal> *getSignalQueue()
-    { 
-      return &signalQueue; 
-    }
+    { return &signalQueue; }
+    
+    /////////////////////////////////////////////////////////
     
     //
     // @brief is any input queued for this node?
@@ -103,17 +139,18 @@ namespace Mercator  {
     {
       return (!queue.empty() || !signalQueue.empty());
     }
+
     
-    __device__
-    virtual
-    unsigned int doRun(const Queue<T> &queue,
-		       unsigned int start,
-		       unsigned int limit) = 0;
-    
-    __device__
-    virtual
-    unsigned int getMaxInputs() const = 0;
-    
+    //
+    // @brief main firing loop. Consume data and signals according to
+    // the synchronization dictated by the scheduling protocol.
+    // Implement the checks needed to determine when the input queue
+    // empties or an output queue fills, and make the necessary
+    // scheduling status changes for this node and its neighbors when
+    // one of those things happens.
+    //
+    // MUST BE CALLED WITH ALL THREADS
+    //
     __device__
     void fire()
     {
@@ -126,6 +163,7 @@ namespace Mercator  {
       unsigned int nDataToConsume = queue.getOccupancy();
       unsigned int nSignalsToConsume = signalQueue.getOccupancy();
       
+      // # of credits before next signal, if one exists
       unsigned int nCredits = (nSignalsToConsume == 0
 			       ? 0
 			       : signalQueue.getHead().credit);
@@ -139,11 +177,15 @@ namespace Mercator  {
 				     ? 0
 				     : getMaxInputs() - 1);
       
-      bool anyDSActive = false;
+      bool dsActive = false;
       
+      //
+      // run until input queue satisfies EMPTY condition, or 
+      // writing output causes some downstream neighbor to activate.
+      //
       while ((nDataToConsume - nDataConsumed > emptyThreshold || 
 	      nSignalsConsumed < nSignalsToConsume) &&
-	     !anyDSActive)
+	     !dsActive)
 	{
 #if 0
 	  if (IS_BOSS())
@@ -154,7 +196,7 @@ namespace Mercator  {
 		   nCredits);
 #endif
 	  
-	  // determine the max # of items we may safely consume 
+	  // determine the max # of items we may safely consume this time
 	  unsigned int limit =
 	    (nSignalsConsumed < nSignalsToConsume
 	     ? nCredits 
@@ -167,6 +209,7 @@ namespace Mercator  {
 	  unsigned int nFinished;
 	  if (limit > 0)
 	    {
+	      // doRun() tries to consume input; could cause node to block
 	      nFinished = doRun(queue, nDataConsumed, limit);
 	      
 	      nDataConsumed += nFinished;
@@ -203,7 +246,7 @@ namespace Mercator  {
 	    {
 	      if (getChannel(c)->checkDSFull())
 		{
-		  anyDSActive = true;
+		  dsActive = true;
 		  
 		  if (IS_BOSS())
 		    getDSNode(c)->activate();
@@ -212,6 +255,7 @@ namespace Mercator  {
 	  
 	  TIMER_STOP(output);
 	  
+	  // don't keep trying to run the node if it is blocked
 	  if (this->isBlocked())
 	    break;
 	  
@@ -223,25 +267,27 @@ namespace Mercator  {
 
       if (IS_BOSS())
 	{
+	  // release any input we have consumed
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  
+	  // store any unused credits before next signal
 	  if (!signalQueue.empty())
 	    signalQueue.getHead().credit = nCredits;
 	  
+	  // did we empty our input queue?
 	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
 	      nSignalsConsumed == nSignalsToConsume)
 	  {
-	    // less than a full ensemble remains, or 0 if flushing
 	    this->deactivate(); 
 
 	    if (this->isFlushing())
 	      {
-		// no more inputs to read -- force downstream nodes
-		// into flushing mode and activate them (if not
-		// already active).  Even if they have no input,
-		// they must fire once to propagate flush mode and
-		// activate *their* downstream nodes.
+		// force downstream neighbors into flushing mode and
+		// activate them (if not already active).  Even if
+		// they have no input, they must fire once to
+		// propagate the flush and activate *their* downstream
+		// neighbors.
 		for (unsigned int c = 0; c < numChannels; c++)
 		  {
 		    NodeBase *dsNode = getDSNode(c);
@@ -258,6 +304,17 @@ namespace Mercator  {
       
       TIMER_STOP(input);
     }
+
+  protected:
+    
+    // state for nodes in enumerated regions
+    RefCountedArena *parentArena;       // ptr to any associated parent buffer
+    unsigned int parentIdx;             // index of parent obj in buffer
+    
+  private:
+    
+    Queue<T> queue;                     // node's input queue
+    Queue<Signal> signalQueue;          // node's input signal queue
     
     // begin and end stubs for enumeration and aggregation 
     __device__
@@ -268,50 +325,42 @@ namespace Mercator  {
     virtual
     void end() {}
     
-  protected:
-    
-    Queue<T> queue;                     // node's input queue
-    Queue<Signal> signalQueue;          // node's input signal queue
-    
-    // state for nodes in enumerated regions
-    RefCountedArena *parentArena;       // ptr to any associated parent buffer
-    unsigned int parentIdx;             // index of parent obj in buffer
-
     //
-    // @brief Create and initialize an output channel.
+    // @brief get the maximum number of inputs that will ever
+    // be consumed by one call to doRun()
     //
-    // @param c index of channel to initialize
-    // @param minFreeSpace minimum free space before channel's
-    // downstream queue is considered full
-    //
-    template<typename DST>
     __device__
-    void initChannel(unsigned int c, 
-		     unsigned int minFreeSpace,
-		     bool isAgg = false)
-    {
-      assert(c < numChannels);
-      assert(outputsPerInput > 0);
-      
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      setChannel(c, new Channel<DST>(minFreeSpace, isAgg));
-      
-      // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-
-	  crash();
-	}
-    }
+    virtual
+    unsigned int getMaxInputs() const = 0;
+    //
     
+    //
+    // @brief function stub to execute the function code specific
+    // to this node.  This function does NOT remove data from the
+    // queue.
+    //
+    // @param queue data queue containing items to be consumed
+    // @param start index of first item in queue to consume
+    // @param limit max number of items that this call may consume
+    // @return number of items ACTUALLY consumed (may be 0).
+    //
+    __device__
+    virtual
+    unsigned int doRun(const Queue<T> &queue,
+		       unsigned int start,
+		       unsigned int limit) = 0;
+    
+    
+    //
+    // @brief callback from fire() when node empties its queues
+    // after completing a flush operation.
+    //
     __device__
     virtual
     void flushComplete()
     {}
+    
+  private:
     
     ////////////////////////////////////////////////////////////////////
     // SIGNAL HANDLING LOGIC
@@ -329,8 +378,11 @@ namespace Mercator  {
     // sigIdx-th signal in the queue and perform whatever action it
     // demands (which may generate additional downstream signals).
     //
-    // Return the credit associated with the signal at index sigIdx+1
-    // in the queue, if any exists; otherwise, return 0.
+    // MUST BE CALLED WITH ALL THREADS
+    //
+    // @param index of signal to be handled in signal queue 
+    // @return credit associated with the signal at index sigIdx+1
+    // in the queue, if any exists; otherwise, 0.
     //
     __device__
     unsigned int handleSignal(unsigned int sigIdx)
@@ -361,14 +413,18 @@ namespace Mercator  {
 	      : 0);
     }
     
-  protected:    
-
+    //
+    // @brief handle signal of type Enum
+    // MUST BE CALLED WITH ALL THREADS
+    //
+    // @param s signal to handle
+    //
     __device__
     virtual
     void handleEnum(const Signal &s)
     {
       if (parentIdx != RefCountedArena::NONE) // is old parent valid?
-	this->end();
+	end();
       
       __syncthreads(); // protect parent above against unref below
       
@@ -403,7 +459,7 @@ namespace Mercator  {
       __syncthreads(); // for parentIdx
       
       if (parentIdx != RefCountedArena::NONE) // is new parent valid?
-	this->begin();
+	begin();
     }
   };  // end Node class
 }  // end Mercator namespace

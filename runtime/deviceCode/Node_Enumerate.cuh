@@ -45,6 +45,10 @@ namespace Mercator {
 
   public:
     
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     __device__
     Node_Enumerate(unsigned int queueSize,
 		   Scheduler *scheduler,
@@ -61,14 +65,46 @@ namespace Mercator {
 #endif
     }
     
+    //
+    // @brief get the parent buffer associated with this node 
+    // (to pass to nodes in this region)
+    //
     __device__
     RefCountedArena *getParentArena()
     { return &parentBuffer; }
     
+    ///////////////////////////////////////////////////////
+
+  private:
+
+    // total number of items in currently enumerating object
+    unsigned int dataCount;
+    
+    // number of items so far in currently enumerating object
+    unsigned int currentCount;
+    
+    // ID of node's enumeration region (used for flushing)
+    unsigned int enumId;
+    
+    // Where parent objects of the enumerate node are stored.  Size is
+    // set to the same as data queue currently
+    ParentBuffer<T> parentBuffer;
+    
+    //
+    // @brief find the number of data items that need to be enumerated
+    // from the current parent object.
+    //
+    // Like the run function, this is filled out by the user in the
+    // generated code.  This function is called SINGLE-THREADED.
+    //
+    __device__
+    virtual
+    unsigned int findCount(const T &item) = 0;
+    
     __device__
     unsigned int getMaxInputs() const
     { return 1; }
-
+    
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,
@@ -134,48 +170,6 @@ namespace Mercator {
       return nFinished;
     }
     
-  private:
-    
-    // total number of items in currently enumerating object
-    unsigned int dataCount;
-    
-    // number of items so far in currently enumerating object
-    unsigned int currentCount;
-    
-    // ID of node's enumeration region (used for flushing)
-    unsigned int enumId;
-    
-    // Where parent objects of the enumerate node are stored.  Size is
-    // set to the same as data queue currently
-    ParentBuffer<T> parentBuffer;
-    
-    //
-    // @brief find the number of data items that need to be enumerated
-    // from the current parent object.
-    //
-    // Like the run function, this is filled out by the user in the
-    // generated code.  This function is called SINGLE THREADED.
-    //
-    __device__
-    virtual
-    unsigned int findCount(const T &item) = 0;
-      
-    // called single-threaded
-    __device__
-    void flushComplete()
-    {
-      if (parentIdx != RefCountedArena::NONE)
-	parentBuffer.unref(parentIdx); // drop reference to parent item
-      
-      parentIdx = RefCountedArena::NONE;
-      
-      // push a signal to force downstream nodes to finish off prev parent
-      Signal s_new(Signal::Enum);	
-      s_new.parentIdx = RefCountedArena::NONE;
-      
-      getChannel(0)->pushSignal(s_new);
-    }
-    
     //
     // @brief begin enumeration of a new parent object.  If we cannot
     // begin an object becaues the parent buffer is full, block the
@@ -184,17 +178,19 @@ namespace Mercator {
     // the node's state, and pass the index downstream as a signal to
     // the rest of the region.
     //
+    // MUST BE CALLED WITH ALL THREADS
+    //
     // @param item new parent object
     // @param count output parameter; holds result of findCount(item)
     //
-    // Returns true iff we were able to start enumerating item.
+    // @return true iff we were able to start enumerating the item.
     // 
     __device__
     bool startItem(const T &item, unsigned int *count)
     {
-      // buffer is full -- initiate DS flushing to clear it out,
-      // then terminate.  We'll reschedule ourselves to execute
-      // once the buffer is no longer full.
+      // buffer is full -- initiate DS flushing to clear it out, then
+      // block.  We'll be rescheduled to execute once the buffer
+      // is no longer full and we can unblock.
       if (parentBuffer.isFull())
 	{
 	  if (IS_BOSS())
@@ -219,14 +215,14 @@ namespace Mercator {
 	  // new parent object already has refcount == 1
 	  parentIdx = parentBuffer.alloc(item);
 	  
-	  eltCount = this->findCount(item);
-	  
 	  // Create new Enum signal to send downstream
 	  Signal s_new(Signal::Enum);	
 	  s_new.parentIdx = parentIdx;
 	  
 	  parentBuffer.ref(parentIdx); // for use in signal
 	  getChannel(0)->pushSignal(s_new);
+	  
+	  eltCount = this->findCount(item);
 	}
       __syncthreads();
       
@@ -236,9 +232,10 @@ namespace Mercator {
     
     
     //
-    // @brief finish processing a parent item.  We just pass on the
-    // end-of-item boundary to our region, which knows what to do
-    // with it.
+    // @brief finish processing a parent item by dropping our reference
+    // to it.
+    //
+    // SHOULD BE CALLED WITH ALL THREADS
     //
     __device__
     void finishItem()
@@ -249,6 +246,32 @@ namespace Mercator {
 	}
     }
     
+        
+    //
+    // @brief if we have emptied our inputs in response to a flush,
+    // signal our downstream neighbors so that, when they are flushing,
+    // they can finish off any open parent.
+    //
+    __device__
+    void flushComplete()
+    {
+      assert(IS_BOSS());
+      
+      if (parentIdx != RefCountedArena::NONE)
+	{
+	  // item was already unreferenced when we finished it
+	  
+	  parentIdx = RefCountedArena::NONE;
+	  
+	  // push a signal to force downstream nodes to finish off
+	  // previous parent
+	  Signal s_new(Signal::Enum);	
+	  s_new.parentIdx = RefCountedArena::NONE;
+      
+	  getChannel(0)->pushSignal(s_new);
+	}
+    }
+
   };
   
 }  // end Mercator namespace

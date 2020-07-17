@@ -33,6 +33,10 @@ namespace Mercator  {
     enum Status { F_ACTIVE = 0x01, F_BLOCKED = 0x02 };
     
   public:
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     __device__
     NodeBase(Scheduler *ischeduler, unsigned int iregion)
@@ -61,6 +65,8 @@ namespace Mercator  {
       
       usNode = iusNode;
     }
+    
+    /////////////////////////////////////////////////////////
     
     //
     // @brief is any input queued for this node?
@@ -236,6 +242,7 @@ namespace Mercator  {
     void printOccupancyCSV(unsigned int nodeId) const
     {
       assert(IS_BOSS());
+      
       printf("%d,%u,%lluu,%llu,%llu,%llu\n",
 	     blockIdx.x, nodeId,
 	     occCounter.sizePerRun,

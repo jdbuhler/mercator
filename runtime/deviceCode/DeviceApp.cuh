@@ -113,7 +113,7 @@ namespace Mercator {
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j]->printTimersCSV(j);
     }
-
+    
     __device__
     static
     void printTimersCSVHeader()

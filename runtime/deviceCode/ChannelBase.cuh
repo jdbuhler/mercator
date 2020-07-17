@@ -30,6 +30,10 @@ namespace Mercator  {
     
   public:
     
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     //
     // @brief Constructor (called single-threaded)
     //
@@ -60,9 +64,13 @@ namespace Mercator  {
     void setDSQueues(QueueBase     *idsQueue,
 		     Queue<Signal> *idsSignalQueue)
     {
+      assert(IS_BOSS());
+      
       dsQueue = idsQueue;
       dsSignalQueue = idsSignalQueue;
     }
+    
+    ///////////////////////////////////////////////////////
     
     //
     // @brief determine if this channel is aggregating
@@ -86,8 +94,6 @@ namespace Mercator  {
     // If we've managed to fill the downstream queue, activate its
     // target node. Let our caller know if we activated the ds node.
     //
-    // @param maxRunSize maximum # of inputs that can be emitted in
-    //        a single run
     __device__
     bool checkDSFull() const
     {
@@ -102,14 +108,14 @@ namespace Mercator  {
     
     //
     // @brief push a signal to a specified channel, and reset the number
-    // of items produced on that channel. This function is SINGLE THREADED.
+    // of items produced on that channel. 
     //
     // @param s the signal being sent downstream
-    // @param channel the channel on which the signal is being sent
     //
     __device__
     void pushSignal(const Signal& s)
     {
+      assert(IS_BOSS());
       assert(dsSignalQueue->getFreeSpace() > 0);
       
       unsigned int credit = 

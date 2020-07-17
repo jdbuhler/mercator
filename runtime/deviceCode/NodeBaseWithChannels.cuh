@@ -38,6 +38,10 @@ namespace Mercator  {
     
   public:
 
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+
     //
     // @brief Constructor
     //
@@ -87,11 +91,26 @@ namespace Mercator  {
       dsNodes[channelIdx] = dsNode;
       dsNode->setUSNode(this);
     }
-        
+    
+    ///////////////////////////////////////////////////////////
+    
   protected:
     
     ChannelBase *channels[numChannels]; // node's output channels
     NodeBase    *dsNodes[numChannels];  // node's downstream neighbors
+    
+    
+    //
+    // @brief inspector for the dsNodes array (for subclasses)
+    // @param c index of downstream node to get
+    //
+    __device__
+    NodeBase *getDSNode(unsigned int c) const
+    {
+      assert(c < numChannels);
+      return dsNodes[c];
+    }
+    
     
     //
     // @brief inspector for the channels array (for subclasses)
@@ -103,23 +122,19 @@ namespace Mercator  {
       assert(c < numChannels);
       return channels[c]; 
     }
-
+    
+    //
+    // @brief set a channel entry for this node
+    // [called only from INIT KERNEL]
+    //
     __device__
     void setChannel(unsigned int c, ChannelBase *channel)
     {
+      assert(IS_BOSS());
+      
       assert(c < numChannels);
       channels[c] = channel;
     }
-    
-    __device__
-    NodeBase *getDSNode(unsigned int c) const
-    {
-      assert(c < numChannels);
-      return dsNodes[c];
-    }
-    
-
-    
   };  // end NodeBaseWithChannels class
 }  // end Mercator namespace
 

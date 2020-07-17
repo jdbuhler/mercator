@@ -41,6 +41,10 @@ namespace Mercator  {
 #endif
     
   public: 
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     //
     // @brief constructor
@@ -82,18 +86,22 @@ namespace Mercator  {
       return sink;
     }
     
+    ////////////////////////////////////////////////////////////
     
     //
-    // @brief prepare for a run of the app's main kernel
-    // Set our output sinks
+    // @brief set our sink at the beginning of a run of the main kernel
     //
     __device__
     void setOutputSink(Sink<T> * isink)
-    {
-      sink = isink;
+    { 
+      assert(IS_BOSS());
+      sink = isink; 
     }
     
+  private:
 
+    Sink<T> * sink;
+    
     __device__
     unsigned int getMaxInputs() const
     { return THREADS_PER_BLOCK; }
@@ -136,10 +144,6 @@ namespace Mercator  {
       
       return limit;
     }
-    
-  private:
-
-    Sink<T> * sink;
   };
   
 }; // namespace Mercator

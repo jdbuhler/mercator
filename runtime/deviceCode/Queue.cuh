@@ -37,7 +37,11 @@ namespace Mercator  {
   class Queue : public QueueBase {
   
   public:
-
+    
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
+    
     //
     // @brief Constructor.
     //
@@ -66,12 +70,13 @@ namespace Mercator  {
       delete [] data;
     }
     
+    ////////////////////////////////////////////////////////////
     
     //
     // @brief write an element to the specified queue location
     //        base must be a value previously returned by reserve()
     //        
-    // May be called multithreaded; does NOT reserve space
+    // May be called MULTITHREADED to write multiple values
     //
     // @param base base pointer for write (returned by reserve()
     // @param offset offset of element to write relative to base
@@ -90,9 +95,7 @@ namespace Mercator  {
     //
     // @brief read an element from a queue location, specified as
     //        an offset relative to the queue's head
-    //        
-    // May be called multithreaded; does NOT release space
-    //
+    //         
     // @param offset offset of element to read relative to head
     // @return value read
     //
@@ -107,6 +110,9 @@ namespace Mercator  {
       return data[myIdx]; 
     }
     
+    //
+    // @brief read the element at the head of the queue
+    //
     __device__
     T &getHead() const
     { return getElt(0); }
@@ -129,6 +135,7 @@ namespace Mercator  {
     __device__
     T &enqueue(const T &v)
     {
+      assert(IS_BOSS());
       assert(getOccupancy() < getCapacity());
       
       data[tail] = v;
@@ -138,17 +145,19 @@ namespace Mercator  {
       
       return data[oldTail];
     }
-
+    
     //
     // @brief get an element and release its space in a single call.
     //
     __device__
     T dequeue()
     {
+      assert(IS_BOSS());
       assert(getOccupancy() > 0);
       
       T &v = data[head];
       head = addModulo(head, 1, dataSize);
+      
       return v;
     }
     
