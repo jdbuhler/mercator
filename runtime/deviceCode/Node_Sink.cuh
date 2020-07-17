@@ -102,11 +102,18 @@ namespace Mercator  {
   private:
 
     Sink<T> * sink;
-    
+
+    //
+    // @brief doRun() writes full thread-widths of inputs at a time
+    //
     __device__
-    unsigned int getMaxInputs() const
+    unsigned int inputSizeHint() const
     { return THREADS_PER_BLOCK; }
     
+    
+    //
+    // @brief write values to the downstream queue
+    // 
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,

@@ -134,21 +134,18 @@ namespace Mercator  {
     
   private:
     
+    //
+    // @brief doRun() prefers to have a full width of inputs for
+    // the user's run function.
+    //
     __device__
-    unsigned int getMaxInputs() const
+    unsigned int inputSizeHint() const
     { return maxRunSize; }
     
-    //
-    // @brief fire a node, consuming as much input 
-    // from its queue as possible
-    //
-    // PRECONDITION: node is active (hence either flushing or has at
-    // least maxRunSize inputs in its queue), and all its downstream
-    // nodes are inactive (hence have at least enough space to hold
-    // outputs from maxRunSize inputs in their queues).
-    //
-    // called with all threads
     
+    //
+    // @brief Feed inputs to the user's run function.
+    // 
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,

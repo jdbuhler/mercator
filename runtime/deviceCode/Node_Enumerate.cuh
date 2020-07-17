@@ -101,11 +101,19 @@ namespace Mercator {
     __device__
     virtual
     unsigned int findCount(const T &item) = 0;
-    
+
+    //
+    // @brief doRun() processes inputs one at a time
+    //
     __device__
-    unsigned int getMaxInputs() const
+    unsigned int inputSizeHint() const
     { return 1; }
     
+    
+    //
+    // @brief expand next input to its elements, issuing signals
+    // each time a new parent input starts.
+    //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,
@@ -225,6 +233,7 @@ namespace Mercator {
 	  
 	  eltCount = this->findCount(item);
 	}
+      
       __syncthreads();
       
       *count = eltCount;

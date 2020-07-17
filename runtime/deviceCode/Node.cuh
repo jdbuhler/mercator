@@ -173,7 +173,7 @@ namespace Mercator  {
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
 				     ? 0
-				     : getMaxInputs() - 1);
+				     : inputSizeHint() - 1);
       
       bool dsActive = false;
       
@@ -324,13 +324,13 @@ namespace Mercator  {
     void end() {}
     
     //
-    // @brief get the maximum number of inputs that will ever
-    // be consumed by one call to doRun()
+    // @brief a hint as to the preferred input granularity for
+    // the node's doRun() function.  When possible, we won't
+    // call doRun() with a size less than this.
     //
     __device__
     virtual
-    unsigned int getMaxInputs() const = 0;
-    //
+    unsigned int inputSizeHint() const = 0;
     
     //
     // @brief function stub to execute the function code specific
