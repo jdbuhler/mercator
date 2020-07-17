@@ -53,8 +53,9 @@ namespace Mercator {
     Node_Enumerate(unsigned int queueSize,
 		   Scheduler *scheduler,
 		   unsigned int region,
+		   RefCountedArena *parentArena,
 		   unsigned int ienumId)
-      : BaseType(queueSize, scheduler, region),
+      : BaseType(queueSize, scheduler, region, parentArena),
 	enumId(ienumId),
 	parentBuffer(10 /*queueSize*/, this), // FIXME: for stress test
 	dataCount(0),

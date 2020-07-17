@@ -68,6 +68,8 @@ namespace Mercator {
     __device__
     void run()
     {
+      const unsigned int sourceNodeIdx = 0; // nodes are sorted topologically
+      
       // call init hooks for each node
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j]->init();
@@ -149,13 +151,10 @@ namespace Mercator {
   protected:
     
     __device__
-    void registerNodes(NodeBase * const *inodes, 
-		       unsigned int isourceNodeIdx) 
+    void registerNodes(NodeBase * const *inodes) 
     {
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j] = inodes[j];
-      
-      sourceNodeIdx = isourceNodeIdx;
     }
 
     Scheduler scheduler;
@@ -163,7 +162,6 @@ namespace Mercator {
   private:
     
     NodeBase *nodes[numNodes];
-    unsigned int sourceNodeIdx;
   };
 }
 

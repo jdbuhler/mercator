@@ -48,13 +48,14 @@ Node::Node(const string &iname,
   : name(iname),
     moduleType(imt),
     mIdx(imIdx),
+    regionId(0),
+    enumerateId(0),
     queueSize(0),
     treeEdge(nullptr),
     cycleEdge(nullptr),
     dfsStatus(Node::NotVisited),
-    multiplier(0),
-    regionId(0),
-    enumerateId(0)
+    startTime(0),
+    multiplier(0)
 {
   unsigned int nChannels = moduleType->get_nChannels();
   

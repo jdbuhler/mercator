@@ -20,7 +20,8 @@ public:
   void verifyTopology(App *app);
   
 private:
-
+  
+  unsigned int time;
   unsigned int nextRegionId;
   std::vector<unsigned int> parentRegion;
   
@@ -30,6 +31,8 @@ private:
 		 unsigned int enumId,
 		 App *app);
   
+  static
+  bool compareStartTime(const Node *n1, const Node *n2);
 };
 
 #endif

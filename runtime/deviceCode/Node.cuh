@@ -66,14 +66,16 @@ namespace Mercator  {
     //
     __device__
     Node(const unsigned int queueSize,
-	 Scheduler *scheduler, unsigned int region)
+	 Scheduler *scheduler, 
+	 unsigned int region,
+	 RefCountedArena *iparentArena)
       : BaseType(scheduler, region),
 	queue(queueSize),
         signalQueue(queueSize), // could be smaller?
-	parentArena(nullptr),
+	parentArena(iparentArena),
 	parentIdx(RefCountedArena::NONE)
     {}
-
+    
   protected:
     //
     // @brief Create and initialize an output channel.
@@ -107,10 +109,6 @@ namespace Mercator  {
     }
     
   public:
-    
-    __device__
-    void setParentArena(RefCountedArena *a)
-    { parentArena = a; }
     
     //
     // @brief return our queue (needed for upstream channel's
@@ -308,8 +306,8 @@ namespace Mercator  {
   protected:
     
     // state for nodes in enumerated regions
-    RefCountedArena *parentArena;   // ptr to any associated parent buffer
-    unsigned int parentIdx;         // index of parent obj in buffer
+    RefCountedArena* const parentArena;   // ptr to any associated parent buffer
+    unsigned int parentIdx;               // index of parent obj in buffer
     
   private:
     

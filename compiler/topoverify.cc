@@ -8,6 +8,7 @@
 //
 
 #include <iostream>
+#include <algorithm>
 
 #include "topoverify.h"
 
@@ -71,6 +72,11 @@ using namespace std;
  * are heads of cycles also hold their cycle predecessor.
  */
 
+bool TopologyVerifier::compareStartTime(const Node *n1, const Node *n2)
+{
+  return (n1->startTime < n2->startTime);
+}
+
 void TopologyVerifier::verifyTopology(App *app)
 {
   parentRegion.clear();
@@ -81,6 +87,7 @@ void TopologyVerifier::verifyTopology(App *app)
   
   nextRegionId = 1;          // ID of first non-global region
   
+  time = 0;
   dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
@@ -142,6 +149,9 @@ void TopologyVerifier::verifyTopology(App *app)
 	    }
 	}
     }
+  
+  // sort the nodes by start time
+  sort(app->nodes.begin(), app->nodes.end(), compareStartTime);
 }
     
 
@@ -182,6 +192,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
   else
     {
       node->dfsStatus  = Node::InProgress; 
+      node->startTime  = time++;
       
       node->treeEdge   = parentEdge;
       node->multiplier = multiplier;

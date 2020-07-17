@@ -177,15 +177,19 @@ private:
   std::string name;
   ModuleType *moduleType;      // module of which we are an instance
   unsigned int mIdx;           // index of node in its module type
+
+  unsigned int regionId;
+  unsigned int enumerateId;
   
   unsigned int queueSize;
   
   Edge **dsEdges;              // one per channel
   
+  // DFS-specific fields used in topology checking
+  
   Edge *treeEdge;              // predecessor in acyclic app tree
   Edge *cycleEdge;             // predecessor on cycle, if any
   
-    // used for cycle checking only
   enum DfsStatus {
     NotVisited = 0,
     InProgress = 1,
@@ -193,10 +197,8 @@ private:
   };
   
   DfsStatus dfsStatus;
+  unsigned int startTime;
   long multiplier;
-
-  unsigned int regionId;
-  unsigned int enumerateId;
 };
 
 

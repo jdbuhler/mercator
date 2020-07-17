@@ -50,10 +50,29 @@ void genNodeConstruction(const string &nodeObj,
       nextStmt += "tailPtr";
     else
       nextStmt += to_string(node->get_queueSize() * options.queueScaler);
-   
+    
     nextStmt += ", &scheduler";
     
     nextStmt += ", " + to_string(node->get_regionId());
+    
+    if (!mod->isSource())
+      {
+	string arenaObj;
+	if (node->get_regionId() > 0) // node is in a non-base region
+	  {
+	    // add pointer to region head's parent buffer. which
+	    // already exists because we construct nodes in
+	    // topological order
+	    
+	    Node *enumNode = app->regionHeads[node->get_regionId()];
+	    string enumNodeObj = "d"  + enumNode->get_name();
+	    arenaObj = enumNodeObj + "->getParentArena()";
+	  }
+	else
+	  arenaObj = "nullptr";
+	
+	nextStmt += ", " + arenaObj;
+      }
     
     if (mod->isEnumerate())
       nextStmt += ", " + to_string(node->get_enumerateId());
@@ -129,33 +148,6 @@ void genEdgeInitStmts(const App *app,
 
 
 //
-// @brief Connect every node in a region other than 0 to its head
-// node.
-//
-void
-connectRegionHeads(const App *app,
-		   Formatter &f)
-{
-  for (const Node *node : app->nodes)
-    {
-      if (node->get_regionId() > 0) // node is in a non-base region
-	{
-	  Node *enumNode = app->regionHeads[node->get_regionId()];
-	  
-	  string enumNodeObj = "d"  + enumNode->get_name();
-	  string childNodeObj = "d" + node->get_name();
-	  
-	  f.add("// set parent arena ptr for node in region " + 
-		to_string(node->get_regionId()));
-	  
-	  f.add(childNodeObj + "->setParentArena(" +
-		enumNodeObj + "->getParentArena());");
-	}
-    }
-}
-
-
-//
 // @brief Code-gen device-side app constructor
 //
 void genDeviceAppConstructor(const App *app,
@@ -179,44 +171,31 @@ void genDeviceAppConstructor(const App *app,
   
   f.add("// initialize each node of the app on the device");
   
-  for (const ModuleType *mod : app->modules)
+  for (const Node *node : app->nodes)
     {
-      for (const Node *node : mod->nodes)
-	{
-	  string nodeObj = "d" + node->get_name();
-	  genNodeConstruction(nodeObj, node, mod, app, f);
-	  f.add("");
-	}
+      string nodeObj = "d" + node->get_name();
+            
+      genNodeConstruction(nodeObj, node, node->get_moduleType(), app, f);
+      f.add("");
     }
   
   // connect the instances of each module by edges
   genEdgeInitStmts(app, f);
   f.add("");
   
-  // connect each node in a nonzero region to its region's head
-  connectRegionHeads(app, f);
-  f.add("");
-  
   // create an array of all modules to initialize the scheduler 
-  int srcNode;
-  int j = 0;
   string nextStmt = "Mercator::NodeBase *nodes[] = {";
   for (const Node *node : app->nodes)
     {
       string nodeObj = "d" + node->get_name();
       
       nextStmt += nodeObj + ", ";
-      
-      if (node->get_moduleType()->isSource())
-	srcNode = j; 
-      
-      j++;
     }
   nextStmt += "};";
   f.add(nextStmt);
   
   f.add("// tell device app about all nodes");
-  f.add("registerNodes(nodes, " + to_string(srcNode) + ");");
+  f.add("registerNodes(nodes);");
   
   f.unindent();
   f.add("}");    

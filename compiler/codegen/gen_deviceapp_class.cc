@@ -228,6 +228,12 @@ void genDeviceModuleConstructor(const App *app,
   args.push_back({"unsigned int", "region"});
   baseArgs.push_back("region");
   
+  if (!mod->isSource())
+    {
+      args.push_back({"Mercator::RefCountedArena *", "parentArena"});
+      baseArgs.push_back("parentArena");
+    }
+  
   if (mod->isEnumerate())
     {
       args.push_back({"unsigned int", "enumId"});
