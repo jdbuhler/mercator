@@ -366,58 +366,6 @@ void genDeviceModuleClass(const App *app,
 			 genDeviceModuleRunFcnParams(mod)) + ";");
       f.add("");
     }
-
-  if (!mod->isSource() && !mod->isSink())
-    {
-      const DataType *fromType = mod->get_inputType()->from;
-      
-      // If module has a from type for its input, it must be in
-      // an enumeration region -- generate functions specific to 
-      // enumerated modules (begin(), end(), getParent())
-      if (fromType)
-	{
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     "begin",
-			     "") +";");
-	  f.add("");
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     "end", 
-			     "") +";");
-	  f.add("");
-	  f.add("__device__");
-	  f.add(genFcnHeader(fromType->name + "*",
-			     "getParent",
-			     ""));
-	  f.add("{");
-	  f.indent();
-	  
-	   string pbType = 
-	     "Mercator::ParentBuffer<" + fromType->name + ">";
-	   
-	   f.add(pbType + " *pb = static_cast<" + 
-		 pbType + " *>(parentArena);");
-	   f.add("return pb->get(parentIdx);");
-           
-	   f.unindent();
-	   f.add("}");
-	   f.add("");
-	}
-    }
-  
-  if (mod->isEnumerate())
-    {
-      string inputType = mod->get_inputType()->name;
-      
-      // findCount function (public because of CRTP)
-      f.add("__device__");
-      f.add(genFcnHeader("unsigned int",
-			 "findCount", 
-			 "const " + inputType + " &parent") + ";");
-
-      f.add("");
-    }
   
   f.add("private:", true);
   f.add("");
@@ -429,6 +377,58 @@ void genDeviceModuleClass(const App *app,
       f.add("using " + baseType + "::getThreadGroupSize;");
       f.add("using " + baseType + "::isThreadGroupLeader;");
       
+      f.add("");
+    }
+
+  const DataType *fromType = 
+    (mod->isSource() || mod->isSink()
+     ? nullptr
+     : mod->get_inputType()->from);
+  
+  // If module has a from type for its input, it must be in
+  // an enumeration region -- generate functions specific to 
+  // enumerated modules (begin(), end(), getParent())
+  if (fromType)
+    {
+      f.add("__device__");
+      f.add(genFcnHeader("void",
+			 "begin",
+			 "") +";");
+      f.add("");
+      f.add("__device__");
+      f.add(genFcnHeader("void",
+			 "end", 
+			 "") +";");
+      f.add("");
+      
+      f.add("__device__");
+      f.add(genFcnHeader(fromType->name + "*",
+			 "getParent",
+			 "") + " const");
+      f.add("{");
+      f.indent();
+      
+      string pbType = 
+	"Mercator::ParentBuffer<" + fromType->name + ">";
+      
+      f.add(pbType + " *pb = static_cast<" + 
+	    pbType + " *>(parentArena);");
+      f.add("return pb->get(parentIdx);");
+      
+      f.unindent();
+      f.add("}");
+      f.add("");
+    }
+  
+  if (mod->isEnumerate())
+    {
+      string inputType = mod->get_inputType()->name;
+      
+      f.add("__device__");
+      f.add(genFcnHeader("unsigned int",
+			 "findCount", 
+			 "const " + inputType + " &parent") + " const;");
+
       f.add("");
     }
   
@@ -760,7 +760,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	  f.add(genFcnHeader("unsigned int",
 			     DeviceAppClass + "::\n" + 
 			     mod->get_name() + "::findCount", 
-			     "const " + fromType + " &parent"));
+			     "const " + fromType + " &parent") + " const");
 	  
 	  f.add("{");
 	  f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");

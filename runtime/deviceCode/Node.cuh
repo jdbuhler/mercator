@@ -92,7 +92,7 @@ namespace Mercator  {
 		     bool isAgg = false)
     {
       assert(c < numChannels);
-      assert(outputsPerInput > 0);
+      assert(minFreeSpace > 0);
       
       // init the output channel -- should only happen once!
       assert(getChannel(c) == nullptr);
@@ -223,7 +223,8 @@ namespace Mercator  {
 	    {
 	      nCredits -= nFinished;
 	      
-	      __syncthreads(); // protect channel # of items written
+	      // FIXME: blockwide read of blocking status; every other
+	      // scheduling property of node is only read in boss thread
 	      
 	      if (nCredits == 0 && !this->isBlocked())
 		{
@@ -235,8 +236,6 @@ namespace Mercator  {
 	  TIMER_STOP(run);
 	  
 	  TIMER_START(output);
-	  
-	  __syncthreads(); // protect channel changes
 	  
 	  //
 	  // Check whether any child needs to be activated
@@ -261,9 +260,9 @@ namespace Mercator  {
 	  TIMER_START(input);
 	}
       
-      // protect code above from queue changes below
-      __syncthreads();
-
+      // BEGIN WRITE queues, credit, state changes in flushComplete()
+      __syncthreads(); 
+      
       if (IS_BOSS())
 	{
 	  // release any input we have consumed
@@ -300,6 +299,10 @@ namespace Mercator  {
 	      }
 	  }
 	}
+      
+      // END WRITE queues, credit, state changes in flushComplete()
+      
+      __syncthreads(); 
       
       TIMER_STOP(input);
     }
@@ -425,7 +428,7 @@ namespace Mercator  {
       if (parentIdx != RefCountedArena::NONE) // is old parent valid?
 	end();
       
-      __syncthreads(); // protect parent above against unref below
+      __syncthreads(); // BEGIN WRITE parentIdx, ds signal queue
       
       if (IS_BOSS())
 	{
@@ -455,7 +458,7 @@ namespace Mercator  {
 	  parentArena->unref(parentIdx); // signal is destroyed
 	}
       
-      __syncthreads(); // for parentIdx
+      __syncthreads(); // END WRITE parentIdx, ds signal queue
       
       if (parentIdx != RefCountedArena::NONE) // is new parent valid?
 	begin();

@@ -2,8 +2,9 @@
 #define __BUFFEREDCHANNEL_CUH
 
 //
-// @file Channel.cuh
-// @brief MERCATOR channel object
+// @file BufferedChannel.cuh
+// @brief MERCATOR channel object with a buffer to allow push() with 
+// a subset of threads
 //
 // MERCATOR
 // Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
@@ -12,7 +13,7 @@
 #include <cassert>
 #include <cstdio>
 
-#include "Channel.cuh"
+#include "BufferedChannelBase.cuh"
 
 #include "options.cuh"
 
@@ -26,13 +27,10 @@ namespace Mercator  {
   //
   template <typename T,
 	    unsigned int THREADS_PER_BLOCK>
-  class BufferedChannel : public Channel<T> {
+  class BufferedChannel : public BufferedChannelBase {
     
-    using BaseType = Channel<T>;
-    
-    using BaseType::dsReserve;
-    using BaseType::dsWrite;
-    using BaseType::numItemsWritten;
+    using ChannelBase::dsReserve;
+    using ChannelBase::numItemsWritten;
     
   public:
 
@@ -46,14 +44,12 @@ namespace Mercator  {
     // @param ioutputsPerInput Outputs per input for this channel
     //
     __device__
-    BufferedChannel(unsigned int ioutputsPerInput, bool isAgg,
-		    unsigned int inumThreadGroups,
-		    unsigned int ithreadGroupSize,
+    BufferedChannel(unsigned int outputsPerInput, bool isAgg,
+		    unsigned int numThreadGroups,
+		    unsigned int threadGroupSize,
 		    unsigned int numEltsPerGroup)
-      : BaseType(inumThreadGroups * numEltsPerGroup * ioutputsPerInput, isAgg),
-	outputsPerInput(ioutputsPerInput),
-	numThreadGroups(inumThreadGroups),
-	threadGroupSize(ithreadGroupSize),
+      : BufferedChannelBase(outputsPerInput, isAgg, 
+			    numThreadGroups, threadGroupSize, numEltsPerGroup),
 	numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
     {
       // allocate enough total buffer capacity to hold outputs
@@ -68,17 +64,12 @@ namespace Mercator  {
 	  
 	  crash();
 	}
-      
-      nextSlot = new unsigned char [numThreadGroups];
-      for (unsigned int j = 0; j < numThreadGroups; j++)
-	nextSlot[j] = 0;
     }
     
     __device__
     virtual
     ~BufferedChannel()
     { 
-      delete [] nextSlot; 
       delete [] data; 
     }
     
@@ -105,6 +96,7 @@ namespace Mercator  {
       nextSlot[groupId]++;
     }
     
+    
     //
     // @brief move any pushed data from output buffer to downstream queue
     // MUST BE CALLED WITH ALL THREADS
@@ -120,6 +112,13 @@ namespace Mercator  {
       
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
+      // BEGIN WRITE dsBase, ds queue, numItemsWritten, nextSlot
+      __syncthreads(); 
+
+      // clear nextSlot for this thread group, since we're done with it
+      if (tid < numThreadGroups)
+	nextSlot[tid] = 0;
+      
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
 	{
@@ -128,7 +127,9 @@ namespace Mercator  {
 	  // track produced items for credit calculation
 	  numItemsWritten += totalToWrite;
 	}
-      __syncthreads(); // all threads must see updates to dsBase
+      
+      // END WRITE dsBase, ds queue numItemsWritten, nextSlot
+      __syncthreads(); 
       
       // for each thread group, copy all generated outputs downstream
       if (tid < numThreadGroups)
@@ -140,23 +141,32 @@ namespace Mercator  {
               const T &myData = data[srcOffset];
 	      dsWrite(dsBase, dstIdx, myData);
 	    }
-
-          // clear nextSlot for this thread group
-          nextSlot[tid] = 0;
-        }
-      
-      __syncthreads(); // protect use of dsBase from any later write
+	}
     }
   
   private:    
     
-    const unsigned int outputsPerInput;
-    const unsigned int numThreadGroups;
-    const unsigned int threadGroupSize;
     const unsigned int numSlotsPerGroup;
     
     T *data;
-    unsigned char *nextSlot;
+    
+        //
+    // @brief Write items directly to the downstream queue.
+    //
+    // May be called MULTI-THREADED
+    //
+    // @param base base pointer to writable space in queue
+    // @param offset offset at which to write item
+    // @param item item to be written
+    //
+    __device__
+    void dsWrite(unsigned int base,
+		 unsigned int offset,
+		 const T &item) const
+    {
+      static_cast<Queue<T>*>(dsQueue)->putElt(base, offset, item);
+    }
+    
   }; // end BufferedChannel class
 }  // end Mercator namespace
 

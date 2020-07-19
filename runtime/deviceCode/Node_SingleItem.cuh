@@ -169,16 +169,22 @@ namespace Mercator  {
 	     ? queue.getElt(start + tid)
 	     : queue.getDummy()); // don't create a null reference
 	  
+	  __syncthreads(); // BEGIN WRITE output buffer through push()
+	  
 	  if (runWithAllThreads || tid < nItems)
 	    {
 	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
 	      n->run(myData);
 	    }
 	  
-	  __syncthreads();
+	  __syncthreads(); // END WRITE output buffer through push()
 	  
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    getChannel(c)->completePush();
+	    {
+	      BufferedChannelBase *channel =
+		static_cast<BufferedChannelBase *>(getChannel(c));
+	      channel->completePush();
+	    }
 	}
       
       return nItems;

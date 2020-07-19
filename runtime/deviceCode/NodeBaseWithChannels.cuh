@@ -45,9 +45,6 @@ namespace Mercator  {
     //
     // @brief Constructor
     //
-    // @param maxActiveThreads max allowed # of active threads per run
-    // @param queueSize requested size for node's input queue
-    //
     __device__
     NodeBaseWithChannels(Scheduler *scheduler, unsigned int region)
       : NodeBase(scheduler, region)

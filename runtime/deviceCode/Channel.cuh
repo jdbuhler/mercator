@@ -52,6 +52,8 @@ namespace Mercator  {
     {
       int tid = threadIdx.x;
       
+      __syncthreads(); // BEGIN WRITE dsBase, ds queue
+      
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
 	{
@@ -60,39 +62,23 @@ namespace Mercator  {
 	  // track produced items for credit calculation
 	  numItemsWritten += totalToWrite;
 	}
-      __syncthreads(); // all threads must see updates to dsBase
+      
+      __syncthreads(); // END WRITE dsBase, ds queue
       
       if (tid < totalToWrite)
 	dsWrite(dsBase, tid, item);
-      
-      __syncthreads(); // protect use of dsBase from any later write
     }
     
-  protected:
-    
-    //
-    // @brief prepare for a direct write to the downstream queue(s)
-    // by reserving space for the items to write.
-    //
-    // @param number of slots to reserve for next write
-    // @return starting index of reserved segment.
-    //
-    __device__
-    unsigned int dsReserve(unsigned int nToWrite) const
-    {
-      assert(IS_BOSS());
-      return dsQueue->reserve(nToWrite);
-    }
-    
-    
+  private:
+        
     //
     // @brief Write items directly to the downstream queue.
     //
     // May be called MULTI-THREADED
     //
-    // @param item item to be written
-    // @param base base pointer to writable block in queue
+    // @param base base pointer to writable space in queue
     // @param offset offset at which to write item
+    // @param item item to be written
     //
     __device__
     void dsWrite(unsigned int base,

@@ -127,10 +127,13 @@ namespace Mercator  {
 	  // Consume next nItems data items
 	  //
 	  
+	  __syncthreads(); // BEGIN WRITE basePtr, ds queue
+	  
 	  __shared__ unsigned int basePtr;
 	  if (IS_BOSS())
 	    basePtr = sink->reserve(limit);
-	  __syncthreads(); // make sure all threads see base ptr
+	  
+	  __syncthreads(); // END WRITE basePtr, ds queue
 	  
 	  // use every thread to copy from our queue to sink
 	  for (unsigned int base = 0; base < limit; base += THREADS_PER_BLOCK)

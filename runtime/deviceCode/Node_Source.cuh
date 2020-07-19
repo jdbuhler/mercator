@@ -123,7 +123,7 @@ namespace Mercator  {
 		     unsigned int minFreeSpace)
     {
       assert(c < numChannels);
-      assert(outputsPerInput > 0);
+      assert(minFreeSpace > 0);
       
       // init the output channel -- should only happen once!
       assert(getChannel(c) == nullptr);
@@ -201,6 +201,8 @@ namespace Mercator  {
       // output queue nor exhaust the input.
       numToRequest = min(numToRequest, source->getRequestLimit());
       
+      __syncthreads(); // BEGIN WRITE pendingOffset, numToWrite
+	    
       __shared__ size_t pendingOffset;
       __shared__ size_t numToWrite;
       
@@ -209,7 +211,8 @@ namespace Mercator  {
 	  // ask the source buffer for as many inputs as we want
 	  numToWrite = source->reserve(numToRequest, &pendingOffset);
 	}
-      __syncthreads(); // all threads must see shared vars
+      
+      __syncthreads(); // END WRITE pendingOffset, numToWrite
       
       TIMER_STOP(input);
       

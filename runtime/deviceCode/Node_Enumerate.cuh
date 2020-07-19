@@ -77,7 +77,7 @@ namespace Mercator {
     ///////////////////////////////////////////////////////
 
   private:
-
+    
     // ID of node's enumeration region (used for flushing)
     const unsigned int enumId;
     
@@ -100,7 +100,7 @@ namespace Mercator {
     //
     __device__
     virtual
-    unsigned int findCount(const T &item) = 0;
+    unsigned int findCount(const T &item) const = 0;
 
     //
     // @brief doRun() processes inputs one at a time
@@ -131,15 +131,50 @@ namespace Mercator {
 	  unsigned int myDataCount    = dataCount;
 	  unsigned int myCurrentCount = currentCount;
 	  
-	  // begin a new parent if it's time.  IF we cannot
-	  // (due to full parent buffer), indicate that we've read nothing 
+	  // begin a new parent if it's time.  IF we cannot (due to
+	  // full parent buffer), indicate that we've read nothing
 	  if (myCurrentCount == myDataCount)
 	    {
-	      if (!startItem(queue.getElt(start), &myDataCount))
+	      const T &item = queue.getElt(start);
+	  
+	      // BEGIN WRITE isBlocked, state changes in startItem()
+	      __syncthreads();
+	      
+	      __shared__ bool isBlocked;
+	      if (IS_BOSS())
+		{
+		  if (parentBuffer.isFull())
+		    {
+		      isBlocked = true;
+		      this->block();
+		      
+		      // initiate DS flushing to clear it out, then
+		      // block.  We'll be rescheduled to execute once
+		      // the buffer is no longer full and we can
+		      // unblock.
+		      
+		      NodeBase *dsNode = getDSNode(0);
+		      
+		      if (this->initiateFlush(dsNode, enumId))
+			dsNode->activate();
+		    }
+		  else
+		    {
+		      isBlocked = false;
+		      
+		      startItem(item);
+		    }
+		}
+	      
+	      // END WRITE isBlocked, state changes in startItem()
+	      __syncthreads();
+	      
+	      if (isBlocked)
 		return 0;
 	      
 	      NODE_OCC_COUNT(1);
 	      
+	      myDataCount = findCount(item);
 	      myCurrentCount = 0;
 	    }
 	  
@@ -148,8 +183,6 @@ namespace Mercator {
 	  
 	  unsigned int nEltsToWrite = 
 	    min(myDataCount - myCurrentCount, channel->dsCapacity());
-	  
-	  __syncthreads(); // protect read of dsCapacity from updates below
 	  
 	  for (unsigned int base = 0; 
 	       base < nEltsToWrite; 
@@ -167,93 +200,65 @@ namespace Mercator {
 	  
 	  if (myCurrentCount == myDataCount)
 	    {
-	      finishItem();
+	      if (IS_BOSS())
+		finishItem(); // no state changes need protecting
+	      
 	      nFinished++;
 	    }
 	  
-	  // save any partial parent state
-	  dataCount    = myDataCount;
-	  currentCount = myCurrentCount;
+	  __syncthreads(); // BEGIN WRITE dataCount, currentCount
+	  
+	  if (IS_BOSS())
+	    {
+	      // save any partial parent state
+	      dataCount    = myDataCount;
+	      currentCount = myCurrentCount;
+	    }
+	  
+	  __syncthreads(); // END WRITE dataCount, currentCount
 	}
       
       return nFinished;
     }
     
     //
-    // @brief begin enumeration of a new parent object.  If we cannot
-    // begin an object becaues the parent buffer is full, block the
-    // node and flush its region to make space. Otherwise, add the
-    // object to the parent buffer, store its index in the buffer in
-    // the node's state, and pass the index downstream as a signal to
-    // the rest of the region.
-    //
-    // MUST BE CALLED WITH ALL THREADS
+    // @brief begin enumeration of a new parent object. Add the object
+    // to the parent buffer, store its index in the buffer in the
+    // node's state, and pass the index downstream as a signal to the
+    // rest of the region.
     //
     // @param item new parent object
-    // @param count output parameter; holds result of findCount(item)
     //
-    // @return true iff we were able to start enumerating the item.
-    // 
     __device__
-    bool startItem(const T &item, unsigned int *count)
+    void startItem(const T &item)
     {
-      // buffer is full -- initiate DS flushing to clear it out, then
-      // block.  We'll be rescheduled to execute once the buffer
-      // is no longer full and we can unblock.
-      if (parentBuffer.isFull())
-	{
-	  if (IS_BOSS())
-	    {
-	      NodeBase *dsNode = getDSNode(0);
-	      
-	      if (this->initiateFlush(dsNode, enumId))
-		dsNode->activate();
-	      
-	      this->block();
-	    }
-	  
-	  return false;
-	}
+      assert(IS_BOSS());
       
-      __syncthreads(); // protect read of parentBuffer from write below
-      
+      //
       // set new current parent and issue enumerate signal
-      __shared__ unsigned int eltCount;
-      if (IS_BOSS())
-	{
-	  // new parent object already has refcount == 1
-	  parentIdx = parentBuffer.alloc(item);
-	  
-	  // Create new Enum signal to send downstream
-	  Signal s_new(Signal::Enum);	
-	  s_new.parentIdx = parentIdx;
-	  
-	  parentBuffer.ref(parentIdx); // for use in signal
-	  getChannel(0)->pushSignal(s_new);
-	  
-	  eltCount = this->findCount(item);
-	}
+      //
       
-      __syncthreads();
+      // new parent object already has refcount == 1
+      parentIdx = parentBuffer.alloc(item);
       
-      *count = eltCount;
-      return true;
+      // Create new Enum signal to send downstream
+      Signal s_new(Signal::Enum);	
+      s_new.parentIdx = parentIdx;
+      parentBuffer.ref(parentIdx); // for use in signal
+      
+      getChannel(0)->pushSignal(s_new);
     }
-    
     
     //
     // @brief finish processing a parent item by dropping our reference
     // to it.
     //
-    // SHOULD BE CALLED WITH ALL THREADS
-    //
     __device__
     void finishItem()
-    {
-      if (IS_BOSS())
-	{
-	  parentBuffer.unref(parentIdx); // drop reference to parent item
-	}
+    {      
+      assert(IS_BOSS());
+      
+      parentBuffer.unref(parentIdx); // drop reference to parent item
     }
     
         

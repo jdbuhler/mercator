@@ -73,17 +73,15 @@ namespace Mercator {
       // call init hooks for each node
       for (unsigned int j = 0; j < numNodes; j++)
 	nodes[j]->init();
+
+      __syncthreads(); // writes from init() visible to all threads
       
       if (IS_BOSS())
 	{
 	  nodes[sourceNodeIdx]->activate();
 	}
       
-      __syncthreads(); // init and scheduler state visible to all threads
-      
       scheduler.run();
-      
-      __syncthreads(); // run is complete in all threads
       
 #ifndef NDEBUG
       if (IS_BOSS())

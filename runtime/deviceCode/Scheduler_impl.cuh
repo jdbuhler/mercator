@@ -27,13 +27,16 @@ namespace Mercator  {
     while (true)
       {	
 	COUNT_SCHED_LOOP();
-		
+	
+	__syncthreads(); // BEGIN WRITE nextNode
+	
 	__shared__ NodeBase *nextNode;
 	if (IS_BOSS())
 	  {
 	    nextNode = (top < 0 ? nullptr : workList[top--]);
 	  }
-	__syncthreads(); // for nextNode
+	
+	__syncthreads(); // END WRITE nextNode
 	
 	if (!nextNode) // queue is empty -- terminate
 	  break;
@@ -41,8 +44,6 @@ namespace Mercator  {
 	NODE_TIMER_STOP(scheduler);
 	
 	nextNode->fire();
-	
-	__syncthreads(); // protect state of workList from activations
 	
 	NODE_TIMER_START(scheduler);
       }

@@ -98,10 +98,6 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////
     
     __device__
-    bool isActive() const
-    { return (status & F_ACTIVE); }
-    
-    __device__
     bool isBlocked() const
     { return (status & F_BLOCKED); }
     
@@ -369,7 +365,11 @@ namespace Mercator  {
     ////////////////////////////////////////////////////////////////
     // PRIVATE PORTION OF SCHEDULING INTERFACE
     ////////////////////////////////////////////////////////////////
-
+    
+    __device__
+    bool isActive() const
+    { return (status & F_ACTIVE); }
+    
     //
     // @brief increment node's count of active downstream children.
     //
