@@ -1,13 +1,3 @@
-FIXMES
- -- consider merging isActive and isBlocked into one status
-    field.
-DESIGN OVERHAULS
- -- drop output buffers from nodes.  Allows sundry simplifications
-    from warpspeed branch.
- -- refactor Node hierarchy so that we can write ONE common fire()
-    for all non-source nodes that captures the common logic of managing
-    the input queues.  Will merge the duplicate code in three places.
-
 ** SCHEDULING PROTOCOL
 
 The basic scheduling mechanism of MERCATOR is described in (Plano and
