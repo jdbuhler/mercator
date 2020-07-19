@@ -96,7 +96,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	      abort();
 	    }
 	  
-	  Channel *channel = new Channel(cs->name,
+	  Channel *channel = new Channel(cs->name, cId,
 					 new DataType(cs->type),
 					 cs->maxOutputs,
 					 cs->isVariable,
@@ -123,7 +123,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	  // NB: max output count 1 is patently false, but it doesn't
 	  // matter excpet for cycle checking -- which doesn't work
 	  // with enumeration right now.
-	  Channel *channel = new Channel("__out",
+	  Channel *channel = new Channel("__out", 0,
 					 new DataType("unsigned int", 
 						      mts->inputType->name),
 					 1, true, false);
@@ -265,12 +265,12 @@ App *buildApp(const input::AppSpec *appSpec)
 				   nullptr, 1, 
 				   ModuleType::F_isSource);
 		  
-		  // a source module has a single channel named "out"
-		  string channelName = "out";
+		  // a source module has a single channel named "__out"
+		  string channelName = "__out";
 		  
 		  module->channelNames.insertUnique(channelName, 0);
 		  
-		  Channel *channel = new Channel(channelName,
+		  Channel *channel = new Channel(channelName, 0,
 						 new DataType(typeStr),
 						 1, false, 0);
 		  

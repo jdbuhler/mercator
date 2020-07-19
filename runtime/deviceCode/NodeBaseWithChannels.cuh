@@ -13,8 +13,6 @@
 
 #include "NodeBase.cuh"
 
-#include "Channel.cuh"
-
 #include "device_config.cuh"
 
 #include "options.cuh"
@@ -46,8 +44,10 @@ namespace Mercator  {
     // @brief Constructor
     //
     __device__
-    NodeBaseWithChannels(Scheduler *scheduler, unsigned int region)
-      : NodeBase(scheduler, region)
+    NodeBaseWithChannels(Scheduler *scheduler, 
+			 unsigned int region,
+			 NodeBase *usNode)
+      : NodeBase(scheduler, region, usNode)
     {
       // init channels array
       for (unsigned int c = 0; c < numChannels; ++c)
@@ -91,7 +91,6 @@ namespace Mercator  {
       channels[channelIdx]->setDSQueues(queue, signalQueue);
       
       dsNodes[channelIdx] = dsNode;
-      dsNode->setUSNode(this);
     }
     
     

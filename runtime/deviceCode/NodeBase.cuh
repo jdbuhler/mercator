@@ -16,6 +16,8 @@
 
 #include "Scheduler.cuh"
 
+#include "Channel.cuh"
+
 #include "options.cuh"
 
 namespace Mercator  {
@@ -39,10 +41,10 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
     
     __device__
-    NodeBase(Scheduler *ischeduler, unsigned int iregion)
+    NodeBase(Scheduler *ischeduler, unsigned int iregion, NodeBase *iusNode)
       : region(iregion),
 	scheduler(ischeduler),
-	usNode(nullptr),
+	usNode(iusNode),
 	status(0),
 	nDSActive(0),
 	flushStatus(NO_FLUSH)
@@ -51,20 +53,16 @@ namespace Mercator  {
     __device__
     virtual 
     ~NodeBase() {}
-    
+
     //
-    // @brief set the upstream neighbor of this node (the node at the
-    // upstream end of its incoming edge).
+    // @brief associate a downstream edge with a channel
     //
-    // @param iusNode the upstream node
-    ///
     __device__
-    void setUSNode(NodeBase *iusNode)
-    { 
-      assert(IS_BOSS());
-      
-      usNode = iusNode;
-    }
+    virtual 
+    void setDSEdge(unsigned int channelIdx,
+		   NodeBase *dsNode,
+		   QueueBase *queue,
+		   Queue<Signal> *signalQueue) = 0;
     
     /////////////////////////////////////////////////////////
     
@@ -355,7 +353,7 @@ namespace Mercator  {
 
     const unsigned int region;   // region identifier for flushing    
     Scheduler* const scheduler;  // scheduler used to enqueue fireable nodes
-    NodeBase *usNode;            // upstream neighbor in dataflow graph
+    NodeBase* const usNode;      // upstream neighbor in dataflow graph
     
     unsigned int status;         // active/blocking status
     unsigned int nDSActive;      // # of active downstream children of node

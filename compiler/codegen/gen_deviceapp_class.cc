@@ -207,20 +207,6 @@ void genDeviceModuleConstructor(const App *app,
   vector<Init> inits;
   vector<string> baseArgs;
   
-  // source takes global tail pointer
-  if (mod->isSource())
-    {
-      args.push_back({"size_t *", "tailPtr"});
-      baseArgs.push_back("tailPtr");
-    }
-  
-  // all nodes except the source take a queue size
-  if (!mod->isSource())
-    {
-      args.push_back({"unsigned int", "queueSize"});
-      baseArgs.push_back("queueSize");
-    }
-  
   // all nodes take a pointer to the app scheduler and a region ID
   args.push_back({"Mercator::Scheduler *", "scheduler"});
   baseArgs.push_back("scheduler");
@@ -228,8 +214,28 @@ void genDeviceModuleConstructor(const App *app,
   args.push_back({"unsigned int", "region"});
   baseArgs.push_back("region");
   
-  if (!mod->isSource())
+  if (mod->isSource())
     {
+      // source takes global tail pointer
+      args.push_back({"size_t *", "tailPtr"});
+      baseArgs.push_back("tailPtr");
+    }
+  else
+    {
+      // all other nodes take 
+      //  -- upstream edge info
+      //  -- a queue size
+      //  -- a parent arena in case of enumeration
+      
+      args.push_back({"NodeBase *", "usNode"});
+      baseArgs.push_back("usNode");
+      
+      args.push_back({"unsigned int", "usChannel"});
+      baseArgs.push_back("usChannel");
+      
+      args.push_back({"unsigned int", "queueSize"});
+      baseArgs.push_back("queueSize");
+      
       args.push_back({"Mercator::RefCountedArena *", "parentArena"});
       baseArgs.push_back("parentArena");
     }

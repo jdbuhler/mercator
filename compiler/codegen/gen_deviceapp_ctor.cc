@@ -45,18 +45,22 @@ void genNodeConstruction(const string &nodeObj,
   {
     string nextStmt =
       deviceModuleType + "* " + nodeObj + " = new " + deviceModuleType + "(";
-    
-    if (mod->isSource())
-      nextStmt += "tailPtr";
-    else
-      nextStmt += to_string(node->get_queueSize() * options.queueScaler);
-    
-    nextStmt += ", &scheduler";
+   
+    nextStmt += "&scheduler";
     
     nextStmt += ", " + to_string(node->get_regionId());
     
-    if (!mod->isSource())
+    if (mod->isSource())
+      nextStmt += ", tailPtr";
+    else
       {
+	const Edge *usEdge = node->get_usEdge();
+	nextStmt += ", d" + usEdge->usNode->get_name();
+	nextStmt += ", " + to_string(usEdge->usChannel->id);
+	
+	nextStmt += 
+	  ", " + to_string(node->get_queueSize() * options.queueScaler);
+	
 	string arenaObj;
 	if (node->get_regionId() > 0) // node is in a non-base region
 	  {
@@ -93,59 +97,6 @@ void genNodeConstruction(const string &nodeObj,
   }
 }
 
-    
-//
-// @brief Generate statements that connect the modules of the app
-//    according to the user's edge specifications
-//
-// @param app app being codegen'd
-// @param f Formatter to receive generated code
-//
-static
-void genEdgeInitStmts(const App *app,
-		      Formatter &f)
-{
-  for (const ModuleType *mod : app->modules)
-    {
-      int nChannels = mod->get_nChannels();
-	
-      if (nChannels > 0)
-	{
-	  f.add("// set outgoing edges for nodes of module type " + 
-		mod->get_name());
-	  
-	  string hostModuleType   = "Host::"   + mod->get_name();
-	  string deviceModuleType = mod->get_name();
-	  string moduleObj = "d" + mod->get_name();
-	  
-	  // set downstream queues
-	  for (int usChannel = 0; usChannel < nChannels; ++usChannel)
-	    {
-	      string channelName = mod->get_channel(usChannel)->name;
-	      
-	      for (const Node *usNode : mod->nodes)
-		{
-		  const Edge *dsEdge = usNode->get_dsEdge(usChannel);
-		  if (!dsEdge) // output channel is not connected
-		    continue;
-		  
-		  string usNodeObj = "d" + usNode->get_name();
-		  string dsNodeObj = "d" + dsEdge->dsNode->get_name();
-		  
-		  f.add(usNodeObj + "->setDSEdge(" +
-			deviceModuleType +
-			"::Out::" + channelName + ", " +
-			dsNodeObj + ", " +
-			dsNodeObj + "->getQueue(), " +
-			dsNodeObj + "->getSignalQueue());");
-		}
-	    }
-	  
-	  f.add("");
-	}
-    }
-}
-
 
 //
 // @brief Code-gen device-side app constructor
@@ -167,7 +118,7 @@ void genDeviceAppConstructor(const App *app,
   f.add("using Host = " + app->name + ";");
   f.add("");
   
-  // instantiate all nodes of the app
+  // instantiate all nodes of the app in topological order
   
   f.add("// initialize each node of the app on the device");
   
@@ -179,11 +130,8 @@ void genDeviceAppConstructor(const App *app,
       f.add("");
     }
   
-  // connect the instances of each module by edges
-  genEdgeInitStmts(app, f);
-  f.add("");
+  // create an array of all nodes to initialize the scheduler 
   
-  // create an array of all modules to initialize the scheduler 
   string nextStmt = "Mercator::NodeBase *nodes[] = {";
   for (const Node *node : app->nodes)
     {

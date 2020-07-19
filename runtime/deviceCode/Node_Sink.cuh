@@ -51,11 +51,14 @@ namespace Mercator  {
     // @param queueSize - size for input queue
     //
     __device__
-    Node_Sink(unsigned int queueSize,
-	      Scheduler *scheduler,
+    Node_Sink(Scheduler *scheduler,
 	      unsigned int region,
+	      NodeBase *usNode,
+	      unsigned int usChannel,
+	      unsigned int queueSize,
 	      RefCountedArena *parentArena)
-      : BaseType(queueSize, scheduler, region, parentArena),
+      : BaseType(scheduler, region, usNode, usChannel, 
+		 queueSize, parentArena),
 	sink(nullptr)
     {
 #ifdef INSTRUMENT_OCC

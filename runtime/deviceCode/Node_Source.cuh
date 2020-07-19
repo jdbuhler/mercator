@@ -66,12 +66,12 @@ namespace Mercator  {
     // the source.
     //
     __device__
-    Node_Source(size_t *itailPtr,
-		Scheduler *scheduler,
-		unsigned int region)
-      : BaseType(scheduler, region),
-	source(nullptr),
-	tailPtr(itailPtr)
+    Node_Source(Scheduler *scheduler,
+		unsigned int region,
+		size_t *itailPtr)
+      : BaseType(scheduler, region, nullptr),
+	tailPtr(itailPtr),
+	source(nullptr)
     {
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(THREADS_PER_BLOCK);

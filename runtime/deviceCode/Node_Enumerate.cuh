@@ -50,12 +50,15 @@ namespace Mercator {
     ///////////////////////////////////////////////////////
 
     __device__
-    Node_Enumerate(unsigned int queueSize,
-		   Scheduler *scheduler,
+    Node_Enumerate(Scheduler *scheduler,
 		   unsigned int region,
+		   NodeBase *usNode,
+		   unsigned int usChannel,
+		   unsigned int queueSize,
 		   RefCountedArena *parentArena,
 		   unsigned int ienumId)
-      : BaseType(queueSize, scheduler, region, parentArena),
+      : BaseType(scheduler, region, usNode, usChannel,
+		 queueSize, parentArena),
 	enumId(ienumId),
 	parentBuffer(10 /*queueSize*/, this), // FIXME: for stress test
 	dataCount(0),

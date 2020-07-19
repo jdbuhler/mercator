@@ -65,16 +65,20 @@ namespace Mercator  {
     // @param queueSize requested size for node's input queue
     //
     __device__
-    Node(const unsigned int queueSize,
-	 Scheduler *scheduler, 
+    Node(Scheduler *scheduler, 
 	 unsigned int region,
+	 NodeBase *usNode,
+	 unsigned int usChannel,
+	 unsigned int queueSize,
 	 RefCountedArena *iparentArena)
-      : BaseType(scheduler, region),
+      : BaseType(scheduler, region, usNode),
 	queue(queueSize),
         signalQueue(queueSize), // could be smaller?
 	parentArena(iparentArena),
 	parentIdx(RefCountedArena::NONE)
-    {}
+    {
+      usNode->setDSEdge(usChannel, this, &queue, &signalQueue);
+    }
     
   protected:
     
@@ -108,26 +112,10 @@ namespace Mercator  {
 	  crash();
 	}
     }
+
+    /////////////////////////////////////////////////////////
     
   public:
-    
-    //
-    // @brief return our queue (needed for upstream channel's
-    // setDSEdge()).
-    //
-    __device__
-    QueueBase *getQueue()
-    { return &queue; }
-    
-    //
-    // @brief return our signal queue (needed for upstream channel's
-    // setDSEdge()).
-    //
-    __device__
-    Queue<Signal> *getSignalQueue()
-    { return &signalQueue; }
-    
-    /////////////////////////////////////////////////////////
     
     //
     // @brief is any input queued for this node?

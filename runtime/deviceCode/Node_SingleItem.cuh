@@ -83,11 +83,14 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
     
     __device__
-    Node_SingleItem(unsigned int queueSize,
-		    Scheduler *scheduler,
+    Node_SingleItem(Scheduler *scheduler,
 		    unsigned int region,
+		    NodeBase *usNode,
+		    unsigned int usChannel,
+		    unsigned int queueSize,
 		    RefCountedArena *parentArena)
-      : BaseType(queueSize, scheduler, region, parentArena)
+      : BaseType(scheduler, region, usNode, usChannel,
+		 queueSize, parentArena)
     {
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);

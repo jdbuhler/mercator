@@ -104,18 +104,21 @@ struct Edge {
 // FIXME: do we actually need to track the channel idx?
 struct Channel {
   std::string name;
-  
+  unsigned int id;             // index in module's channel array
+
   DataType *type;              // output type of channel
   unsigned int  maxOutputs;    // max outputs/input on channel
   bool isVariable;             // is outputs/input fixed or variable?
   bool isAggregate;            // is the channel used for aggregates?
   
   Channel(const std::string &iname,
+	  unsigned int iid,
 	  DataType *itype,
 	  unsigned int imaxOutputs,
 	  bool iisVariable,
           bool iisAggregate)
     : name(iname),
+      id(iid),
       type(itype),
       maxOutputs(imaxOutputs),
       isVariable(iisVariable),
@@ -160,10 +163,12 @@ public:
   unsigned int get_queueSize() const
   { return queueSize; }
   
+  Edge *get_usEdge() const { return treeEdge; }
+  
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
   
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
-
+  
   void set_regionId(int r) { regionId = r; }
   
   void set_enumerateId(int e) { enumerateId = e; }
