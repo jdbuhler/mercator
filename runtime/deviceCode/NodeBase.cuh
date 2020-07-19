@@ -94,11 +94,7 @@ namespace Mercator  {
     // queues, e.g., waiting for space to free up in an internal
     // buffer due to the activity of downstream nodes.
     ///////////////////////////////////////////////////////////
-    
-    __device__
-    bool isBlocked() const
-    { return (status & F_BLOCKED); }
-    
+        
     //
     // @brief set node to be active for scheduling purposes.
     // If this makes node fireable, schedule it for execution.
@@ -348,6 +344,12 @@ namespace Mercator  {
       
       flushStatus = NO_FLUSH;
     }
+
+  protected:
+    
+    __device__
+    bool isBlocked() const
+    { return (status & F_BLOCKED); }
 
   private:
 

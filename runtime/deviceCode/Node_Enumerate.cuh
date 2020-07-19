@@ -140,15 +140,12 @@ namespace Mercator {
 	    {
 	      const T &item = queue.getElt(start);
 	  
-	      // BEGIN WRITE isBlocked, state changes in startItem()
-	      __syncthreads();
-	      
-	      __shared__ bool isBlocked;
+	      // BEGIN WRITE blocking status, state changes in startItem()
+
 	      if (IS_BOSS())
 		{
 		  if (parentBuffer.isFull())
 		    {
-		      isBlocked = true;
 		      this->block();
 		      
 		      // initiate DS flushing to clear it out, then
@@ -163,16 +160,14 @@ namespace Mercator {
 		    }
 		  else
 		    {
-		      isBlocked = false;
-		      
 		      startItem(item);
 		    }
 		}
 	      
-	      // END WRITE isBlocked, state changes in startItem()
+	      // END WRITE blocking status, state changes in startItem()
 	      __syncthreads();
 	      
-	      if (isBlocked)
+	      if (this->isBlocked())
 		return 0;
 	      
 	      NODE_OCC_COUNT(1);

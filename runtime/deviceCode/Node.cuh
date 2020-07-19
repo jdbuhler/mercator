@@ -211,9 +211,6 @@ namespace Mercator  {
 	    {
 	      nCredits -= nFinished;
 	      
-	      // FIXME: blockwide read of blocking status; every other
-	      // scheduling property of node is only read in boss thread
-	      
 	      if (nCredits == 0 && !this->isBlocked())
 		{
 		  nCredits = this->handleSignal(nSignalsConsumed);
