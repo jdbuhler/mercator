@@ -54,7 +54,7 @@ Note that the signal credit protocol ensures that signals are never
 issued with more credit than the number of items currently in the data
 queue.  Hence, it is not possible to have a nonempty signal queue
 unless there are enough data items queued to allow all those signals
-to be processed. [FIXME: could be 0 items if all signals have 0 credit]
+to be processed.
 
 [Rationale: why does emptiness not merely require that the signal
 queue be non-FULL?  This alternative definition would be safe, in that
