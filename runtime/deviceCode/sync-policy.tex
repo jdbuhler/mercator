@@ -108,4 +108,9 @@ BEFORE write and eliminate the need for a separate sync AFTER write.
 It might be worth implementing a generic broadcast<T> operation to
 encapsulate the implementation here.
 
-
+Prominent data structures that are ``boss-only'' in the runtime are:
+ - the worklist and its top pointer in the scheduler
+ - the entire state of the parent buffer (but *NOT* the parent index
+   in each node)
+ - the scheduling state of each node (active, nDSActive, ...) *except*
+   for the blocking flag, which is read by all threads.

@@ -15,6 +15,28 @@
 
 namespace Mercator  {
   
+  template <typename T, unsigned int TPB>
+  __device__
+  T broadcast(const T &v, unsigned int sourceTID = 0)
+  {
+    if (TPB == WARP_SIZE)
+      {
+	return __shfl_sync((1ULL << WARP_SIZE) - 1, v, sourceTID);
+      }
+    else
+      {
+	__shared__ T vShared;
+	
+	__syncthreads();
+	if (threadIdx.x == sourceTID)
+	  vShared = v;
+	__syncthreads();
+	
+	return vShared;
+      }
+  }
+  
+  
   //
   // @brief Block-wide scan operations
   // @tparam T data type for sum

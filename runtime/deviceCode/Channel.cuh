@@ -52,7 +52,7 @@ namespace Mercator  {
     {
       int tid = threadIdx.x;
       
-      __syncthreads(); // BEGIN WRITE dsBase, ds queue
+      __syncthreads(); // BEGIN WRITE dsBase, numItemsWritten, ds queue
       
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
@@ -76,7 +76,7 @@ namespace Mercator  {
     {
       assert(!pred || offset < totalToWrite);
       
-      __syncthreads(); // BEGIN WRITE dsBase, ds queue
+      __syncthreads(); // BEGIN WRITE dsBase, numItemsWritten, ds queue
       
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
