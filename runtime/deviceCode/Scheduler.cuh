@@ -31,6 +31,10 @@ namespace Mercator  {
   class Scheduler {
     
   public:
+
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
     
     //
     // @brief Constructor
@@ -39,7 +43,7 @@ namespace Mercator  {
     __device__
     Scheduler(unsigned int numNodes)
     {
-      workList = new NodeBase * [numNodes];
+      workList = new NodeBase* [numNodes];
       top = -1;
     }
     
@@ -52,13 +56,15 @@ namespace Mercator  {
     {
       delete [] workList;
     }
+
+    //////////////////////////////////////////////////////
     
     //
     // @brief run the MERCATOR application to consume all input
     //
     __device__
     void run();
-
+    
     //
     // @brief add a node to the scheduler's list of fireable nodes
     //

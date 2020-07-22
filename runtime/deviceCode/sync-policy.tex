@@ -1,0 +1,111 @@
+MERCATOR's runtime involves complex interactions among many classes,
+most of which include some form of global memory state variables.  In
+addition, some local variables used to communicate between threads in
+different warps may be stored in per-SM shared memory.  When different
+threads of a block read and write this data, there is the potential
+for unpredictable read/write ordering hazards.  Even within a single
+warp, newer NVIDIA GPU architectures give each thread a separate
+program counter, so it is NOT safe to assume that threads in one warp
+execute in lockstep.  Hence, no matter how many warps constitute a
+block, it is necessary to use synchronization to protect interthread
+communication through global memory.
+
+MERCATOR's runtime uses the following policies to ensure safe
+synchronization across threads:
+
+(1) The 0th thread of a block is the ``boss'' thread.  Certain
+variables and data structures are only read and written by the boss;
+these structures do not require synchronization to protect them.
+Other variables and structures are written by the boss but potentially
+read by any thread in the block.  The latter data must be protected
+by appropriate __syncthreads() or similar calls.
+
+There are relatively few examples of threads other than the boss
+writing shared or global data in the runtime.  The obvious cases are
+writes of data to the inter-node queues and the input and output
+stream buffers. Queue writes are guaranteed safe from subsequent reads
+so long as there is a sync between successive calls to node fire()
+functions.  Writes to the output stream are safe because it is never
+read by the kernel.
+
+User nodes may write their own state using multiple threads, but this
+data is disjoint from the runtime's own data structures, and the user
+is responsible for managing it appropriately.  Nodes' writes to queues
+all occur via the runtime's push(), which appropriately manages access
+to these queues.
+
+(2) Every function in the runtime is one of four types with respect
+    to global and shared state:
+
+  (0) functions called only from the init or cleanup kernels, not
+      the main kernel.  These functions are all run with one thread
+      for each block, and each block's thread touches non-overlapping
+      data structures, so synchronization in tehse functions is not
+      necessary.
+
+  (i) read-only [generally const]
+
+  (ii) read-write, boss only (marked with 'assert(IS_BOSS())' at the
+      head of the function.
+
+  (iii) read-write, called with all threads.  These functions are
+      responsible for protecting their own writes of global and shared
+      data from reads by ANY function in the runtime.
+
+There are currently almost no instances in the runtime of data-writing
+functions that run with some but not all threads.  The one exception
+is push() for buffered nodes, which is carefully designed so that each
+thread touches non-overlapping storage within one call, and the
+subsequent completePush() function ensures that synchronization
+happens before the written data is read again.
+
+There are a number of cases in which a node needs to do some operation
+for each of its output channels.  While some of these operations could
+in principle be parallelized across threads, doing so would result in
+multiple threads potentially writing data structures that are
+currently written only by the boss and so would require careful
+analysis to ensure safety.  (Moreover, different channels are
+instantiations of a template class with different data types, so the
+parallel invocations wouldn't necessarily be running the same code.)
+
+(3) When a multithreaded function writes global or shared state, the
+function MUST ensure that any such writes are safe with respect to
+code outside this function.  To ensure safety, the function must
+synchronize both BEFORE the write and AFTER the write.  Syncing before
+writing a variable ensures that threads relying on the pre-write value
+will complete before the value changes.  Syncing after the write
+ensures that all threads that expect the post-write value will see it.
+
+Every sync is annotated with a comment indicating the variables and
+data structures for which it is a pre-write or a post-write sync. Note
+that calls to boss-only, non-read-only functions may contain writes
+that must be protected by the caller, because all threads, not just
+the boss, must participate in a sync.
+
+NOTES ON MORE EFFICIENT SYNCING BEHAVIOR
+
+We may assume WLOG that there is always a sync between successive
+calls to nodes' fire() functions.  This sync is currently needed in
+the scheduler to protect the broadcast of the next fireable node to
+all threads, but even if this were not needed, it should be maintained
+so that we don't have to protect every write to the data queues.  There
+may be some other writes that no longer need protection within the scope
+of a single fire() call.
+
+Within one run (there are multiple runs per firing), the main source
+of syncs is to protect the tail pointer of the downstream queues.
+Lots of other state is only modified at the end of a firing.  The
+enumerate node and signal handling incur several syncs to protect
+writes to state that can be updated by signals.
+
+Many other syncs are incurred on __shared__ variables that are used
+for broadcast.  In particular, the boss thread computes some value
+that must immediately be communicated to all threads in the block and
+uses the shared variable to communicate it.  If a block were to have
+only a single warp, these shared variables could be replaced with
+shuffle_sync operations, which would effectively implement the sync
+BEFORE write and eliminate the need for a separate sync AFTER write.
+It might be worth implementing a generic broadcast<T> operation to
+encapsulate the implementation here.
+
+

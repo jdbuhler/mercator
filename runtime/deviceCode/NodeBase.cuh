@@ -32,8 +32,6 @@ namespace Mercator  {
     // largest possible flushing status -- any flush will override it
     static const unsigned int NO_FLUSH = UINT_MAX;
     
-    enum Status { F_ACTIVE = 0x01, F_BLOCKED = 0x02 };
-    
   public:
 
     ///////////////////////////////////////////////////////
@@ -45,8 +43,7 @@ namespace Mercator  {
       : region(iregion),
 	scheduler(ischeduler),
 	usNode(iusNode),
-	status(0),
-	nDSActive(0),
+	active(false), blocked(false), nDSActive(0),
 	flushStatus(NO_FLUSH)
     {}
     
@@ -108,7 +105,7 @@ namespace Mercator  {
       // an active node when we put it into flush mode.
       if (!isActive())
 	{
-	  status |= F_ACTIVE;
+	  active = true;
 	  if (usNode) //source has no upstream neighbor
 	    usNode->incrDSActive();
 	  
@@ -127,7 +124,7 @@ namespace Mercator  {
       
       if (isActive()) // we never actually call deactivate on an inactive node
 	{
-	  status &= ~F_ACTIVE;
+	  active = false;
 	  if (usNode)  // source has no upstream neighbor
 	    usNode->decrDSActive();
 	}
@@ -157,7 +154,7 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      status |= F_BLOCKED;
+      blocked = true;
     }
     
 
@@ -175,7 +172,7 @@ namespace Mercator  {
       
       if (isBlocked())
 	{
-	  status &= ~F_BLOCKED;
+	  blocked = false;
 	  if (nDSActive == 0)
 	    scheduler->addFireableNode(this);
 	}
@@ -349,7 +346,7 @@ namespace Mercator  {
     
     __device__
     bool isBlocked() const
-    { return (status & F_BLOCKED); }
+    { return blocked; }
 
   private:
 
@@ -357,7 +354,8 @@ namespace Mercator  {
     Scheduler* const scheduler;  // scheduler used to enqueue fireable nodes
     NodeBase* const usNode;      // upstream neighbor in dataflow graph
     
-    unsigned int status;         // active/blocking status
+    bool active;                 // is the node active?
+    bool blocked;                // is the node blocking?
     unsigned int nDSActive;      // # of active downstream children of node
     unsigned int flushStatus;    // is node flushing? If so, how far?
 
@@ -368,7 +366,7 @@ namespace Mercator  {
     
     __device__
     bool isActive() const
-    { return (status & F_ACTIVE); }
+    { return active; }
     
     //
     // @brief increment node's count of active downstream children.

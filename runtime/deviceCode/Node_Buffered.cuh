@@ -23,7 +23,8 @@ namespace Mercator  {
   // @class Node_Buffered
   // @brief MERCATOR node whose run() fcn takes one input per thread group
   // and performs output buffering in push(), so that it may be called with
-  // a subset of threads.
+  // a subset of threads.  Note that each thread is assumed to take 0 or
+  // 1 inputs.
   //
   // We use CRTP rather than virtual functions to derive subtypes of this
   // nod, so that the run() function can be inlined in fire().
