@@ -69,6 +69,30 @@ namespace Mercator  {
 	dsWrite(dsBase, tid, item);
     }
     
+    __device__
+    void pushPredicated(const T &item, bool pred, 
+			unsigned int offset, 
+			unsigned int totalToWrite)
+    {
+      assert(!pred || offset < totalToWrite);
+      
+      __syncthreads(); // BEGIN WRITE dsBase, ds queue
+      
+      __shared__ unsigned int dsBase;
+      if (IS_BOSS())
+	{
+	  dsBase = dsReserve(totalToWrite);
+	  
+	  // track produced items for credit calculation
+	  numItemsWritten += totalToWrite;
+	}
+      
+      __syncthreads(); // END WRITE dsBase, ds queue
+      
+      if (pred)
+	dsWrite(dsBase, offset, item);
+    }
+    
   private:
         
     //

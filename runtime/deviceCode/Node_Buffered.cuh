@@ -1,10 +1,11 @@
 #ifndef __NODE_SINGLEITEM_CUH
-#define __NODE_SINGLEITEM_CUH
+#define __NODE_BUFFERED_CUH
 
 //
-// @file Node_SingleItem.cuh
-// @brief general MERCATOR node that assumes that each thread
-//        group processes a single input per call to run()
+// @file Node_Buffered.cuh
+// @brief MERCATOR node whose run() fcn takes one input per thread group
+// and performs output buffering in push(), so that it may be called with
+// a subset of threads.
 //
 // MERCATOR
 // Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
@@ -14,27 +15,26 @@
 
 #include "Node.cuh"
 
-#include "Channel.cuh"
-
-#include "support/collective_ops.cuh"
+#include "BufferedChannel.cuh"
 
 namespace Mercator  {
 
   //
-  // @class Node_SingleItem
+  // @class Node_Buffered
   // @brief MERCATOR node whose run() fcn takes one input per thread group
+  // and performs output buffering in push(), so that it may be called with
+  // a subset of threads.
+  //
   // We use CRTP rather than virtual functions to derive subtypes of this
   // nod, so that the run() function can be inlined in fire().
   // The expected signature of run is
   //
-  //   __device__ void run(const T &data, unsigned int nInputs)
-  //
-  // where only the first nInputs threads have input items
+  //   __device__ void run(const T &data)
   //
   // @tparam T type of input item
   // @tparam numChannels  number of output channels 
-  // @tparam runWithAllThreads call run with all threads, or just as many
-  //           as have inputs?
+  // @tparam threadGroupSize number of threads per input
+  // @tparam maxActiveThreads max # of threads that can take input at once 
   // @tparam DerivedNodeType subtype that defines the run() function
   //
   template<typename T, 
@@ -43,7 +43,7 @@ namespace Mercator  {
 	   unsigned int maxActiveThreads,
 	   unsigned int THREADS_PER_BLOCK,
 	   typename DerivedNodeType>
-  class Node_SingleItem
+  class Node_Buffered
     : public Node<T,
 		  numChannels,
 		  THREADS_PER_BLOCK> {
@@ -86,12 +86,12 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
     
     __device__
-    Node_SingleItem(Scheduler *scheduler,
-		    unsigned int region,
-		    NodeBase *usNode,
-		    unsigned int usChannel,
-		    unsigned int queueSize,
-		    RefCountedArena *parentArena)
+    Node_Buffered(Scheduler *scheduler,
+		  unsigned int region,
+		  NodeBase *usNode,
+		  unsigned int usChannel,
+		  unsigned int queueSize,
+		  RefCountedArena *parentArena)
       : BaseType(scheduler, region, usNode, usChannel,
 		 queueSize, parentArena)
     {
@@ -100,6 +100,43 @@ namespace Mercator  {
 #endif
     }
 
+  protected:
+    
+    //
+    // @brief Create and initialize a buffered output channel.
+    //
+    // @param c index of channel to initialize
+    // @param outputsperInput max # of outputs produced per input
+    //
+    template<typename DST>
+    __device__
+    void initBufferedChannel(unsigned int c, 
+			     unsigned int outputsPerInput,
+			     bool isAgg = false)
+    {
+      assert(c < numChannels);
+      assert(outputsPerInput > 0);
+      
+      // init the output channel -- should only happen once!
+      assert(getChannel(c) == nullptr);
+      
+      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
+      setChannel(c, new Channel(outputsPerInput,
+				isAgg,
+				numThreadGroups,
+				threadGroupSize,
+				1 /* numEltsPerGroup*/));
+      
+      // make sure alloc succeeded
+      if (getChannel(c) == nullptr)
+	{
+	  printf("ERROR: failed to allocate channel object [block %d]\n",
+		 blockIdx.x);
+
+	  crash();
+	}
+    }
+    
     ////////////////////////////////////////////////////////
     
   private:
@@ -138,8 +175,22 @@ namespace Mercator  {
 	     ? queue.getElt(start + tid)
 	     : queue.getDummy()); // don't create a null reference
 	  
-	  DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-	  n->run(myData, nItems);
+	  __syncthreads(); // BEGIN WRITE output buffer through push()
+	  
+	  if (tid < nItems)
+	    {
+	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
+	      n->run(myData);
+	    }
+	  
+	  __syncthreads(); // END WRITE output buffer through push()
+	  
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      BufferedChannelBase *channel =
+		static_cast<BufferedChannelBase *>(getChannel(c));
+	      channel->completePush();
+	    }
 	}
       
       return nItems;
@@ -179,27 +230,17 @@ namespace Mercator  {
     //
     // @tparam DST Type of item to be written
     // @param item Item to be written
-    // @param pred predicate indicating whether thread should write
     // @param channelIdx channel to which to write the item
     //
     template<typename DST>
     __device__
-    void push(const DST &item, bool pred, unsigned int channelIdx = 0) const
+    void push(const DST &item, unsigned int channelIdx = 0) const
     {
-      //
-      // assign offsets in the output queue to threads that want to write
-      // a value, and compute the total number of values to write
-      //
-      BlockScan<unsigned int, THREADS_PER_BLOCK> scanner;
-      unsigned int totalToWrite;
-      
-      unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
-      
-      using Channel = Channel<DST>;
+      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
       
       Channel *channel = static_cast<Channel*>(getChannel(channelIdx));
       
-      channel->pushPredicated(item, pred, dsOffset, totalToWrite);
+      channel->push(item);
     }
   };
 }  // end Mercator namespace

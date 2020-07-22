@@ -44,6 +44,11 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
 	"const " + inputType + "& inputItem";
     }
   
+  if (mod->get_useAllThreads())
+    {
+      runFcnParams += ", unsigned int nInputs";
+    }
+  
   return runFcnParams;
 }
 
@@ -90,10 +95,15 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	{
 	  string moduleTypeVariant;
 	  
-	  if (mod->get_nElements() > 1)
-	    moduleTypeVariant = "Node_ManyItems";
+	  if (!mod->get_useAllThreads()) //runWithAllThreads
+	    moduleTypeVariant = "Node_Buffered";
 	  else
-	    moduleTypeVariant = "Node_SingleItem";
+	    {
+	      if (mod->get_nElements() > 1)
+		moduleTypeVariant = "Node_ManyItems";
+	      else
+		moduleTypeVariant = "Node_SingleItem";
+	    }
 	  
 	  baseType =
 	    moduleTypeVariant
@@ -101,7 +111,6 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	    + ", " + to_string(mod->get_nChannels())
 	    + ", " + to_string(mod->get_nThreads())
 	    + ", " + to_string(mod->get_inputLimit())
-	    + ", " + to_string(mod->get_useAllThreads()) //runWithAllThreads
 	    + ", THREADS_PER_BLOCK"
 	    ", " + mod->get_name() // for CRTP
 	    + ">";
@@ -131,22 +140,27 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
     {
       const Channel *channel = mod->get_channel(j);
       
-      if (mod->isUser())
+      if (mod->isUser() && !mod->get_useAllThreads())
 	{
 	  f.add("initBufferedChannel<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
 		+ to_string(channel->maxOutputs)
 		+ (channel->isAggregate ? ", true);" : ");"));
-		  
 	}
       else
 	{
-	  // FIXME: what should minFreeSpace be?
+	  unsigned int spaceRequired;
+	  
+	  if (mod->isUser())
+	    spaceRequired = channel->maxOutputs * mod->get_inputLimit();
+	  else // source or enumerate can keep going until channel fills
+	    spaceRequired = 1; 
+
 	  f.add("initChannel<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
-		+ to_string(1)
+		+ to_string(spaceRequired)
 		+ (channel->isAggregate ? ", true);" : ");"));
 	}
     }
@@ -616,18 +630,21 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     // include only the module type specializations needed by the app
     bool needsSingleItem = false;
     bool needsMultiItem = false;
+    bool needsBuffered = false;
     bool needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
       {
 	if (mod->isSource() || mod->isSink())
 	  continue;
+	else if(mod->isEnumerate())
+	  needsEnumerate = true;
+	else if (!mod->get_useAllThreads())
+	  needsBuffered = true;
 	else if (mod->get_nElements() > 1)
 	  needsMultiItem = true;
 	else 
 	  needsSingleItem = true;
-	if (mod->isEnumerate())
-	  needsEnumerate = true;
       }
     
     if (needsSingleItem)
@@ -636,6 +653,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     if (needsMultiItem)
       f.add(genUserInclude("deviceCode/Node_MultiItem.cuh"));
 
+    if (needsBuffered)
+      f.add(genUserInclude("deviceCode/Node_Buffered.cuh"));
+    
     if (needsEnumerate)
       f.add(genUserInclude("deviceCode/Node_Enumerate.cuh"));
     

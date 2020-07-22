@@ -139,9 +139,10 @@ namespace Mercator {
 	  if (myCurrentCount == myDataCount)
 	    {
 	      const T &item = queue.getElt(start);
-	  
+	      
 	      // BEGIN WRITE blocking status, state changes in startItem()
-
+	      __syncthreads();
+	      
 	      if (IS_BOSS())
 		{
 		  if (parentBuffer.isFull())

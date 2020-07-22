@@ -261,10 +261,10 @@ namespace Mercator  {
 	  // did we empty our input queue?
 	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
 	      nSignalsConsumed == nSignalsToConsume)
-	  {
-	    this->deactivate(); 
-
-	    if (this->isFlushing())
+	    {
+	      this->deactivate(); 
+	      
+	      if (this->isFlushing())
 	      {
 		// force downstream neighbors into flushing mode and
 		// activate them (if not already active).  Even if
