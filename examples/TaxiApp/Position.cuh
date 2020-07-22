@@ -7,7 +7,6 @@ struct Position {
   
   __device__ __host__
   Position()
-    : tag(0), latitude(0.0), longitude(0.0)
   {}
   
   __device__ __host__

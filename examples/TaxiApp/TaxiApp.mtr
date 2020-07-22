@@ -19,7 +19,11 @@ Application Taxi;
 
 
 Module BracketFind : Enumerate Line -> accept<{unsigned int} from Line>;
+AllThreads BracketFind;
+
 Module CoordinateSwap : {unsigned int} from Line -> Aggregate accept<Position>;
+AllThreads CoordinateSwap;
+
 
 Node src : Source<Line>;
 Node bf : BracketFind;
