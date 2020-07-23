@@ -245,7 +245,7 @@ namespace Mercator  {
 	  TIMER_START(input);
 	}
       
-      // BEGIN WRITE queues, credit, state changes in flushComplete()
+      // BEGIN WRITE queue ptrs, credit, state changes in flushComplete()
       __syncthreads(); 
       
       if (IS_BOSS())
@@ -285,9 +285,9 @@ namespace Mercator  {
 	  }
 	}
       
-      // END WRITE queues, credit, state changes in flushComplete()
-      
-      __syncthreads(); 
+      // END WRITE queue ptrs, credit, state changes in flushComplete()
+      // [suppressed because we are assumed to sync before next firing]
+      // __syncthreads(); 
       
       TIMER_STOP(input);
     }

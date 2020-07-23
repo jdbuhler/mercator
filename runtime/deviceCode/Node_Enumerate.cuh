@@ -140,7 +140,8 @@ namespace Mercator {
 	    {
 	      const T &item = queue.getElt(start);
 	      
-	      // BEGIN WRITE blocking status, state changes in startItem()
+	      // BEGIN WRITE blocking status, parentIdx change and
+	      // ds signal queue ptr in startItem()
 	      __syncthreads();
 	      
 	      if (IS_BOSS())
@@ -165,7 +166,8 @@ namespace Mercator {
 		    }
 		}
 	      
-	      // END WRITE blocking status, state changes in startItem()
+	      // END WRITE blocking status, parentIdx change and
+	      // ds signal queue ptr in startItem()
 	      __syncthreads();
 	      
 	      if (this->isBlocked())

@@ -201,8 +201,9 @@ namespace Mercator  {
       // output queue nor exhaust the input.
       numToRequest = min(numToRequest, source->getRequestLimit());
       
-      __syncthreads(); // BEGIN WRITE pendingOffset, numToWrite
-	    
+      // BEGIN WRITE pendingOffset, numToWrite (src ptr not read)
+      __syncthreads();
+      
       __shared__ size_t pendingOffset;
       __shared__ size_t numToWrite;
       

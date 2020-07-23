@@ -130,7 +130,7 @@ namespace Mercator  {
 	  // Consume next nItems data items
 	  //
 	  
-	  __syncthreads(); // BEGIN WRITE basePtr (ds queue ptr is atomic)
+	  __syncthreads(); // BEGIN WRITE basePtr (ds queue ptr is not read)
 	  
 	  __shared__ unsigned int basePtr;
 	  if (IS_BOSS())

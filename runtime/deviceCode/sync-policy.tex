@@ -92,11 +92,14 @@ so that we don't have to protect every write to the data queues.  There
 may be some other writes that no longer need protection within the scope
 of a single fire() call.
 
-Within one run (there are multiple runs per firing), the main source
-of syncs is to protect the tail pointer of the downstream queues.
-Lots of other state is only modified at the end of a firing.  The
-enumerate node and signal handling incur several syncs to protect
-writes to state that can be updated by signals.
+The main need for syncs on data that cross function boundaries in the
+runtime is to protect the tail pointers of the downstream
+queues. These are used after the run and associated signal handling,
+but before the next run, to determine if the downstream queues are
+full.  The enumerate node and signal handling also incur syncs to
+protect writes to state that can be updated by signals.  Much of the
+other state needed in firing (e.g. queue head ptrs) changes only at
+the end of the firing.
 
 Many other syncs are incurred on __shared__ variables that are used
 for broadcast.  In particular, the boss thread computes some value
@@ -108,9 +111,11 @@ BEFORE write and eliminate the need for a separate sync AFTER write.
 It might be worth implementing a generic broadcast<T> operation to
 encapsulate the implementation here.
 
-Prominent data structures that are ``boss-only'' in the runtime are:
+Data structures that are ``boss-only'' in the runtime include:
  - the worklist and its top pointer in the scheduler
  - the entire state of the parent buffer (but *NOT* the parent index
    in each node)
  - the scheduling state of each node (active, nDSActive, ...) *except*
    for the blocking flag, which is read by all threads.
+ - the numItemsWritten counter in channels, used to set credit for
+   outgoing signals.

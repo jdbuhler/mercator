@@ -112,7 +112,7 @@ namespace Mercator  {
       
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
-      // BEGIN WRITE dsBase, ds queue, numItemsWritten, nextSlot
+      // BEGIN WRITE dsBase, ds queue, nextSlot
       __syncthreads(); 
 
       // clear nextSlot for this thread group, since we're done with it
@@ -128,7 +128,7 @@ namespace Mercator  {
 	  numItemsWritten += totalToWrite;
 	}
       
-      // END WRITE dsBase, ds queue numItemsWritten, nextSlot
+      // END WRITE dsBase, ds queue, nextSlot
       __syncthreads(); 
       
       // for each thread group, copy all generated outputs downstream
