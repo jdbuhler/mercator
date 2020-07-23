@@ -102,6 +102,23 @@ namespace Mercator  {
     }
     
     //
+    // @brief prepare for a direct write to the downstream queue(s)
+    // by reserving space for the items to write.
+    //
+    // @param number of slots to reserve for next write
+    // @return starting index of reserved segment.
+    //
+    __device__
+    unsigned int dsReserve(unsigned int nToWrite)
+    {
+      assert(IS_BOSS());
+      
+      numItemsWritten += nToWrite;
+      
+      return dsQueue->reserve(nToWrite);
+    }
+    
+    //
     // @brief push a signal to a specified channel, and reset the number
     // of items produced on that channel. 
     //
@@ -138,19 +155,6 @@ namespace Mercator  {
     QueueBase *dsQueue;
     Queue<Signal> *dsSignalQueue;
     
-    //
-    // @brief prepare for a direct write to the downstream queue(s)
-    // by reserving space for the items to write.
-    //
-    // @param number of slots to reserve for next write
-    // @return starting index of reserved segment.
-    //
-    __device__
-    unsigned int dsReserve(unsigned int nToWrite) const
-    {
-      assert(IS_BOSS());
-      return dsQueue->reserve(nToWrite);
-    }
   }; // end ChannelBase class
 }  // end Mercator namespace
 

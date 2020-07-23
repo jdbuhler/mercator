@@ -53,11 +53,13 @@ to these queues.
       data from reads by ANY function in the runtime.
 
 There are currently almost no instances in the runtime of data-writing
-functions that run with some but not all threads.  The one exception
-is push() for buffered nodes, which is carefully designed so that each
-thread touches non-overlapping storage within one call, and the
-subsequent completePush() function ensures that synchronization
-happens before the written data is read again.
+functions that run with some but not all threads.  The exceptions are
+dsWrite() for channels, which touches only the memory of the
+downstream queues (which will be sync'd in scheduler before it is read
+by another node) and push() for buffered nodes, which is carefully
+designed so that each thread touches non-overlapping storage within
+one call, and the subsequent completePush() function ensures that
+synchronization happens before the written data is read again.
 
 There are a number of cases in which a node needs to do some operation
 for each of its output channels.  While some of these operations could
@@ -82,24 +84,24 @@ that calls to boss-only, non-read-only functions may contain writes
 that must be protected by the caller, because all threads, not just
 the boss, must participate in a sync.
 
-NOTES ON MORE EFFICIENT SYNCING BEHAVIOR
+NOTES ON EFFICIENT SYNCING BEHAVIOR
 
-We may assume WLOG that there is always a sync between successive
-calls to nodes' fire() functions.  This sync is currently needed in
-the scheduler to protect the broadcast of the next fireable node to
-all threads, but even if this were not needed, it should be maintained
-so that we don't have to protect every write to the data queues.  There
-may be some other writes that no longer need protection within the scope
-of a single fire() call.
+We assume WLOG that there is always a sync between successive calls to
+nodes' fire() functions.  This sync is currently needed in the
+scheduler to protect the broadcast of the next fireable node to all
+threads, but even if it were not needed, the sync should be maintained
+so that we don't have to protect every write to the data queues.
+There may be some other writes that no longer need protection within
+the scope of a single fire() call.
 
 The main need for syncs on data that cross function boundaries in the
 runtime is to protect the tail pointers of the downstream
-queues. These are used after the run and associated signal handling,
-but before the next run, to determine if the downstream queues are
-full.  The enumerate node and signal handling also incur syncs to
-protect writes to state that can be updated by signals.  Much of the
-other state needed in firing (e.g. queue head ptrs) changes only at
-the end of the firing.
+queues. These are used before the next downstream write to determine
+if the downstream queues are full, and to get their occupancy for
+enumerate and source nodes.  The enumerate node and signal handling
+also incur syncs to protect writes to per-node state that can be
+updated by signals.  Much of the other state needed in firing
+(e.g. queue head ptrs) changes only at the end of the firing.
 
 Many other syncs are incurred on __shared__ variables that are used
 for broadcast.  In particular, the boss thread computes some value

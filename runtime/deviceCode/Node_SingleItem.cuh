@@ -125,22 +125,19 @@ namespace Mercator  {
       
       unsigned int nItems = min(limit, maxRunSize);
       
-      if (nItems > 0)
-	{
-	  //
-	  // Consume next nItems data items
-	  //
-	  
-	  NODE_OCC_COUNT(nItems);
-	  
-	  const T &myData =
-	    (tid < nItems
-	     ? queue.getElt(start + tid)
-	     : queue.getDummy()); // don't create a null reference
-	  
-	  DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-	  n->run(myData, nItems);
-	}
+      //
+      // Consume next nItems data items
+      //
+      
+      NODE_OCC_COUNT(nItems);
+      
+      const T &myData =
+	(tid < nItems
+	 ? queue.getElt(start + tid)
+	 : queue.getDummy()); // don't create a null reference
+      
+      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
+      n->run(myData, nItems);
       
       return nItems;
     }
@@ -199,7 +196,16 @@ namespace Mercator  {
       
       Channel *channel = static_cast<Channel*>(getChannel(channelIdx));
       
-      channel->pushPredicated(item, pred, dsOffset, totalToWrite);
+      __syncthreads(); // BEGIN WRITE basePtr, ds queue
+      
+      __shared__ unsigned int basePtr;
+      if (IS_BOSS())
+	basePtr = channel->dsReserve(totalToWrite);
+      
+      __syncthreads(); // END WRITE basePtr, ds queue
+      
+      if (pred)
+	channel->dsWrite(basePtr, dsOffset, item);
     }
   };
 }  // end Mercator namespace

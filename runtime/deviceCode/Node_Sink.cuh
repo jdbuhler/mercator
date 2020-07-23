@@ -124,35 +124,34 @@ namespace Mercator  {
     {
       unsigned int tid = threadIdx.x;
       
-      if (limit > 0)
+      //
+      // Consume next nItems data items
+      //
+      
+      __syncthreads(); // BEGIN WRITE basePtr (ds sink ptr is not read)
+      
+      __shared__ unsigned int basePtr;
+      if (IS_BOSS())
+	basePtr = sink->reserve(limit);
+      
+      __syncthreads(); // END WRITE basePtr
+      
+      // use every thread to copy from our queue to sink
+      for (unsigned int base = 0; 
+	   base < limit; 
+	   base += THREADS_PER_BLOCK)
 	{
-	  //
-	  // Consume next nItems data items
-	  //
-	  
-	  __syncthreads(); // BEGIN WRITE basePtr (ds queue ptr is not read)
-	  
-	  __shared__ unsigned int basePtr;
-	  if (IS_BOSS())
-	    basePtr = sink->reserve(limit);
-	  
-	  __syncthreads(); // END WRITE basePtr
-	  
-	  // use every thread to copy from our queue to sink
-	  for (unsigned int base = 0; base < limit; base += THREADS_PER_BLOCK)
-	    {
 #ifdef INSTRUMENT_OCC
-	      unsigned int vecSize = min(limit - base, THREADS_PER_BLOCK);
-	      NODE_OCC_COUNT(vecSize);
+	  unsigned int vecSize = min(limit - base, THREADS_PER_BLOCK);
+	  NODE_OCC_COUNT(vecSize);
 #endif
-
-	      int srcIdx = base + tid;
-	      
-	      if (srcIdx < limit)
-		{
-		  const T &myData = queue.getElt(start + srcIdx);
-		  sink->put(basePtr, srcIdx, myData);
-		}
+	  
+	  int srcIdx = base + tid;
+	  
+	  if (srcIdx < limit)
+	    {
+	      const T &myData = queue.getElt(start + srcIdx);
+	      sink->put(basePtr, srcIdx, myData);
 	    }
 	}
       

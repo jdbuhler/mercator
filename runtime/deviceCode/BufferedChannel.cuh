@@ -29,9 +29,6 @@ namespace Mercator  {
 	    unsigned int THREADS_PER_BLOCK>
   class BufferedChannel : public BufferedChannelBase {
     
-    using ChannelBase::dsReserve;
-    using ChannelBase::numItemsWritten;
-    
   public:
 
     ///////////////////////////////////////////////////////
@@ -121,12 +118,7 @@ namespace Mercator  {
       
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
-	{
-	  dsBase = dsReserve(totalToWrite);
-	  
-	  // track produced items for credit calculation
-	  numItemsWritten += totalToWrite;
-	}
+	dsBase = dsReserve(totalToWrite);
       
       // END WRITE dsBase, ds queue, nextSlot
       __syncthreads(); 
@@ -150,7 +142,7 @@ namespace Mercator  {
     
     T *data;
     
-        //
+    //
     // @brief Write items directly to the downstream queue.
     //
     // May be called MULTI-THREADED

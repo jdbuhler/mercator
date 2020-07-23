@@ -163,35 +163,29 @@ namespace Mercator  {
       
       unsigned int nItems = min(limit, maxRunSize);
       
-      if (nItems > 0)
+      //
+      // Consume next nItems data items
+      //
+      
+      NODE_OCC_COUNT(nItems);
+      
+      __syncthreads(); // BEGIN WRITE output buffer through push()
+      
+      if (tid < nItems)
 	{
-	  //
-	  // Consume next nItems data items
-	  //
+	  DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
 	  
-	  NODE_OCC_COUNT(nItems);
-	  
-	  const T &myData =
-	    (tid < nItems
-	     ? queue.getElt(start + tid)
-	     : queue.getDummy()); // don't create a null reference
-	  
-	  __syncthreads(); // BEGIN WRITE output buffer through push()
-	  
-	  if (tid < nItems)
-	    {
-	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-	      n->run(myData);
-	    }
-	  
-	  __syncthreads(); // END WRITE output buffer through push()
-	  
-	  for (unsigned int c = 0; c < numChannels; c++)
-	    {
-	      BufferedChannelBase *channel =
-		static_cast<BufferedChannelBase *>(getChannel(c));
-	      channel->completePush();
-	    }
+	  const T &myData = queue.getElt(start + tid);
+	  n->run(myData);
+	}
+      
+      __syncthreads(); // END WRITE output buffer through push()
+      
+      for (unsigned int c = 0; c < numChannels; c++)
+	{
+	  BufferedChannelBase *channel =
+	    static_cast<BufferedChannelBase *>(getChannel(c));
+	  channel->completePush();
 	}
       
       return nItems;

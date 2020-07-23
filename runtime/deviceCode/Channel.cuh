@@ -23,7 +23,7 @@ namespace Mercator  {
   class Channel : public ChannelBase {
     
   public:
-
+    
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
     ///////////////////////////////////////////////////////
@@ -41,61 +41,6 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
     
     //
-    // @brief move items in each of first totalToWrite threads to the
-    // output buffer. MUST BE CALLED WITH ALL THREADS.
-    // 
-    // @param item item to be pushed
-    // @param totalToWrite total number of items to be written
-    //
-    __device__
-    void pushCount(const T &item, unsigned int totalToWrite)
-    {
-      int tid = threadIdx.x;
-      
-      __syncthreads(); // BEGIN WRITE dsBase, ds queue
-      
-      __shared__ unsigned int dsBase;
-      if (IS_BOSS())
-	{
-	  dsBase = dsReserve(totalToWrite);
-	  
-	  // track produced items for credit calculation
-	  numItemsWritten += totalToWrite;
-	}
-      
-      __syncthreads(); // END WRITE dsBase, ds queue
-      
-      if (tid < totalToWrite)
-	dsWrite(dsBase, tid, item);
-    }
-    
-    __device__
-    void pushPredicated(const T &item, bool pred, 
-			unsigned int offset, 
-			unsigned int totalToWrite)
-    {
-      assert(!pred || offset < totalToWrite);
-      
-      __syncthreads(); // BEGIN WRITE dsBase, ds queue
-      
-      __shared__ unsigned int dsBase;
-      if (IS_BOSS())
-	{
-	  dsBase = dsReserve(totalToWrite);
-	  
-	  // track produced items for credit calculation
-	  numItemsWritten += totalToWrite;
-	}
-      
-      __syncthreads(); // END WRITE dsBase, ds queue
-      
-      if (pred)
-	dsWrite(dsBase, offset, item);
-    }
-    
-  private:
-        
-    //
     // @brief Write items directly to the downstream queue.
     //
     // May be called MULTI-THREADED
@@ -111,7 +56,6 @@ namespace Mercator  {
     {
       static_cast<Queue<T>*>(dsQueue)->putElt(base, offset, item);
     }
-    
   }; // end Channel class
 }  // end Mercator namespace
 

@@ -219,26 +219,33 @@ namespace Mercator  {
       
       TIMER_START(output);
       
-      for (size_t base = 0; base < numToWrite; base += THREADS_PER_BLOCK)
+      for (unsigned int c = 0; c < numChannels; c++)
 	{
-	  unsigned int vecSize = 
-	    min(numToWrite - base, (size_t) THREADS_PER_BLOCK);
+	  Channel<T> *channel = static_cast<Channel<T>*>(getChannel(c));
+		      
+	  __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
 	  
-	  NODE_OCC_COUNT(vecSize);
+	  __shared__ unsigned int basePtr;
+	  if (IS_BOSS())
+	    basePtr = channel->dsReserve(numToWrite);
 	  
-	  size_t srcIdx = base + tid;
+	  __syncthreads(); // END WRITE basePtr, ds queue tail
 	  
-	  T myData = (srcIdx < numToWrite 
-		      ? source->get(pendingOffset + srcIdx)
-		      : source->get(pendingOffset)); // dummy
-	  
-	  for (unsigned int c = 0; c < numChannels; c++)
+	  for (size_t base = 0; 
+	       base < numToWrite; 
+	       base += THREADS_PER_BLOCK)
 	    {
-	      using Channel = Channel<T>;
+#ifdef INSTRUMENT_OCC
+	      unsigned int vecSize = min(numToWrite - base, THREADS_PER_BLOCK);
+	      NODE_OCC_COUNT(vecSize);
+#endif
+	      size_t srcIdx = base + tid;
 	      
-	      Channel *channel = static_cast<Channel*>(getChannel(c));
-	      
-	      channel->pushCount(myData, vecSize);
+	      if (srcIdx < numToWrite)
+		{
+		  T myData = source->get(pendingOffset + srcIdx);
+		  channel->dsWrite(basePtr, srcIdx, myData);
+		}
 	    }
 	}
       

@@ -128,99 +128,106 @@ namespace Mercator {
       Channel *channel = static_cast<Channel*>(getChannel(0));
       
       unsigned int nFinished = 0;
-      if (limit > 0)
+      
+      // recover state of partially emitted parent, if any
+      unsigned int myDataCount    = dataCount;
+      unsigned int myCurrentCount = currentCount;
+      
+      // begin a new parent if it's time.  IF we cannot (due to
+      // full parent buffer), indicate that we've read nothing
+      if (myCurrentCount == myDataCount)
 	{
-	  // recover state of partially emitted parent, if any
-	  unsigned int myDataCount    = dataCount;
-	  unsigned int myCurrentCount = currentCount;
+	  const T &item = queue.getElt(start);
 	  
-	  // begin a new parent if it's time.  IF we cannot (due to
-	  // full parent buffer), indicate that we've read nothing
-	  if (myCurrentCount == myDataCount)
-	    {
-	      const T &item = queue.getElt(start);
-	      
-	      // BEGIN WRITE blocking status, parentIdx, 
-	      // ds signal queue ptr in startItem()
-	      __syncthreads();
-	      
-	      if (IS_BOSS())
-		{
-		  if (parentBuffer.isFull())
-		    {
-		      this->block();
-		      
-		      // initiate DS flushing to clear it out, then
-		      // block.  We'll be rescheduled to execute once
-		      // the buffer is no longer full and we can
-		      // unblock.
-		      
-		      NodeBase *dsNode = getDSNode(0);
-		      
-		      if (this->initiateFlush(dsNode, enumId))
-			dsNode->activate();
-		    }
-		  else
-		    {
-		      parentIdx = startItem(item);
-		    }
-		}
-	      
-	      // END WRITE blocking status, parentIdx,
-	      // ds signal queue ptr in startItem()
-	      __syncthreads();
-	      
-	      if (this->isBlocked())
-		return 0;
-	      
-	      NODE_OCC_COUNT(1);
-	      
-	      myDataCount = findCount(item);
-	      myCurrentCount = 0;
-	    }
-	  
-	  // push as many elements as we can from the current
-	  // item to the DS node
-	  
-	  unsigned int nEltsToWrite = 
-	    min(myDataCount - myCurrentCount, channel->dsCapacity());
-	  
-	  for (unsigned int base = 0; 
-	       base < nEltsToWrite; 
-	       base += THREADS_PER_BLOCK)
-	    {
-	      unsigned int vecSize = 
-		min(THREADS_PER_BLOCK, nEltsToWrite - base);
-	      
-	      unsigned int v = myCurrentCount + base + tid;
-	      
-	      channel->pushCount(v, vecSize);
-	    }
-	  
-	  myCurrentCount += nEltsToWrite;
-	  
-	  if (myCurrentCount == myDataCount)
-	    {
-	      if (IS_BOSS())
-		{
-		  // finished with this parent item -- drop reference to it
-		  parentBuffer.unref(parentIdx);
-		}				
-	      
-	      nFinished++;
-	    }
-	  
-	  __syncthreads(); // BEGIN WRITE dataCount, currentCount
+	  // BEGIN WRITE blocking status, parentIdx, 
+	  // ds signal queue ptr in startItem()
+	  __syncthreads();
 	  
 	  if (IS_BOSS())
 	    {
-	      // save any partial parent state
-	      dataCount    = myDataCount;
-	      currentCount = myCurrentCount;
+	      if (parentBuffer.isFull())
+		{
+		  this->block();
+		  
+		  // initiate DS flushing to clear it out, then
+		  // block.  We'll be rescheduled to execute once
+		  // the buffer is no longer full and we can
+		  // unblock.
+		  
+		  NodeBase *dsNode = getDSNode(0);
+		  
+		  if (this->initiateFlush(dsNode, enumId))
+		    dsNode->activate();
+		}
+	      else
+		{
+		  parentIdx = startItem(item);
+		}
 	    }
 	  
-	  __syncthreads(); // END WRITE dataCount, currentCount
+	  // END WRITE blocking status, parentIdx,
+	  // ds signal queue ptr in startItem()
+	  __syncthreads();
+	  
+	  if (this->isBlocked())
+	    return 0;
+	  
+	  NODE_OCC_COUNT(1);
+	  
+	  myDataCount = findCount(item);
+	  myCurrentCount = 0;
 	}
+      
+      // push as many elements as we can from the current
+      // item to the DS node
+      
+      unsigned int nEltsToWrite = 
+	min(myDataCount - myCurrentCount, channel->dsCapacity());
+      
+      __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
+      
+      __shared__ unsigned int basePtr;
+      if (IS_BOSS())
+	basePtr = channel->dsReserve(nEltsToWrite);
+      
+      __syncthreads(); // END WRITE basePtr, ds queue tail
+      
+      for (unsigned int base = 0; 
+	   base < nEltsToWrite; 
+	   base += THREADS_PER_BLOCK)
+	{
+	  unsigned int srcIdx = base + tid;
+	  
+	  if (srcIdx < nEltsToWrite)
+	    {
+	      unsigned int v = myCurrentCount + srcIdx;
+	      channel->dsWrite(basePtr, srcIdx, v);
+	    }
+	}
+      
+      myCurrentCount += nEltsToWrite;
+      
+      if (myCurrentCount == myDataCount)
+	{
+	  if (IS_BOSS())
+	    {
+	      // finished with this parent item -- drop reference to it
+	      parentBuffer.unref(parentIdx);
+	    }				
+	  
+	  nFinished++;
+	}
+      
+      __syncthreads(); // BEGIN WRITE dataCount, currentCount
+      
+      if (IS_BOSS())
+	{
+	  // save any partial parent state
+	  dataCount    = myDataCount;
+	  currentCount = myCurrentCount;
+	}
+      
+      __syncthreads(); // END WRITE dataCount, currentCount
       
       return nFinished;
     }
