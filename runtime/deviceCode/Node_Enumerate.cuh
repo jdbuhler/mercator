@@ -140,7 +140,7 @@ namespace Mercator {
 	    {
 	      const T &item = queue.getElt(start);
 	      
-	      // BEGIN WRITE blocking status, parentIdx change and
+	      // BEGIN WRITE blocking status, parentIdx, 
 	      // ds signal queue ptr in startItem()
 	      __syncthreads();
 	      
@@ -162,11 +162,11 @@ namespace Mercator {
 		    }
 		  else
 		    {
-		      startItem(item);
+		      parentIdx = startItem(item);
 		    }
 		}
 	      
-	      // END WRITE blocking status, parentIdx change and
+	      // END WRITE blocking status, parentIdx,
 	      // ds signal queue ptr in startItem()
 	      __syncthreads();
 	      
@@ -202,7 +202,10 @@ namespace Mercator {
 	  if (myCurrentCount == myDataCount)
 	    {
 	      if (IS_BOSS())
-		finishItem(); // no state changes need protecting
+		{
+		  // finished with this parent item -- drop reference to it
+		  parentBuffer.unref(parentIdx);
+		}				
 	      
 	      nFinished++;
 	    }
@@ -229,40 +232,27 @@ namespace Mercator {
     // rest of the region.
     //
     // @param item new parent object
+    // @return index of new item in parent buffer
     //
     __device__
-    void startItem(const T &item)
+    unsigned int startItem(const T &item)
     {
       assert(IS_BOSS());
       
-      //
-      // set new current parent and issue enumerate signal
-      //
-      
       // new parent object already has refcount == 1
-      parentIdx = parentBuffer.alloc(item);
+      unsigned int pIdx = parentBuffer.alloc(item);
       
       // Create new Enum signal to send downstream
       Signal s_new(Signal::Enum);	
-      s_new.parentIdx = parentIdx;
-      parentBuffer.ref(parentIdx); // for use in signal
+      s_new.parentIdx = pIdx;
+      parentBuffer.ref(pIdx); // for use in signal
       
       getChannel(0)->pushSignal(s_new);
-    }
-    
-    //
-    // @brief finish processing a parent item by dropping our reference
-    // to it.
-    //
-    __device__
-    void finishItem()
-    {      
-      assert(IS_BOSS());
       
-      parentBuffer.unref(parentIdx); // drop reference to parent item
+      return pIdx;
     }
     
-        
+    
     //
     // @brief if we have emptied our inputs in response to a flush,
     // signal our downstream neighbors so that, when they are flushing,
