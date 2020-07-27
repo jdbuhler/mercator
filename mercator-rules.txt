@@ -75,10 +75,9 @@ function(add_mercator_app)
    target_include_directories(${appname}
 			      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
-		              PRIVATE ${CUB_ROOT_DIR})
+			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
 
-  target_compile_features(${appname} PUBLIC cxx_std_11)
+  target_compile_features(${appname} PUBLIC cxx_std_14)
 
 endfunction(add_mercator_app)
 
@@ -115,8 +114,7 @@ function(add_mercator_executable)
   target_include_directories(${ADD_MERCATOR_EXE_TARGET}
 			     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-		             PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
-		             PRIVATE ${CUB_ROOT_DIR})
+		             PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
 
   # Link the executable against all apps (which become its dependencies)
   target_link_libraries(${ADD_MERCATOR_EXE_TARGET} "${ADD_MERCATOR_EXE_APPS}")

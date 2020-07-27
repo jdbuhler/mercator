@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <iostream>
 
+#include <cuda.h>
+
 // profiling
 #ifdef PROFILE_TIME
 #include <cuda_profiler_api.h>
