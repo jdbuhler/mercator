@@ -7,8 +7,6 @@
 project(Mandelbrot
 	LANGUAGES CUDA CXX)
 
-cmake_minimum_required(VERSION 3.8)
-
 add_mercator_app(TARGET Mandelbrot
 		 SPECFILE Mandelbrot.mtr
 		 SOURCES Mandelbrot.cu)

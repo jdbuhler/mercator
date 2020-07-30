@@ -5,7 +5,7 @@
 project(MERCATOR_EXAMPLES
 	LANGUAGES CUDA CXX)
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.18)
 
 #set(CMAKE_BUILD_TYPE debug)
 set(CMAKE_BUILD_TYPE release)
@@ -28,6 +28,8 @@ set(BUILDING_IN_TREE true)
 # CUDA COMPILER FLAGS
 #######################################################################
 
+set (CMAKE_CUDA_ARCHITECTURES 61)
+
 set (CMAKE_CXX_FLAGS_DEBUG   
      "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall")
 
@@ -40,10 +42,9 @@ set (CMAKE_CXX_FLAGS_RELEASE
 set (CMAKE_CUDA_FLAGS_RELEASE
      "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -UNDEBUG")
 
-set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
 
-string(JOIN " " NVCCFLAGS ${ARCHFLAGS} ${WARNFLAGS})
+string(JOIN " " NVCCFLAGS ${WARNFLAGS})
 
 string(APPEND CMAKE_CUDA_FLAGS ${NVCCFLAGS})
 

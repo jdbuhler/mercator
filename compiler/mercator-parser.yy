@@ -10,7 +10,7 @@
 
 %defines
 
-%define parser_class_name {mercator_parser}
+%define api.parser.class {mercator_parser}
 //%define api.prefix {yy}
 
 %define api.token.constructor
