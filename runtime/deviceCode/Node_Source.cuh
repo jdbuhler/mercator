@@ -236,7 +236,7 @@ namespace Mercator  {
 	       base += THREADS_PER_BLOCK)
 	    {
 #ifdef INSTRUMENT_OCC
-	      unsigned int vecSize = min(numToWrite - base, THREADS_PER_BLOCK);
+	      unsigned int vecSize = min((unsigned long)numToWrite - base, (unsigned long)THREADS_PER_BLOCK);
 	      NODE_OCC_COUNT(vecSize);
 #endif
 	      size_t srcIdx = base + tid;

@@ -55,10 +55,6 @@ namespace Mercator  {
 	  channels[c] = nullptr;
 	  dsNodes[c] = nullptr;
 	}
-      
-#ifdef INSTRUMENT_OCC
-      occCounter.setMaxRunSize(maxRunSize);
-#endif
     }
     
     //

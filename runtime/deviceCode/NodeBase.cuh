@@ -20,6 +20,8 @@
 
 #include "options.cuh"
 
+#include "instrumentation/occ_counter.cuh"
+
 namespace Mercator  {
   
   //
