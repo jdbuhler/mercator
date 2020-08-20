@@ -190,12 +190,6 @@ namespace Mercator  {
       for (unsigned int c = 0; c < numChannels; c++)
 	numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
       
-      // round down to a full ensemble width, since the node with the
-      // least available space still has at least one ensemble's worth
-      // (given that it was inactive when fire() was called), and
-      // we can still get its free space to < one ensemble width.
-      numToRequest = (numToRequest / THREADS_PER_BLOCK) * THREADS_PER_BLOCK;
-      
       // if the source advises a lower request size than what we planned,
       // honor that.  Note that this may cause us to neither fill any
       // output queue nor exhaust the input.
