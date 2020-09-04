@@ -9,8 +9,9 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
-#include <cstddef>
 #include <iostream>
+#include <cstddef>
+#include <cstring>
 
 // profiling
 #ifdef PROFILE_TIME
@@ -50,6 +51,13 @@ namespace Mercator  {
     int getNBlocks() const { return nBlocks; }
     
     
+    void setAppName(const char* name) 
+    { 
+      int len = strlen(name) + 1;
+      appName = new char [len];
+      memcpy(appName, name, len);
+    }
+    
     // @brief constructor sets up the device context
     //
     // @param stream CUDA stream in which to run
@@ -58,7 +66,8 @@ namespace Mercator  {
     AppDriver(cudaStream_t istream,
 	      int ideviceId)
       : stream(istream),
-	deviceId(ideviceId)
+	deviceId(ideviceId),
+	appName(0)
     {
       using namespace std;
       
@@ -272,7 +281,7 @@ namespace Mercator  {
     ~AppDriver()
     {
       using namespace std;
-
+      
       // switch to our device
       int prevDeviceId = switchDevice(deviceId);
       
@@ -311,7 +320,9 @@ namespace Mercator  {
       
       cout.setf(ios::fixed, ios::floatfield);
       int oldPrec = cout.precision(2);
-      cout << "***Application runtimes (ms):" << endl;
+      cout << "*** " 
+	   << (appName ? appName : "Application") 
+	   << " runtimes (ms):" << endl;
       cout << "\tinit: " 
 	   << elapsedTime_init << "ms ("
 	   << elapsedTime_init*100.0/totalTime
@@ -328,6 +339,9 @@ namespace Mercator  {
 	   << totalTime << "ms" << endl;
       cout.precision(oldPrec);
 #endif    // if INSTRUMENT_TIME_HOST
+      
+      if (appName)
+	delete [] appName;
 
       // switch back to caller's device
       switchDevice(prevDeviceId);
@@ -354,8 +368,10 @@ namespace Mercator  {
     
   private:
 
+
     cudaStream_t stream;
     int deviceId;
+    char *appName;
     
     DevApp **deviceAppObjs;
     HostParamsT *hostParams;
