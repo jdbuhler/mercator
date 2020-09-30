@@ -104,6 +104,8 @@ namespace Mercator  {
       cout << "New CUDA device heap size: "
 	   << devHeapSize
 	   << endl;
+
+      cout << "Requested Heap Size: "<< DevApp::DEVICE_HEAP_SIZE<< endl; 
 #endif
       
       //
@@ -214,7 +216,9 @@ namespace Mercator  {
       
       // make a copy of the current parameter data so that the user
       // can change this structure safely after we return.
-      HostParamsT *tmpParams = new HostParamsT;
+      //this copy lives in pinned memory for non-blocking copies
+      HostParamsT *tmpParams;
+      cudaMallocHost(&tmpParams, sizeof(HostParamsT));
       memcpy(tmpParams, params, sizeof(HostParamsT));
     
       // copy the current parameter data to the device
@@ -392,7 +396,7 @@ namespace Mercator  {
     static void freeCallback(cudaStream_t stream, cudaError_t status,
 			     void *tmpParams)
     {
-      delete (HostParamsT *) tmpParams;
+      cudaFreeHost(tmpParams);
     }
 
   };
