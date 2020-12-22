@@ -124,7 +124,8 @@ namespace Mercator  {
 						    mainKernel<DevApp>,
 						    DevApp::THREADS_PER_BLOCK,
 						    0);
-      
+      gpuErrchk( cudaPeekAtLastError() );
+
       if (nBlocksPerSM_suggested == 0) // unable to launch at all
 	{
 	  cerr << "ERROR: app kernel cannot launch with the requested"
@@ -159,7 +160,6 @@ namespace Mercator  {
       nBlocks = USE_X_BLOCKS;
     #endif
     
-
       // allocate space on device for passing host parameter struct
       cudaMalloc(&hostParams, sizeof(HostParamsT));
       gpuErrchk( cudaPeekAtLastError() );
@@ -396,7 +396,7 @@ namespace Mercator  {
     static void freeCallback(cudaStream_t stream, cudaError_t status,
 			     void *tmpParams)
     {
-      cudaFreeHost(tmpParams);
+      //cudaFreeHost(tmpParams);
     }
 
   };
