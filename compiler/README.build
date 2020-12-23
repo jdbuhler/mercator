@@ -1,0 +1,22 @@
+The Mercator compiler requires the following external packages:
+
+- LLVM/Clang (for type-checking of spec files)
+
+- Flex and Bison (for building the spec file parser)
+
+For LLVM, we recommend version 11 or higher.  If building your own
+LLVM from source, be sure to
+
+ 1. include Clang.  If downloding the source tarballs for LLVM and
+    Clang, move the Clang tree into the LLVM tree as subdirectory
+    tools/clang.  Building LLVM then builds Clang as well.
+
+ 2. build the DYLIB version of LLVM.  Here is the CMake command we
+    used for our LLVM installation:
+
+cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<prefix> -DLLVM_BUILD_LLVM_DYLIB=true <LLVM-source-tree>
+
+For bison, we need a newish version that supports api.parser.class.
+Version 3.3 or above should work.  Flex versions as old as 2.5.37 are
+known to work.
+

@@ -141,7 +141,7 @@ public:
     // args.push_back("-v");
     
     // we must include the path to Clang's standard system libraries
-    args.push_back("-I" LLVM_PATH "/lib/clang/" LLVM_VERSION "/include");
+    args.push_back("-I" LLVM_LIBDIR "/clang/" LLVM_VERSION "/include");
 
     // include the paths supplied by local CUDA install, which could
     // be a list separated by ";" characters

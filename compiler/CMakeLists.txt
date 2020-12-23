@@ -7,8 +7,18 @@
 project(MERCATOR_FRONTEND
         LANGUAGES CUDA CXX)
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.13.4)
 
+find_package(LLVM REQUIRED CONFIG
+  PATHS ${LLVM_PATH} NO_DEFAULT_PATH)
+
+find_package(Clang REQUIRED CONFIG
+  PATHS ${LLVM_PATH} NO_DEFAULT_PATH)
+
+find_package(FLEX)
+
+find_package(BISON)
+			
 #######################################################################
 # File dependency list
 #######################################################################
@@ -35,7 +45,7 @@ add_executable(mercator
 # Compilation flags
 #######################################################################
 
-set_property(TARGET mercator PROPERTY CXX_STANDARD 11)
+set_property(TARGET mercator PROPERTY CXX_STANDARD 14)
 
 set (CMAKE_CXX_FLAGS_DEBUG   
      "${CMAKE_CXX_FLAGS_DEBUG} -O0 -UNDEBUG -Wall -DVERBOSE")
@@ -45,6 +55,12 @@ set (CMAKE_CXX_FLAGS_RELEASE
 
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
+# avoid warnings about type punning from LLVM Clang headers
+set_source_files_properties(typecheck.cc
+       PROPERTIES COMPILE_FLAGS
+       "${LLVM_CXXFLAGS} -fno-strict-aliasing"
+)
+
 ######################################################################
 # Include paths needed for compilation
 ######################################################################
@@ -52,38 +68,17 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 target_include_directories(mercator
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../runtime
-	PRIVATE ${LLVM_PATH}/include
-)
-
-######################################################################
-# Special compile flags for use with typecheck.cc, which uses LLVM
-######################################################################
-
-#
-# LLVM provides necessary compilation options for code that uses it,
-# but remove LLVM-suggested flags that conflict with overall build type
-#
-
-execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --cxxflags
-                OUTPUT_VARIABLE LLVM_CXXFLAGS
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "-DNDEBUG" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-string(REGEX REPLACE "-O[0-9]" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-
-set_source_files_properties(typecheck.cc
-       PROPERTIES COMPILE_FLAGS
-       "${LLVM_CXXFLAGS} -fno-strict-aliasing"
+	PRIVATE ${LLVM_INCLUDE_DIRS}
 )
 
 ######################################################################
 # Build magic for MERCATOR's parser and lexer
 ######################################################################
 
-find_package(FLEX)
 FLEX_TARGET(MercatorLexer mercator-lexer.ll 
 			  ${CMAKE_CURRENT_BINARY_DIR}/mercator-lexer.cc)
 
-find_package(BISON)
+
 BISON_TARGET(MercatorParser mercator-parser.yy 
 			    ${CMAKE_CURRENT_BINARY_DIR}/mercator-parser.tab.cc
              DEFINES_FILE   ${CMAKE_CURRENT_BINARY_DIR}/mercator-parser.tab.hh)
@@ -103,9 +98,12 @@ execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --version
                 OUTPUT_VARIABLE LLVM_VERSION
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --libdir
+                OUTPUT_VARIABLE LLVM_LIBDIR
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 configure_file(build_config.h.in
                build_config.h)
-
 
 ######################################################################
 # Supplement to cleanup rules
@@ -125,56 +123,13 @@ set_directory_properties(PROPERTIES
 
 ######################################################################
 # Build library dependencies for mercator
+# If not using a DYLIB build of LLVM, use llvm-config to get a list
+# of libraries to link instead of the single LLVM dep below.
 ######################################################################
 
-# Obtain LLVM library absolute paths from llvm-config
-execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --libfiles
-                OUTPUT_VARIABLE LLVM_LIBS
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-separate_arguments(LLVM_LIBS)
-
-# Obtain LLVM system library names from llvm-config
-execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --system-libs
-                OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-separate_arguments(LLVM_SYSTEM_LIBS)
-
-# Clang does not have the equivalent of llvm-config, so we must
-# list its libraries individually and then find them all.
-set (CLANG_LIBNAMES 
-             clangTooling
-             clangFrontendTool
-             clangFrontend
-	     clangDriver
-	     clangSerialization
-	     clangCodeGen
-	     clangParse
-	     clangSema
-	     clangStaticAnalyzerFrontend
-	     clangStaticAnalyzerCheckers
-	     clangStaticAnalyzerCore
-	     clangAnalysis
-	     clangARCMigrate
-	     clangRewrite
-	     clangRewriteFrontend
-	     clangEdit
-	     clangAST
-	     clangLex
-	     clangBasic
-	     clang
-)
-
-foreach (LIB ${CLANG_LIBNAMES})
-  find_library(FOUND_LIB_${LIB}
-               ${LIB}
-               HINTS ${LLVM_PATH}/lib)
-  list(APPEND CLANG_LIBS ${FOUND_LIB_${LIB}})
-endforeach (LIB)
-
 target_link_libraries(mercator
-        ${CLANG_LIBS}
-        ${LLVM_LIBS}
-        ${LLVM_SYSTEM_LIBS}
+  clang-cpp
+  LLVM
 )
 
 ###############################################################

@@ -6,7 +6,7 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 %skeleton "lalr1.cc" /* -*- C++ -*- */
-%require "3.0.4"
+%require "3.3"
 
 %defines
 
