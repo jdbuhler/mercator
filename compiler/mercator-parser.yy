@@ -84,6 +84,7 @@ class mercator_driver;
   REFERENCE "reference"
   SINK    "sink"
   SOURCE  "source"
+  THREADWIDTH "threadwidth"
   VOID    "void"
 ;
 
@@ -98,7 +99,6 @@ class mercator_driver;
 %type <std::string> typename_string channelname modulename sourcefilename
 %type <std::string> appname nodename varscope edgechannelspec
 %type <input::NodeType *> nodetype
-//%type <int> maxoutput mappingspec qualifier
 %type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
 %type <input::ChannelSpec *> channel simplechannel 
@@ -138,6 +138,7 @@ stmt:
 | modulestmt
 | allthreadsstmt
 | ilimitstmt
+| threadwidthstmt
 | nodestmt
 | edgestmt
 | mappingstmt
@@ -190,6 +191,17 @@ ilimitstmt:
       exit(EXIT_FAILURE);
    }
   driver.currApp()->ilimits.push_back(limit);
+};
+
+threadwidthstmt:
+"threadwidth" "number" ";"
+{
+   if (!driver.currApp())
+    {
+       error(yyla.location, "ThreadWdith statment outside app context");
+       exit(EXIT_FAILURE);
+    }
+   driver.currApp()->threadWidth = $2;
 };
 
 allthreadsstmt:

@@ -304,8 +304,10 @@ namespace input {
   // all topological info for a MERCATOR application
   struct AppSpec {
     std::string name;
-    ASTContainer *typeInfo;
+    unsigned int threadWidth; // threads per block, if non-zero
     
+    ASTContainer *typeInfo;
+
     std::vector<ModuleTypeStmt *> modules;
     
     std::vector<NodeStmt *>  nodes;
@@ -322,6 +324,7 @@ namespace input {
     
     AppSpec(const std::string &name)
       : name(name),
+	threadWidth(0),
 	typeInfo(nullptr)
     {}
     

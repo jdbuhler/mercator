@@ -262,7 +262,8 @@ void App::print() const
 	  cout << endl;
 	}
     }
-  
+
+  cout << " THREAD WIDTH: " << threadWidth << endl;
   cout << " SOURCE NODE: " << sourceNode->get_name() << endl;
   
   for (ModuleType *mod : modules)

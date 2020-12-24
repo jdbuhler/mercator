@@ -127,9 +127,22 @@ set_directory_properties(PROPERTIES
 # of libraries to link instead of the single LLVM dep below.
 ######################################################################
 
+# Obtain LLVM library absolute paths from llvm-config
+execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --libfiles
+                OUTPUT_VARIABLE LLVM_LIBS
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+separate_arguments(LLVM_LIBS)
+
+# Obtain LLVM system library names from llvm-config
+execute_process(COMMAND ${LLVM_PATH}/bin/llvm-config --system-libs
+                OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+separate_arguments(LLVM_SYSTEM_LIBS)
+
 target_link_libraries(mercator
   clang-cpp
-  LLVM
+  ${LLVM_LIBS}
+  ${LLVM_SYSTEM_LIBS}
 )
 
 ###############################################################

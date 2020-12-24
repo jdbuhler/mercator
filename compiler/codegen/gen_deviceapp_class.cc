@@ -671,7 +671,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   f.add("class " + DeviceAppClass +
 	" : public Mercator::DeviceApp<" 
 	+ app->name + "::NUM_NODES, "
-	+ to_string(options.threadsPerBlock) + "," 
+	+ to_string(app->threadWidth) + "," 
 	+ to_string(options.deviceStackSize) + ","
 	+ to_string(options.deviceHeapSize)
 	+ "> {");

@@ -356,9 +356,11 @@ private:
 // Application 
 //
 struct App {
-  
+
   std::string name;
 
+  unsigned int threadWidth;
+  
   Node *sourceNode;
   
   std::vector<ModuleType *> modules;
@@ -375,8 +377,9 @@ struct App {
   
   SymbolTable varNames;     // maps variable names -> unique ids
   
-  App(const std::string &iname)
+  App(const std::string &iname, unsigned int ithreadWidth)
     : name(iname),
+      threadWidth(ithreadWidth),
       sourceNode(nullptr)
   {}
   

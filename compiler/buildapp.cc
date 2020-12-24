@@ -10,6 +10,7 @@
 
 #include "buildapp.h"
 #include "typecheck.h"
+#include "options.h"
 
 using namespace std;
 
@@ -31,7 +32,10 @@ void validateTopologyComplete(const App *app);
 //
 App *buildApp(const input::AppSpec *appSpec)
 {
-  App *app = new App(appSpec->name);
+  App *app = new App(appSpec->name,
+		     appSpec->threadWidth == 0
+		     ? options.threadsPerBlock
+		     : appSpec->threadWidth);
   
   for (const input::ModuleTypeStmt *mts : appSpec->modules)
     {

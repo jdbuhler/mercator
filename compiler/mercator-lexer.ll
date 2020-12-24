@@ -90,6 +90,7 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"reference")   return yy::mercator_parser::make_REFERENCE(loc);
 (?i:"source")      return yy::mercator_parser::make_SOURCE(loc);
 (?i:"sink")        return yy::mercator_parser::make_SINK(loc);
+(?i:"threadwidth") return yy::mercator_parser::make_THREADWIDTH(loc);
 (?i:"void")        return yy::mercator_parser::make_VOID(loc);
 
 {int}      {
