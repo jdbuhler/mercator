@@ -225,7 +225,8 @@ public:
 	     unsigned int iidx,
 	     DataType *iinputType,
 	     unsigned int inChannels,
-	     unsigned int flags);
+	     unsigned int flags,
+	     unsigned int inputLimit);
   
   ~ModuleType();
   

@@ -81,13 +81,14 @@ ModuleType::ModuleType(const string &iname,
 		       unsigned int iidx,
 		       DataType *iinputType,
 		       unsigned int inChannels,
-		       unsigned int iflags)
+		       unsigned int iflags,
+		       unsigned int iinputLimit)
   : name(iname),
     idx(iidx),
     inputType(iinputType),
     nChannels(inChannels),
     flags(iflags),
-    inputLimit(options.threadsPerBlock),
+    inputLimit(iinputLimit),
     nElements(1), nThreads(1)
 {
   channels = new Channel * [nChannels];
