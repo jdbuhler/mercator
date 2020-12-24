@@ -70,7 +70,7 @@ App *buildApp(const input::AppSpec *appSpec)
 					  new DataType(mts->inputType),
 					  mts->channels.size(),
 					  mts->flags,
-					  appSpec->threadWidth);
+					  app->threadWidth);
       
       int cId = 0;
       for (const input::ChannelSpec *cs : mts->channels)
@@ -123,7 +123,7 @@ App *buildApp(const input::AppSpec *appSpec)
 						  new DataType(mts->inputType),
 						  1, 
 						  ModuleType::F_isEnumerate,
-						  appSpec->threadWidth);
+						  app->threadWidth);
 	  
 	  app->moduleNames.insertUnique(enumModuleName, mId + 1);
       
@@ -271,7 +271,7 @@ App *buildApp(const input::AppSpec *appSpec)
 				   mId,
 				   nullptr, 1, 
 				   ModuleType::F_isSource,
-				   appSpec->threadWidth);
+				   app->threadWidth);
 		  
 		  // a source module has a single channel named "__out"
 		  string channelName = "__out";
@@ -305,7 +305,7 @@ App *buildApp(const input::AppSpec *appSpec)
 				   mId,
 				   new DataType(typeStr), 0, 
 				   ModuleType::F_isSink,
-				   appSpec->threadWidth);
+				   app->threadWidth);
 		  
 		  app->moduleNames.insertUnique(moduleName, mId);
 		  
