@@ -1,4 +1,4 @@
-#ifndef __NODE_SINGLEITEM_CUH
+#ifndef __NODE_BUFFERED_CUH
 #define __NODE_BUFFERED_CUH
 
 //
