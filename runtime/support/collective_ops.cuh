@@ -284,14 +284,6 @@ namespace Mercator  {
       return Reducer(CUB_tmp).Sum(v, nThreads);
     }
 
-        //
-    // @brief compute a sum reduction over the first nThreads threads
-    //   of the block
-    // @param v values to sum
-    // @param nThreads # of threads to sum over (defaults to all)
-    //
-    // @returns sum (in thread 0 ONLY)
-    //
     __device__
     static T max(const T &v, unsigned int nThreads = TPW)
     {
@@ -308,6 +300,22 @@ namespace Mercator  {
       return Reducer(CUB_tmp).Reduce(v, cub::Max(), nThreads);
     }
 
+    __device__
+    static T min(const T &v, unsigned int nThreads = TPW)
+    {
+      // In theory, we need to allocate one of these per warp.  But
+      // with shuffles, it is never used.  Make sure it has
+      // essentially zero size (actually size 1, perhaps because CUB
+      // takes its address?)
+
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      static_assert(sizeof(CUB_tmp) <= 1,
+		    "warp reduce requires temporary storage!");
+       
+      return Reducer(CUB_tmp).Reduce(v, cub::Min(), nThreads);
+    }
+    
   };
   
   
