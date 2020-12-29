@@ -102,7 +102,6 @@ namespace Mercator  {
     __device__
     T &getElt(unsigned int offset) const
     {
-      unsigned int db = getOccupancy();
       assert(getOccupancy() > offset);
       
       unsigned int myIdx = addModulo(head, offset, dataSize);
