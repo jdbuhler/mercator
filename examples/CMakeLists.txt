@@ -16,19 +16,22 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-set(MERCATOR_ROOT_DIR /project/cassini/safire/mercator)
-#set(MERCATOR_ROOT_DIR /home/research/planot/mercator)
-#set(MERCATOR_ROOT_DIR /export/project/hondius/stimcheck/umercator/mercator)
+set(MERCATOR_ROOT_DIR /project/cassini/mblast/mercator)
 
 # Uncomment this variable to build MERCATOR's examples inside
 # its development source tree.
 set(BUILDING_IN_TREE true)
 
+# flags for MERCATOR compiler
+#set (MERCATOR_FLAGS "-q 24")
+
 #######################################################################
 # CUDA COMPILER FLAGS
 #######################################################################
 
+#set (CMAKE_CUDA_ARCHITECTURES 52)
 set (CMAKE_CUDA_ARCHITECTURES 61)
+#set (CMAKE_CUDA_ARCHITECTURES 72)
 
 set (CMAKE_CXX_FLAGS_DEBUG   
      "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall")
