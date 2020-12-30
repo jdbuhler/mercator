@@ -254,8 +254,8 @@ namespace Mercator  {
 	  queue.release(nDataConsumed);
 	  signalQueue.release(nSignalsConsumed);
 	  
-	  // store any unused credits before next signal
-	  if (!signalQueue.empty())
+	  // store any unused credits before next signal, if one exists
+	  if (nSignalsToConsume > nSignalsConsumed)
 	    signalQueue.getHead().credit = nCredits;
 	  
 	  // did we empty our input queue?
@@ -282,7 +282,7 @@ namespace Mercator  {
 		flushComplete();
 		this->clearFlush();  // disable flushing
 	      }
-	  }
+	    }
 	}
       
       // END WRITE queue ptrs, credit, state changes in flushComplete()
