@@ -18,7 +18,7 @@
 
 using namespace std;
 
-const char OptionList[] = ":a:DhH:I:Ko:S:t:v";
+const char OptionList[] = ":a:DhH:I:Ko:q:S:t:v";
 
 CommandOptions options;
 
@@ -43,6 +43,10 @@ static void printUsage()
        << " -o <path>\n"
        << "   write the output files to <path>\n"
        << "   (defaults to current directory)\n"
+       << "\n"
+       << "-q <#>\n"
+       << "   queue size scale factor for generated application\n"
+       << "   (default " << options.queueScaler << ")\n"
        << "\n"
        << " -t <#>\n"
        << "   number of threads per block for the generated application\n"
@@ -98,6 +102,16 @@ bool parseCommandLine(int argc, char **argv)
 	      
 	    case 'o':
 	      options.outputPath = optarg;
+	      break;
+	      
+	    case 'q':
+	      options.queueScaler = stoi(optarg);
+	      if (options.queueScaler < 1)
+		{
+		  cerr << "ERROR: queue scaler must be >= 1"
+		       << endl;
+		  return false;
+		}
 	      break;
 	      
 	    case 't':
