@@ -28,9 +28,25 @@ namespace Mercator   {
   void mainKernel(DeviceAppClass **deviceAppObjs)
   {
     assert(deviceAppObjs[blockIdx.x]);
-    unsigned long long start = clock64();    
-    deviceAppObjs[blockIdx.x]->run();
 
+#ifdef INSTRUMENT_TIME
+    __syncthreads();
+    unsigned long long start = clock64();
+#endif
+    
+    deviceAppObjs[blockIdx.x]->run();
+    
+#ifdef INSTRUMENT_TIME
+    __syncthreads();
+    unsigned long long stop = clock64();    
+    
+    if (IS_BOSS())
+      {
+	printf("%u: main kernel runtime: %llu\n",
+	       blockIdx.x, stop - start);
+      }
+#endif
+    
 #ifdef INSTRUMENT_TIME
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printTimers();
@@ -44,20 +60,6 @@ namespace Mercator   {
 #ifdef INSTRUMENT_SCHED_COUNTS
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printSchedLoopCount();
-#endif
-    unsigned long long stop = clock64();    
-    __syncthreads();
-    BlockReduce<unsigned long long, 128> reducer;
-
-    unsigned long long max = reducer.max(stop);
-    unsigned long long min = reducer.min(start);
-  
-#ifdef INSTRUMENT_TIME
-    if(threadIdx.x==0)
-      {
-	printf("%u: deviceAppObjs[] runtime: %llu, stop %llu, start, %llu\n",
-	       blockIdx.x, max-min, max, min);
-      }
 #endif
   }
 }    // end Mercator namespace
