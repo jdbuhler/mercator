@@ -1,0 +1,114 @@
+Upcoming changes to MERCATOR
+
+(1) Remove Sinks as nodes of the application topology.
+
+We will split Channels into a "regular" Channel that writes a
+downstream data queue and a "sink Channel" that reserves/writes
+directly to a sink.  Sink channels discard any signals sent to them
+and have effectively infinite capacity, so never report full.  This
+is quite easy to do at the runtime level now that we've separated
+the channel from its buffer for buffered channels.
+
+By removing sink nodes, we eliminate a queueing step (between the last
+"real" node and the sink node in a pipeline) and the associated memory
+copy and scheduling overhead.  This change will likely increase
+interleaving of outputs between different blocks, but that happens
+now, albeit at a somewhat coarser granualarity.  Future enhancements
+to globally order outputs across blocks should be just as doable from
+within a sink channel's dsReserve() as from within the doRun()
+function of the sink node.
+
+The main challenge here is in how the user configures sinks for an app
+at runtime.  The user currently associates a sink with a sink node
+named "sinkNode" by saying app.sinkNode.setSink(sink), and we want to
+maintain this nice abstraction.
+
+At runtime, there exists a device-side sink node whose init() function
+is called to configure the sink as requested for the ensuing execution
+of the app.  We will either have to add a new runtime initialization
+step that configures all sink channels before running the app or
+create "dummy" device-side sink nodes that do the init work but are
+never actually scheduled.  The latter is easier as a first step.  For
+the former, we could create a global array of all sink Channels and
+generate a global init function for the app that goes through and sets
+the sinks in each.  Alternatively, we could delegate to each node the
+task of updating its sink channels in an initialization function
+separate from the user's init hook.
+
+(2) Remove Sources as nodes of the application topology.
+
+We will factor the Node type into two parts: the Node proper, which is
+the schedulable entity and understands how many inputs may be consumed
+each time a node fires; and a NodeFunction, which is primarily the
+user's run() code (and the doRun() that wraps it) together with the
+necessary push abstraction and downstream channels.
+
+The intent is that Source nodes and "standard" nodes can
+interchangeably take a NodeFunction and feed it input.  The
+NodeFunction will not care what kind of Node is feeding it; its only
+job is to consume input and produce output data and/or signals.  The
+Node is still responsible for scheduling, input coordination, signal
+management, and checking the output channels to ensure that it is safe
+to fire a node.
+
+The principal benefit of this change will be that it is no longer
+necessary to insert a queue between the source and the user's first
+node. The user will instead designate one of their own nodes as the
+application source (e.g. by saying "Source x;" where x is a node,
+and x's input type becomes the application's source type).  That
+node's function will be fed directly from the app's Source object
+whenever it fires.
+
+As for the sink change above, it will be necessary to arrange an
+alternative initialization strategy to set the source at runtime, so
+that we don't take over the user's init() function for the source
+node.  We can still use app.node.setSource() to specify the source
+object.  
+
+The lower-level changes will be somewhat more challenging.  We will
+need to modify doRun() for NodeFunctions to take a uniform data
+structure whether the data comes from a Source or from a Queue.
+This structure, which will tentatively be called an InputView, will
+abstract over the underlying data source and will have a get() method
+that returns elements by value for scalar types or by const reference
+for non-scalar types.  (See recent change to io/Source.cuh for how
+to do this cleanly without code generation.)  We will also need to
+review how the Node and NodeFunction may share the following data and 
+functions:
+ - channel pointers
+ - detection of full output queues 
+ - flushing behavior
+ - responsibility for signals
+
+
+(3) Longer-term improvements
+
+With these changes, the basic oprerational model of Mercator will be
+that data moves from the source buffer through a series of nodes to
+downstream queue buffers, and finally to the sink buffer after the
+last node.  No unnecessary copies will be performed.
+
+We will expose further oppportunities for optimization by
+
+ (a) replacing push() with a function that simply returns the address
+     where each thread should write its output.  The writes can then
+     be done to the target addresses under an "if", avoiding the need
+     to create dummy outputs in threads that are not writing.
+
+ (b) exposing the InputView structure directly to the user's run()
+     function rather than forcing run() to process one input per
+     thread per call to run().  The user then has the option to
+     process the elements as they wish, including possibly processing
+     more than one element per thread within a single call to run().
+     (The Node already tells doRun() how many inputs can be safely
+     consumed.)
+
+ (c) perhaps simplifying abstractions where possible.  In particular,
+     it may be that we should not bother with fancy Source
+     abstractions, because it's just as easy to make the source a
+     range of contiguous ints and let the source node itself interpret
+     these (possibly with reference to app parameters that point to
+     the actual input data).  In general, we should be able to
+     replace the "sugar" in the core runtime that makes Mercator
+     pleasant to use with *optional* layers on top of this runtime.
+     This will allow users to trade off convenience for performance.
