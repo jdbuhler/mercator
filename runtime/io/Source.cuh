@@ -31,17 +31,63 @@ namespace Mercator {
     };
   };
   
-  
+
   //
   // A generic Source<T> presents as a read-only array with an
   // associated (external) tail pointer, which is managed with atomic
   // increments to support concurrent claiming of inputs by many
   // processors.
   //
+  
+  // We use get() to return an element from the source array.  For
+  // efficiency reasons, we would like to return scalar types such
+  // as integers by value, but return complex types like structures
+  // by reference.  Moreover, range sources, which materialize their
+  // integer-valued elements on the fly, *must* return them by value.
+  // Hence, a Source<T> has an exported element type EltT that is
+  // either T or const T& as appropriate for T, and the source's get() 
+  // uses EltT as its return type.
+  //
+  // NB: in the future, we plan to deprecate any type for the source
+  // other than size_t and make the user access input streams of
+  // complex types by indexing into an array passed as a parameter.
+  // At that point, this value vs reference hack will move into
+  // the Node internals to permit nodes to export a uniform
+  // doRun() interface that works whether inputs are ints from
+  // a Source or arbitrary values from a Queue.
+  
+  template <typename T, typename Enable = void>
+  class SourceBase;
+
+  template <typename T>
+  class SourceBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
+  public:
+    using EltT = T;
+    
+    __device__
+    virtual
+    EltT get(size_t idx) const = 0;
+  };
+
+  template <typename T>
+  class SourceBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
+  public:
+    using EltT = const T&;
+    
+    __device__
+    virtual
+    EltT get(size_t idx) const = 0;
+  };
+  
+  // Actual Source class begins here
+  
   template <typename T>  
-  class Source {
+  class Source : public SourceBase<T> {
     
   public:
+    
+    // type returned by get()
+    using EltT = typename SourceBase<T>::EltT;
     
     //
     // @brief constructor 
@@ -100,7 +146,7 @@ namespace Mercator {
     //
     __device__
     virtual
-    T get(size_t idx) const = 0;
+    typename SourceBase<T>::EltT get(size_t idx) const = 0;
     
   private:
     
@@ -140,6 +186,8 @@ namespace Mercator {
     
   public:
     
+    using EltT = typename Source<T>::EltT;
+    
     //
     // @brief constructor
     //
@@ -157,10 +205,11 @@ namespace Mercator {
     // @brief get an element from the buffer
     //
     // @param idx index of element to get
-    // @return element gotten
+    // @return element gotten (by value if scalar, 
+    //   or by const reference othereise)
     //
     __device__
-    T get(size_t idx) const
+    EltT get(size_t idx) const
     {
       assert(idx <= bd.size);
       
@@ -178,6 +227,9 @@ namespace Mercator {
   template<typename S, bool b = std::is_arithmetic<S>::value >
   class SourceRange : public Source<S> {
   public:
+    
+    using EltT = typename Source<S>::EltT;
+    
     __device__
     SourceRange(const RangeData<S> *rangeData,
 		size_t *tail)
@@ -185,7 +237,7 @@ namespace Mercator {
     {}
     
     __device__
-    S get(size_t idx) const { return *dummy; }
+    EltT get(size_t idx) const { return *dummy; }
     
     S *dummy;
   };
@@ -216,7 +268,7 @@ namespace Mercator {
     // @brief get a value from the range
     //
     // @param idx index of value in range to get
-    // @return value requested
+    // @return value requested (always the case for arithmetic type)
     //
     __device__
     S get(size_t idx) const
