@@ -140,28 +140,26 @@ void genDeviceModuleChannelInitStmts(const ModuleType *mod,
     {
       const Channel *channel = mod->get_channel(j);
       
+      unsigned int spaceRequired;
+      if (mod->isUser())
+	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
+      else // source or enumerate can keep going until channel fills
+	spaceRequired = 1; 
+      
+      f.add("initChannel<"
+	    + channel->type->name + ">("
+	    + "Out::" + channel->name + ", "
+		+ to_string(spaceRequired)
+	    + (channel->isAggregate ? ", true);" : ");"));
+      
       if (mod->isUser() && !mod->get_useAllThreads())
 	{
-	  f.add("initBufferedChannel<"
+	  // channel is buffered -- create its buffer object
+	  f.add("initChannelBuffer<"
 		+ channel->type->name + ">("
 		+ "Out::" + channel->name + ", "
 		+ to_string(channel->maxOutputs)
-		+ (channel->isAggregate ? ", true);" : ");"));
-	}
-      else
-	{
-	  unsigned int spaceRequired;
-	  
-	  if (mod->isUser())
-	    spaceRequired = channel->maxOutputs * mod->get_inputLimit();
-	  else // source or enumerate can keep going until channel fills
-	    spaceRequired = 1; 
-
-	  f.add("initChannel<"
-		+ channel->type->name + ">("
-		+ "Out::" + channel->name + ", "
-		+ to_string(spaceRequired)
-		+ (channel->isAggregate ? ", true);" : ");"));
+		+ ");");
 	}
     }
 }

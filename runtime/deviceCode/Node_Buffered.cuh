@@ -15,7 +15,7 @@
 
 #include "Node.cuh"
 
-#include "BufferedChannel.cuh"
+#include "ChannelBuffer.cuh"
 
 namespace Mercator  {
 
@@ -96,44 +96,41 @@ namespace Mercator  {
       : BaseType(scheduler, region, usNode, usChannel,
 		 queueSize, parentArena)
     {
+      // init channel buffer array
+      for (unsigned int c = 0; c < numChannels; ++c)
+	channelBuffers[c] = nullptr;
+      
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(maxRunSize);
 #endif
     }
-
+    
   protected:
     
     //
-    // @brief Create and initialize a buffered output channel.
+    // @brief Create and initialize a buffer for an output channel.
     //
     // @param c index of channel to initialize
     // @param outputsperInput max # of outputs produced per input
     //
     template<typename DST>
     __device__
-    void initBufferedChannel(unsigned int c, 
-			     unsigned int outputsPerInput,
-			     bool isAgg = false)
+    void initChannelBuffer(unsigned int c, 
+			   unsigned int outputsPerInput)
     {
       assert(c < numChannels);
       assert(outputsPerInput > 0);
       
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
-      setChannel(c, new Channel(outputsPerInput,
-				isAgg,
-				numThreadGroups,
-				threadGroupSize,
-				1 /* numEltsPerGroup*/));
-      
+      channelBuffers[c] = 
+	new ChannelBuffer<DST, THREADS_PER_BLOCK>(outputsPerInput,
+						  numThreadGroups,
+						  threadGroupSize,
+						  1 /* numEltsPerGroup */);
       // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
+      if (channelBuffers[c] == nullptr)
 	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
+	  printf("ERROR: failed to allocate buffer object [block %d]\n",
 		 blockIdx.x);
-
 	  crash();
 	}
     }
@@ -181,18 +178,21 @@ namespace Mercator  {
       
       __syncthreads(); // END WRITE output buffer through push()
       
+      //
+      // have each ChannelBuffer complete a push to the corresponding
+      // channel (which we can pass as an argument).
+      //
+      
       for (unsigned int c = 0; c < numChannels; c++)
-	{
-	  BufferedChannelBase *channel =
-	    static_cast<BufferedChannelBase *>(getChannel(c));
-	  channel->completePush();
-	}
+	channelBuffers[c]->finishWrite(getChannel(c));
       
       return nItems;
     }
     
   protected:
     
+    ChannelBufferBase* channelBuffers[numChannels];
+
     ///////////////////////////////////////////////////////////////////
     // RUN-FACING FUNCTIONS 
     // These functions expose documented properties and behavior of the 
@@ -221,7 +221,7 @@ namespace Mercator  {
     { return (threadIdx.x % threadGroupSize == 0); }
     
     //
-    // @brief Write an output item to the indicated channel.
+    // @brief Write an output item to the indicated channel's buffer.
     //
     // @tparam DST Type of item to be written
     // @param item Item to be written
@@ -231,11 +231,16 @@ namespace Mercator  {
     __device__
     void push(const DST &item, unsigned int channelIdx = 0) const
     {
-      using Channel = BufferedChannel<DST, THREADS_PER_BLOCK>;
+      //
+      // get the ChannelBuffer object instead and push to that
+      //
       
-      Channel *channel = static_cast<Channel*>(getChannel(channelIdx));
+      using ChannelBuffer = ChannelBuffer<DST, THREADS_PER_BLOCK>;
       
-      channel->push(item);
+      ChannelBuffer *cb = 
+	static_cast<ChannelBuffer*>(channelBuffers[channelIdx]);
+      
+      cb->store(item);
     }
   };
 }  // end Mercator namespace

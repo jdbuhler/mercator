@@ -1,19 +1,20 @@
-#ifndef __BUFFEREDCHANNEL_CUH
-#define __BUFFEREDCHANNEL_CUH
+#ifndef __CHANNELBUFFER_CUH
+#define __CHANNELBUFFER_CUH
 
 //
-// @file BufferedChannel.cuh
-// @brief MERCATOR channel object with a buffer to allow push() with 
+// @file ChannelBuffer.cuh
+// @brief MERCATOR channel buffer object to allow push() with 
 // a subset of threads
 //
 // MERCATOR
 // Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
-#include <cassert>
 #include <cstdio>
+#include <cassert>
 
-#include "BufferedChannelBase.cuh"
+#include "ChannelBufferBase.cuh"
+#include "Channel.cuh"
 
 #include "options.cuh"
 
@@ -22,12 +23,12 @@
 namespace Mercator  {
     
   //
-  // @class BufferedChannel
-  // @brief Holds all data associated with an output stream from a node.
+  // @class ChannelBuffer
+  // @brief Buffers data sent to an output channel during a single run
   //
   template <typename T,
 	    unsigned int THREADS_PER_BLOCK>
-  class BufferedChannel : public BufferedChannelBase {
+  class ChannelBuffer : public ChannelBufferBase {
     
   public:
 
@@ -41,12 +42,14 @@ namespace Mercator  {
     // @param ioutputsPerInput Outputs per input for this channel
     //
     __device__
-    BufferedChannel(unsigned int outputsPerInput, bool isAgg,
-		    unsigned int numThreadGroups,
-		    unsigned int threadGroupSize,
-		    unsigned int numEltsPerGroup)
-      : BufferedChannelBase(outputsPerInput, isAgg, 
-			    numThreadGroups, threadGroupSize, numEltsPerGroup),
+    ChannelBuffer(unsigned int ioutputsPerInput,
+		  unsigned int inumThreadGroups,
+		  unsigned int ithreadGroupSize,
+		  unsigned int numEltsPerGroup)
+      : ChannelBufferBase(inumThreadGroups),
+	outputsPerInput(ioutputsPerInput),
+	numThreadGroups(inumThreadGroups),
+	threadGroupSize(ithreadGroupSize),
 	numSlotsPerGroup(numEltsPerGroup * outputsPerInput)
     {
       // allocate enough total buffer capacity to hold outputs
@@ -65,7 +68,7 @@ namespace Mercator  {
     
     __device__
     virtual
-    ~BufferedChannel()
+    ~ChannelBuffer()
     { 
       delete [] data; 
     }
@@ -79,7 +82,7 @@ namespace Mercator  {
     // @param item item to write to buffer
     //
     __device__
-    void push(const T &item)
+    void store(const T &item)
     {
       int groupId = threadIdx.x / threadGroupSize;
       
@@ -99,9 +102,12 @@ namespace Mercator  {
     // MUST BE CALLED WITH ALL THREADS
     //
     __device__
-    void completePush()
+    void finishWrite(ChannelBase *ichannel)
     {
       int tid = threadIdx.x;
+      
+      using Channel = Channel<T>;
+      Channel *channel = static_cast<Channel*>(ichannel);
       
       BlockScan<unsigned int, THREADS_PER_BLOCK> scanner;
       unsigned int count = (tid < numThreadGroups ? nextSlot[tid] : 0);
@@ -118,7 +124,7 @@ namespace Mercator  {
       
       __shared__ unsigned int dsBase;
       if (IS_BOSS())
-	dsBase = dsReserve(totalToWrite);
+	dsBase = channel->dsReserve(totalToWrite);
       
       // END WRITE dsBase, ds queue, nextSlot
       __syncthreads(); 
@@ -131,35 +137,22 @@ namespace Mercator  {
               unsigned int srcOffset = tid * outputsPerInput + j;
               unsigned int dstIdx = dsOffset + j;
               const T &myData = data[srcOffset];
-	      dsWrite(dsBase, dstIdx, myData);
+	      channel->dsWrite(dsBase, dstIdx, myData);
 	    }
 	}
     }
-  
+    
   private:    
+    
+    const unsigned int outputsPerInput;
+    const unsigned int numThreadGroups;
+    const unsigned int threadGroupSize;
     
     const unsigned int numSlotsPerGroup;
     
     T *data;
     
-    //
-    // @brief Write items directly to the downstream queue.
-    //
-    // May be called MULTI-THREADED
-    //
-    // @param base base pointer to writable space in queue
-    // @param offset offset at which to write item
-    // @param item item to be written
-    //
-    __device__
-    void dsWrite(unsigned int base,
-		 unsigned int offset,
-		 const T &item) const
-    {
-      static_cast<Queue<T>*>(dsQueue)->putElt(base, offset, item);
-    }
-    
-  }; // end BufferedChannel class
+  }; // end ChannelBuffer class
 }  // end Mercator namespace
 
 #endif
