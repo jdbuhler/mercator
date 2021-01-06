@@ -48,11 +48,6 @@ namespace Mercator  {
 	dsSignalQueue(nullptr)
     {}
     
-    __device__
-    virtual
-    ~ChannelBase()
-    {}
-    
     //
     // @brief Set the downstream target of the edge for
     // this channel.

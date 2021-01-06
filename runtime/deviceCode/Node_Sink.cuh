@@ -28,11 +28,13 @@ namespace Mercator  {
   class Node_Sink : 
     public Node<T, 
 		0,                 // no output channels
-		THREADS_PER_BLOCK> {
+		THREADS_PER_BLOCK,
+		Node_Sink<T, THREADS_PER_BLOCK>> {
     
     using BaseType = Node<T, 
 			  0,
-			  THREADS_PER_BLOCK>;
+			  THREADS_PER_BLOCK,
+			  Node_Sink<T, THREADS_PER_BLOCK>>;
     
   private:
     
@@ -96,27 +98,28 @@ namespace Mercator  {
     // @brief set our sink at the beginning of a run of the main kernel
     //
     __device__
-    void setOutputSink(Sink<T> * isink)
+    void setOutputSink(Sink<T>* isink)
     { 
       assert(IS_BOSS());
+      
       sink = isink; 
     }
     
-  private:
+    //
+    // doRun() writes full thread-widths of inputs at a time
+    //
+    static const unsigned int inputSizeHint = THREADS_PER_BLOCK;
 
-    Sink<T> * sink;
-
     //
-    // @brief doRun() writes full thread-widths of inputs at a time
+    // @brief function stub to execute the function code specific
+    // to this node.  This function does NOT remove data from the
+    // queue.
     //
-    __device__
-    unsigned int inputSizeHint() const
-    { return THREADS_PER_BLOCK; }
-    
-    
+    // @param queue data queue containing items to be consumed
+    // @param start index of first item in queue to consume
+    // @param limit max number of items that this call may consume
+    // @return number of items ACTUALLY consumed (may be 0).
     //
-    // @brief write values to the downstream queue
-    // 
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,
@@ -157,6 +160,11 @@ namespace Mercator  {
       
       return limit;
     }
+    
+  private:
+
+    Sink<T>* sink;
+
   };
   
 }; // namespace Mercator

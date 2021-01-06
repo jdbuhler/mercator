@@ -72,7 +72,7 @@ namespace Mercator  {
     __device__
     virtual
     bool hasPending() const = 0;
-
+    
     
     //
     // @brief method to fire a node, consuming input and

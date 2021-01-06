@@ -34,15 +34,13 @@ namespace Mercator  {
   //
   // @tparam T type of input
   // @tparam numChannels  number of channels
-  // @tparam numEltsPerGroup number of input elements/thread
-  // @tparam threadGroupSize  number of threads in a thread group
-  // @tparam maxActiveThreads max # of live threads in any call to run()
-  // @tparam runWithAllThreads call run() with all threads, or just as many
-  //           as have inputs?
+  // @tparam THREADS_PER_BLOCK number of threads ina  block
+  // @tparam DerivedNodeType subtype of node for CRTP-based call to doRun()
   //
   template <typename T, 
 	    unsigned int numChannels,
-	    unsigned int THREADS_PER_BLOCK>
+	    unsigned int THREADS_PER_BLOCK,
+	    typename DerivedNodeType>
   class Node : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
@@ -162,7 +160,7 @@ namespace Mercator  {
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
 				     ? 0
-				     : inputSizeHint() - 1);
+				     : DerivedNodeType::inputSizeHint - 1);
       
       bool dsActive = false;
       
@@ -174,15 +172,6 @@ namespace Mercator  {
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !dsActive)
 	{
-#if 0
-	  if (IS_BOSS())
-	    printf("%d %p %d %d %d %d %d\n", 
-		   blockIdx.x, this, 
-		   nDataConsumed, nDataToConsume,  
-		   nSignalsConsumed, nSignalsToConsume,
-		   nCredits);
-#endif
-	  
 	  // determine the max # of items we may safely consume this time
 	  unsigned int limit =
 	    (nSignalsConsumed < nSignalsToConsume
@@ -197,7 +186,8 @@ namespace Mercator  {
 	  if (limit > 0)
 	    {
 	      // doRun() tries to consume input; could cause node to block
-	      nFinished = doRun(queue, nDataConsumed, limit);
+	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
+	      nFinished = n->doRun(queue, nDataConsumed, limit);
 	      
 	      nDataConsumed += nFinished;
 	    }
@@ -317,32 +307,6 @@ namespace Mercator  {
     __device__
     virtual
     void end() {}
-    
-    //
-    // @brief a hint as to the preferred input granularity for
-    // the node's doRun() function.  When possible, we won't
-    // call doRun() with a size less than this.
-    //
-    __device__
-    virtual
-    unsigned int inputSizeHint() const = 0;
-    
-    //
-    // @brief function stub to execute the function code specific
-    // to this node.  This function does NOT remove data from the
-    // queue.
-    //
-    // @param queue data queue containing items to be consumed
-    // @param start index of first item in queue to consume
-    // @param limit max number of items that this call may consume
-    // @return number of items ACTUALLY consumed (may be 0).
-    //
-    __device__
-    virtual
-    unsigned int doRun(const Queue<T> &queue,
-		       unsigned int start,
-		       unsigned int limit) = 0;
-    
     
     //
     // @brief callback from fire() when node empties its queues

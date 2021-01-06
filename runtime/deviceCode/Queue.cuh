@@ -65,7 +65,7 @@ namespace Mercator  {
     
     
     __device__
-      ~Queue()
+    ~Queue()
     {
       delete [] data;
     }

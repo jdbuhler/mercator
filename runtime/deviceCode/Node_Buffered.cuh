@@ -47,11 +47,23 @@ namespace Mercator  {
   class Node_Buffered
     : public Node<T,
 		  numChannels,
-		  THREADS_PER_BLOCK> {
+		  THREADS_PER_BLOCK,
+		  Node_Buffered<T, 
+				numChannels, 
+				threadGroupSize, 
+				maxActiveThreads, 
+				THREADS_PER_BLOCK, 
+				DerivedNodeType>> {
     
     using BaseType = Node<T,
 			  numChannels,
-			  THREADS_PER_BLOCK>;
+			  THREADS_PER_BLOCK,
+			  Node_Buffered<T, 
+					numChannels, 
+					threadGroupSize, 
+					maxActiveThreads, 
+					THREADS_PER_BLOCK,
+					DerivedNodeType>>;
 
     using BaseType::getChannel;
     
@@ -78,7 +90,7 @@ namespace Mercator  {
     // maximum number of inputs that can be processed in a single 
     // call to the node's run() function
     static const unsigned int maxRunSize =
-      numThreadGroups /* * numEltsPerGroup*/;
+      numThreadGroups;
     
   public:
 
@@ -136,21 +148,25 @@ namespace Mercator  {
     }
     
     ////////////////////////////////////////////////////////
-    
-  private:
+
+  public:    
     
     //
-    // @brief doRun() prefers to have a full width of inputs for
+    // doRun() prefers to have a full width of inputs for
     // the user's run function.
     //
-    __device__
-    unsigned int inputSizeHint() const
-    { return maxRunSize; }
-    
-    
+    static const unsigned int inputSizeHint = maxRunSize;
+
     //
-    // @brief Feed inputs to the user's run function.
-    // 
+    // @brief function stub to execute the function code specific
+    // to this node.  This function does NOT remove data from the
+    // queue.
+    //
+    // @param queue data queue containing items to be consumed
+    // @param start index of first item in queue to consume
+    // @param limit max number of items that this call may consume
+    // @return number of items ACTUALLY consumed (may be 0).
+    //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
 		       unsigned int start,

@@ -26,11 +26,13 @@ namespace Mercator {
   class Node_Enumerate
     : public Node<T,
 		  1,             // one output channel
-		  THREADS_PER_BLOCK> {
+		  THREADS_PER_BLOCK,
+		  Node_Enumerate<T, THREADS_PER_BLOCK>> {
     
     using BaseType = Node<T,
 			  1, 
-			  THREADS_PER_BLOCK>;
+			  THREADS_PER_BLOCK,
+			  Node_Enumerate<T, THREADS_PER_BLOCK>>;
     
   private:
     
@@ -79,43 +81,19 @@ namespace Mercator {
     
     ///////////////////////////////////////////////////////
 
-  private:
-    
-    // ID of node's enumeration region (used for flushing)
-    const unsigned int enumId;
-    
-    // Where parent objects of the enumerate node are stored.  Size is
-    // set to the same as data queue currently
-    ParentBuffer<T> parentBuffer;
-
-    // total number of items in currently enumerating object
-    unsigned int dataCount;
-    
-    // number of items so far in currently enumerating object
-    unsigned int currentCount;
-    
     //
-    // @brief find the number of data items that need to be enumerated
-    // from the current parent object.
+    // doRun() processes inputs one at a time
     //
-    // Like the run function, this is filled out by the user in the
-    // generated code.  This function is called SINGLE-THREADED.
-    //
-    __device__
-    virtual
-    unsigned int findCount(const T &item) const = 0;
+    static const unsigned int inputSizeHint = 1;
 
     //
-    // @brief doRun() processes inputs one at a time
+    // @brief function to execute code specific to this node.  This
+    // function does NOT remove data from the queue.
     //
-    __device__
-    unsigned int inputSizeHint() const
-    { return 1; }
-    
-    
-    //
-    // @brief expand next input to its elements, issuing signals
-    // each time a new parent input starts.
+    // @param queue data queue containing items to be consumed
+    // @param start index of first item in queue to consume
+    // @param limit max number of items that this call may consume
+    // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
@@ -231,7 +209,33 @@ namespace Mercator {
       
       return nFinished;
     }
+
+  private:
     
+    // ID of node's enumeration region (used for flushing)
+    const unsigned int enumId;
+    
+    // Where parent objects of the enumerate node are stored.  Size is
+    // set to the same as data queue currently
+    ParentBuffer<T> parentBuffer;
+
+    // total number of items in currently enumerating object
+    unsigned int dataCount;
+    
+    // number of items so far in currently enumerating object
+    unsigned int currentCount;
+    
+    //
+    // @brief find the number of data items that need to be enumerated
+    // from the current parent object.
+    //
+    // Like the run function, this is filled out by the user in the
+    // generated code.  This function is called SINGLE-THREADED.
+    //
+    __device__
+    virtual
+    unsigned int findCount(const T &item) const = 0;
+
     //
     // @brief begin enumeration of a new parent object. Add the object
     // to the parent buffer, store its index in the buffer in the
