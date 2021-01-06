@@ -67,7 +67,6 @@ namespace Mercator  {
     }
     
     __device__
-    virtual
     ~ChannelBuffer()
     { 
       delete [] data; 

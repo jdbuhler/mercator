@@ -61,7 +61,6 @@ namespace Mercator  {
     // @brief Destructor
     //
     __device__
-    virtual
     ~NodeBaseWithChannels()
     {
       for (unsigned int c = 0; c < numChannels; ++c)

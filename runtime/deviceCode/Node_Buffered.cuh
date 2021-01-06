@@ -26,9 +26,9 @@ namespace Mercator  {
   // a subset of threads.  Note that each thread is assumed to take 0 or
   // 1 inputs.
   //
-  // We use CRTP rather than virtual functions to derive subtypes of this
-  // nod, so that the run() function can be inlined in fire().
-  // The expected signature of run is
+  // We use CRTP to derive subtypes of this node so that the
+  // run() function can be inlined.  The expected signature
+  // of run is
   //
   //   __device__ void run(const T &data)
   //
@@ -36,6 +36,7 @@ namespace Mercator  {
   // @tparam numChannels  number of output channels 
   // @tparam threadGroupSize number of threads per input
   // @tparam maxActiveThreads max # of threads that can take input at once 
+  // @tparam THREADS_PER_BLOCK constant giving thread block size
   // @tparam DerivedNodeType subtype that defines the run() function
   //
   template<typename T, 

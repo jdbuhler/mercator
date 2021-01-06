@@ -21,11 +21,11 @@
 namespace Mercator  {
 
   //
-  // @class Node_SingleItem
-  // @brief MERCATOR node whose run() fcn takes one input per thread group
-  // We use CRTP rather than virtual functions to derive subtypes of this
-  // nod, so that the run() function can be inlined in fire().
-  // The expected signature of run is
+  // @class Node_SingleItem 
+  // @brief MERCATOR node whose run() fcn takes one input per thread
+  // group. We use CRTP to derive subtypes of this node so that the
+  // run() function can be inlined.  The expected signature
+  // of run is
   //
   //   __device__ void run(const T &data, unsigned int nInputs)
   //
@@ -33,8 +33,9 @@ namespace Mercator  {
   //
   // @tparam T type of input item
   // @tparam numChannels  number of output channels 
-  // @tparam runWithAllThreads call run with all threads, or just as many
-  //           as have inputs?
+  // @tparam threadGroupSize number of threads per input
+  // @tparam maxActiveThreads max # of threads that can take input at once 
+  // @tparam THREADS_PER_BLOCK constant giving thread block size
   // @tparam DerivedNodeType subtype that defines the run() function
   //
   template<typename T, 
