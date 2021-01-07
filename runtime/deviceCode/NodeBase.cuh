@@ -308,7 +308,7 @@ namespace Mercator  {
     // @param flushRegion the region ID associated with the flush
     //
     __device__
-    bool initiateFlush(NodeBase *dsNode, unsigned int flushRegion)
+    static bool initiateFlush(NodeBase *dsNode, unsigned int flushRegion)
     {
       assert(IS_BOSS());
       
