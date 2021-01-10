@@ -293,17 +293,17 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
 
-    #ifdef INSTRUMENT_TIME
-      using BaseType::inputTimer;
-      using BaseType::runTimer;
-      using BaseType::outputTimer;
-    #endif
+#ifdef INSTRUMENT_TIME
+    using BaseType::inputTimer;
+    using BaseType::runTimer;
+    using BaseType::outputTimer;
+#endif
     
     // begin and end stubs for enumeration and aggregation 
     __device__
     virtual
     void begin() {}
-
+    
     __device__
     virtual
     void end() {}

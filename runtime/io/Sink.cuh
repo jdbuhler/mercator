@@ -87,7 +87,7 @@ namespace Mercator {
     
     //
     // @brief CUDA does not provide an atomic add for size_t, despite
-    // its being a 64 bit integer type.  Provide one here.
+    // its being a 64-bit integer type.  Provide one here.
     //
     // @param address pointer to value to increment
     // @param val size of increment
@@ -95,15 +95,12 @@ namespace Mercator {
     __device__ 
     size_t myAtomicAdd(size_t *address, size_t val)
     {
-      static_assert(sizeof(size_t) == sizeof(unsigned long long),
+      typedef unsigned long long ull;
+      
+      static_assert(sizeof(size_t) == sizeof(ull),
 		    "ERROR: sizeof(size_t) != sizeof(ULL)");
       
-      unsigned long long * address_as_ull =
-	(unsigned long long *) address;
-      
-      unsigned long long v = val;
-      
-      return (size_t) atomicAdd(address_as_ull, v);
+      return (size_t) atomicAdd((ull *) address, (ull) val);
     }
     
   };

@@ -156,7 +156,7 @@ namespace Mercator {
 		      nElts * sizeof(T), cudaMemcpyHostToDevice, stream);
       
       SizeUpdate *su = new SizeUpdate(bufferData, nElts);
-      cudaStreamAddCallback(stream, setSizeCallback, su, 0);
+      cudaLaunchHostFunc(stream, setSizeCallback, su);
     }
     
     
@@ -195,7 +195,7 @@ namespace Mercator {
 		      stream);
       
       SizeUpdate *su = new SizeUpdate(bufferData, nElts);
-      cudaStreamAddCallback(stream, setSizeCallback, su, 0);
+      cudaLaunchHostFunc(stream, setSizeCallback, su);
     } 
     
     
@@ -218,7 +218,7 @@ namespace Mercator {
     //
     void clearAsync(cudaStream_t stream = 0)
     {
-      cudaStreamAddCallback(stream, clearCallback, bufferData, 0);
+      cudaLaunchHostFunc(stream, clearCallback, bufferData);
     }
     
     //
@@ -265,8 +265,7 @@ namespace Mercator {
     // This operation executes on the host only after all previous
     // operations in the same stream on the device are finished.
     //
-    static void clearCallback(cudaStream_t stream, cudaError_t status,
-			      void *userData)
+    static void clearCallback(void *userData)
     {
       BufferData<T> *bufferData = (BufferData<T> *) userData;
       bufferData->size = 0;
@@ -277,8 +276,7 @@ namespace Mercator {
     // This operation executes on the host only after all previous
     // operations in the same stream on the device are finished.
     //
-    static void setSizeCallback(cudaStream_t stream, cudaError_t status,
-				void *userData)
+    static void setSizeCallback(void *userData)
     {
       SizeUpdate *su = (SizeUpdate *) userData;
       
