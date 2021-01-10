@@ -135,7 +135,7 @@ public:
     //Set up args for building the ASTContext 
     vector<string> args;
     
-    args.push_back("--std=c++11");
+    args.push_back("--std=c++14");
     
     // enable for path debugging
     // args.push_back("-v");

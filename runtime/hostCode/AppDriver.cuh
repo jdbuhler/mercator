@@ -229,7 +229,7 @@ namespace Mercator  {
       
       // make sure we clean up our copy of the parameters after
       // cudaMemcpyAsync() is done using it.
-      cudaStreamAddCallback(stream, freeCallback, tmpParams, 0);
+      cudaLaunchHostFunc(stream, freeCallback, tmpParams);
       gpuErrchk( cudaPeekAtLastError() );
       
       // reset the source's tail pointer
@@ -393,9 +393,9 @@ namespace Mercator  {
     // @brief callback to delete temporary copy of params allocated
     //  in runAsync()
     //
-    static void freeCallback(cudaStream_t stream, cudaError_t status,
-			     void *tmpParams)
+    static void freeCallback(void *tmpParams)
     {
+      // FIXME: cannot call a CUDA API function from a callback
       //cudaFreeHost(tmpParams);
     }
 
