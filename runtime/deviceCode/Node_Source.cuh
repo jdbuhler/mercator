@@ -107,9 +107,7 @@ namespace Mercator  {
       
       return source;
     }
-
-  protected:
-
+    
     //
     // @brief Create and initialize an output channel.
     //

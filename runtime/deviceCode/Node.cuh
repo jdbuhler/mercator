@@ -18,6 +18,7 @@
 
 #include "Queue.cuh"
 #include "Signal.cuh"
+
 #include "ParentBuffer.cuh"
 
 #include "device_config.cuh"
@@ -34,24 +35,21 @@ namespace Mercator  {
   //
   // @tparam T type of input
   // @tparam numChannels  number of channels
-  // @tparam THREADS_PER_BLOCK number of threads ina  block
   // @tparam DerivedNodeType subtype of node for CRTP-based call to doRun()
   //
   template <typename T, 
 	    unsigned int numChannels,
-	    unsigned int THREADS_PER_BLOCK,
-	    typename DerivedNodeType>
+	    unsigned int THREADS_PER_BLOCK, // FIXME: needed?
+	    typename NodeFcnType>
   class Node : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
-    
-  protected:
-    
+
     using BaseType::getChannel;
     using BaseType::getDSNode;
-
+    
   public:
-
+    
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
     ///////////////////////////////////////////////////////
@@ -68,17 +66,27 @@ namespace Mercator  {
 	 NodeBase *usNode,
 	 unsigned int usChannel,
 	 unsigned int queueSize,
-	 RefCountedArena *iparentArena)
+	 NodeFcnType *inodeFunction)
       : BaseType(scheduler, region, usNode),
 	queue(queueSize),
         signalQueue(queueSize), // could be smaller?
-	parentArena(iparentArena),
-	parentIdx(RefCountedArena::NONE)
+	nodeFunction(inodeFunction)
     {
       usNode->setDSEdge(usChannel, this, &queue, &signalQueue);
+      nodeFunction->setNode(this);
+    }
+
+    __device__
+    virtual ~Node()
+    {
+      delete nodeFunction;
     }
     
-  protected:
+    __device__
+    void init() { nodeFunction->init(); }
+    
+    __device__
+    void cleanup() { nodeFunction->cleanup(); }
     
     //
     // @brief Create and initialize an output channel.
@@ -112,8 +120,6 @@ namespace Mercator  {
     }
 
     /////////////////////////////////////////////////////////
-    
-  public:
     
     //
     // @brief is any input queued for this node?
@@ -160,7 +166,7 @@ namespace Mercator  {
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
 				     ? 0
-				     : DerivedNodeType::inputSizeHint - 1);
+				     : NodeFcnType::inputSizeHint - 1);
       
       bool dsActive = false;
       
@@ -186,8 +192,7 @@ namespace Mercator  {
 	  if (limit > 0)
 	    {
 	      // doRun() tries to consume input; could cause node to block
-	      DerivedNodeType *n = static_cast<DerivedNodeType *>(this);
-	      nFinished = n->doRun(queue, nDataConsumed, limit);
+	      nFinished = nodeFunction->doRun(queue, nDataConsumed, limit);
 	      
 	      nDataConsumed += nFinished;
 	    }
@@ -269,7 +274,7 @@ namespace Mercator  {
 		      dsNode->activate();
 		  }
 		
-		flushComplete();
+		nodeFunction->flushComplete();
 		this->clearFlush();  // disable flushing
 	      }
 	    }
@@ -281,44 +286,20 @@ namespace Mercator  {
       
       TIMER_STOP(input);
     }
-
-  protected:
-    
-    // state for nodes in enumerated regions
-    RefCountedArena* const parentArena;   // ptr to my region's parent buffer
-    unsigned int parentIdx;               // index of parent obj in buffer
     
   private:
-    
+
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
-
+    
+    NodeFcnType *nodeFunction;
+    
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
     using BaseType::runTimer;
     using BaseType::outputTimer;
 #endif
-    
-    // begin and end stubs for enumeration and aggregation 
-    __device__
-    virtual
-    void begin() {}
-    
-    __device__
-    virtual
-    void end() {}
-    
-    //
-    // @brief callback from fire() when node empties its queues
-    // after completing a flush operation.
-    //
-    __device__
-    virtual
-    void flushComplete()
-    {}
-    
-  private:
-    
+
     ////////////////////////////////////////////////////////////////////
     // SIGNAL HANDLING LOGIC
     //
@@ -380,21 +361,27 @@ namespace Mercator  {
     virtual
     void handleEnum(const Signal &s)
     {
-      if (parentIdx != RefCountedArena::NONE) // is old parent valid?
-	end();
+      unsigned int pIdx = nodeFunction->getParentIdx();
+      
+      // is old parent valid?
+      if (pIdx != RefCountedArena::NONE)
+	nodeFunction->end();
       
       __syncthreads(); // BEGIN WRITE parentIdx, ds signal queue
       
       if (IS_BOSS())
 	{
-	  parentArena->unref(parentIdx); // remove this node's reference
+	  RefCountedArena *parentArena = nodeFunction->getParentArena();
+	  
+	  parentArena->unref(pIdx); // remove this node's reference
 	  
 	  // set the parent object for this node (specified
 	  // as an index into its parent arena)
+
+	  pIdx = s.parentIdx;
+	  nodeFunction->setParentIdx(pIdx);
 	  
-	  parentIdx = s.parentIdx;
-	  
-	  parentArena->ref(parentIdx);
+	  parentArena->ref(pIdx);
 	  
 	  //Reserve space downstream for the new signal
 	  for (unsigned int c = 0; c < numChannels; ++c)
@@ -405,18 +392,18 @@ namespace Mercator  {
 	      if (!channel->isAggregate())
 		{
 		  // add reference for newly created signal
-		  parentArena->ref(parentIdx); 
+		  parentArena->ref(pIdx); 
 		  channel->pushSignal(s);
 		}
 	    }
 	  
-	  parentArena->unref(parentIdx); // signal is destroyed
+	  parentArena->unref(pIdx); // signal is destroyed
 	}
       
       __syncthreads(); // END WRITE parentIdx, ds signal queue
       
-      if (parentIdx != RefCountedArena::NONE) // is new parent valid?
-	begin();
+      if (pIdx != RefCountedArena::NONE) // is new parent valid?
+	nodeFunction->begin();
     }
   };  // end Node class
 }  // end Mercator namespace

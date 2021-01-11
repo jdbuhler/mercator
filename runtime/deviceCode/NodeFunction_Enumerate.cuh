@@ -1,9 +1,9 @@
-#ifndef __NODE_ENUMERATE_CUH
-#define __NODE_ENUMERATE_CUH
+#ifndef __NODEFUNCTION_ENUMERATE_CUH
+#define __NODEFUNCTION_ENUMERATE_CUH
 
 #include <cassert>
 
-#include "Node.cuh"
+#include "NodeFunction.cuh"
 
 #include "Channel.cuh"
 
@@ -23,52 +23,34 @@ namespace Mercator {
   //
   template<typename T, 
 	   unsigned int THREADS_PER_BLOCK>
-  class Node_Enumerate
-    : public Node<T,
-		  1,             // one output channel
-		  THREADS_PER_BLOCK,
-		  Node_Enumerate<T, THREADS_PER_BLOCK>> {
+  class NodeFunction_Enumerate : public NodeFunction<1> {
     
-    using BaseType = Node<T,
-			  1, 
-			  THREADS_PER_BLOCK,
-			  Node_Enumerate<T, THREADS_PER_BLOCK>>;
+    using BaseType = NodeFunction<1>;
     
-  private:
+    using BaseType::node;
     
-    using BaseType::getChannel;
-    using BaseType::getDSNode;
-    
-    using BaseType::parentIdx;
-    
-#ifdef INSTRUMENT_OCC
-    using BaseType::occCounter;
-#endif
-
   public:
     
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
     ///////////////////////////////////////////////////////
-
+    
     __device__
-    Node_Enumerate(Scheduler *scheduler,
-		   unsigned int region,
-		   NodeBase *usNode,
-		   unsigned int usChannel,
-		   unsigned int queueSize,
-		   RefCountedArena *parentArena,
-		   unsigned int ienumId)
-      : BaseType(scheduler, region, usNode, usChannel,
-		 queueSize, parentArena),
+    NodeFunction_Enumerate(RefCountedArena *parentArena,
+			   unsigned int ienumId)
+      : BaseType(parentArena),
 	enumId(ienumId),
-	parentBuffer(10 /*queueSize*/, this), // FIXME: for stress test
-	dataCount(0),
-	currentCount(0)
+	parentBuffer(10), // for stress test -- increase to queue size?
+        dataCount(0),
+        currentCount(0),
+	activeParent(RefCountedArena::NONE)
+    {}
+    
+    __device__
+    void setNode(NodeType *node)
     {
-#ifdef INSTRUMENT_OCC
-      occCounter.setMaxRunSize(1);
-#endif
+      BaseType::setNode(node);
+      parentBuffer.setBlockingNode(node);
     }
     
     //
@@ -80,12 +62,12 @@ namespace Mercator {
     { return &parentBuffer; }
     
     ///////////////////////////////////////////////////////
-
+    
     //
     // doRun() processes inputs one at a time
     //
     static const unsigned int inputSizeHint = 1;
-
+    
     //
     // @brief function to execute code specific to this node.  This
     // function does NOT remove data from the queue.
@@ -103,7 +85,7 @@ namespace Mercator {
       unsigned int tid = threadIdx.x;
       
       using Channel = Channel<int>;
-      Channel *channel = static_cast<Channel*>(getChannel(0));
+      Channel *channel = static_cast<Channel*>(node->getChannel(0));
       
       unsigned int nFinished = 0;
       
@@ -117,7 +99,7 @@ namespace Mercator {
 	{
 	  const T &item = queue.getElt(start);
 	  
-	  // BEGIN WRITE blocking status, parentIdx, 
+	  // BEGIN WRITE blocking status, activeParent,
 	  // ds signal queue ptr in startItem()
 	  __syncthreads();
 	  
@@ -125,29 +107,29 @@ namespace Mercator {
 	    {
 	      if (parentBuffer.isFull())
 		{
-		  this->block();
+		  node->block();
 		  
 		  // initiate DS flushing to clear it out, then
 		  // block.  We'll be rescheduled to execute once
 		  // the buffer is no longer full and we can
 		  // unblock.
 		  
-		  NodeBase *dsNode = getDSNode(0);
+		  NodeBase *dsNode = node->getDSNode(0);
 		  
-		  if (this->initiateFlush(dsNode, enumId))
+		  if (node->initiateFlush(dsNode, enumId))
 		    dsNode->activate();
 		}
 	      else
 		{
-		  parentIdx = startItem(item);
+		  activeParent = startItem(item);
 		}
 	    }
 	  
-	  // END WRITE blocking status, parentIdx,
+	  // END WRITE blocking status, activeParent,
 	  // ds signal queue ptr in startItem()
 	  __syncthreads();
 	  
-	  if (this->isBlocked())
+	  if (node->isBlocked())
 	    return 0;
 	  
 	  NODE_OCC_COUNT(1);
@@ -190,7 +172,7 @@ namespace Mercator {
 	  if (IS_BOSS())
 	    {
 	      // finished with this parent item -- drop reference to it
-	      parentBuffer.unref(parentIdx);
+	      parentBuffer.unref(activeParent);
 	    }				
 	  
 	  nFinished++;
@@ -209,7 +191,7 @@ namespace Mercator {
       
       return nFinished;
     }
-
+    
   private:
     
     // ID of node's enumeration region (used for flushing)
@@ -218,12 +200,15 @@ namespace Mercator {
     // Where parent objects of the enumerate node are stored.  Size is
     // set to the same as data queue currently
     ParentBuffer<T> parentBuffer;
-
+    
     // total number of items in currently enumerating object
     unsigned int dataCount;
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
+
+    // the active parent object for enumeration
+    unsigned int activeParent;
     
     //
     // @brief find the number of data items that need to be enumerated
@@ -235,7 +220,7 @@ namespace Mercator {
     __device__
     virtual
     unsigned int findCount(const T &item) const = 0;
-
+    
     //
     // @brief begin enumeration of a new parent object. Add the object
     // to the parent buffer, store its index in the buffer in the
@@ -258,11 +243,12 @@ namespace Mercator {
       s_new.parentIdx = pIdx;
       parentBuffer.ref(pIdx); // for use in signal
       
-      getChannel(0)->pushSignal(s_new);
+      node->getChannel(0)->pushSignal(s_new);
       
       return pIdx;
     }
     
+  public:
     
     //
     // @brief if we have emptied our inputs in response to a flush,
@@ -274,21 +260,20 @@ namespace Mercator {
     {
       assert(IS_BOSS());
       
-      if (parentIdx != RefCountedArena::NONE)
+      if (activeParent != RefCountedArena::NONE)
 	{
 	  // item was already unreferenced when we finished it
 	  
-	  parentIdx = RefCountedArena::NONE;
+	  activeParent = RefCountedArena::NONE;
 	  
 	  // push a signal to force downstream nodes to finish off
 	  // previous parent
 	  Signal s_new(Signal::Enum);	
 	  s_new.parentIdx = RefCountedArena::NONE;
-      
-	  getChannel(0)->pushSignal(s_new);
+	  
+	  node->getChannel(0)->pushSignal(s_new);
 	}
     }
-
   };
   
 }  // end Mercator namespace

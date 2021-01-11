@@ -23,7 +23,7 @@ set(MERCATOR_ROOT_DIR /project/cassini/mblast/mercator)
 set(BUILDING_IN_TREE true)
 
 # flags for MERCATOR compiler
-#set (MERCATOR_FLAGS "-q 24")
+set (MERCATOR_FLAGS "-q 24")
 
 #######################################################################
 # CUDA COMPILER FLAGS

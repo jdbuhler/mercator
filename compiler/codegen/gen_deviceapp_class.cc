@@ -80,14 +80,14 @@ string genDeviceModuleBaseType(const ModuleType *mod)
       if (mod->isSink())
 	{
 	  baseType =
-	    "Node_Sink"
+	    "NodeFunction_Sink"
 	    "<" + inTypeString 
 	    + ", THREADS_PER_BLOCK>";
 	}
       else if (mod->isEnumerate())
 	{
 	  baseType = 
-	    "Node_Enumerate<" + inTypeString
+	    "NodeFunction_Enumerate<" + inTypeString
 	    + ", THREADS_PER_BLOCK"
 	    + ">";
 	}
@@ -96,23 +96,18 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	  string moduleTypeVariant;
 	  
 	  if (!mod->get_useAllThreads()) //runWithAllThreads
-	    moduleTypeVariant = "Node_Buffered";
+	    moduleTypeVariant = "NodeFunction_Buffered";
 	  else
-	    {
-	      if (mod->get_nElements() > 1)
-		moduleTypeVariant = "Node_ManyItems";
-	      else
-		moduleTypeVariant = "Node_SingleItem";
-	    }
+	    moduleTypeVariant = "NodeFunction_User";
 	  
 	  baseType =
 	    moduleTypeVariant
 	    + "<" + inTypeString
 	    + ", " + to_string(mod->get_nChannels())
-	    + ", " + to_string(mod->get_nThreads())
-	    + ", " + to_string(mod->get_inputLimit())
 	    + ", THREADS_PER_BLOCK"
-	    ", " + mod->get_name() // for CRTP
+            ", " + to_string(mod->get_nThreads())
+            + ", " + to_string(mod->get_inputLimit())
+	    + ", " + mod->get_name() // for CRTP
 	    + ">";
 	}
     }
@@ -121,48 +116,6 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 }
 
 
-//
-// @brief generate statements that initialize the channels of
-//   a node, for use inside its constructor
-//
-// @param node node whose code is being generated
-// @param mod type of node whose code is being generated
-// @param f Formatter to receive generated code
-static
-void genDeviceModuleChannelInitStmts(const ModuleType *mod,
-				     Formatter &f)
-{
-  // create output channels
-  int nChannels = mod->get_nChannels();
-
-  // init output channels
-  for (int j=0; j < nChannels; ++j)
-    {
-      const Channel *channel = mod->get_channel(j);
-      
-      unsigned int spaceRequired;
-      if (mod->isUser())
-	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
-      else // source or enumerate can keep going until channel fills
-	spaceRequired = 1; 
-      
-      f.add("initChannel<"
-	    + channel->type->name + ">("
-	    + "Out::" + channel->name + ", "
-		+ to_string(spaceRequired)
-	    + (channel->isAggregate ? ", true);" : ");"));
-      
-      if (mod->isUser() && !mod->get_useAllThreads())
-	{
-	  // channel is buffered -- create its buffer object
-	  f.add("initChannelBuffer<"
-		+ channel->type->name + ">("
-		+ "Out::" + channel->name + ", "
-		+ to_string(channel->maxOutputs)
-		+ ");");
-	}
-    }
-}
 
 
 //
@@ -219,43 +172,29 @@ void genDeviceModuleConstructor(const App *app,
   vector<Init> inits;
   vector<string> baseArgs;
   
-  // all nodes take a pointer to the app scheduler and a region ID
-  args.push_back({"Mercator::Scheduler *", "scheduler"});
-  baseArgs.push_back("scheduler");
-
-  args.push_back({"unsigned int", "region"});
-  baseArgs.push_back("region");
-  
   if (mod->isSource())
     {
+      // all nodes take a pointer to the app scheduler and a region ID
+      args.push_back({"Mercator::Scheduler *", "scheduler"});
+      baseArgs.push_back("scheduler");
+      
+      args.push_back({"unsigned int", "region"});
+      baseArgs.push_back("region");
+      
       // source takes global tail pointer
       args.push_back({"size_t *", "tailPtr"});
       baseArgs.push_back("tailPtr");
     }
   else
     {
-      // all other nodes take 
-      //  -- upstream edge info
-      //  -- a queue size
-      //  -- a parent arena in case of enumeration
-      
-      args.push_back({"NodeBase *", "usNode"});
-      baseArgs.push_back("usNode");
-      
-      args.push_back({"unsigned int", "usChannel"});
-      baseArgs.push_back("usChannel");
-      
-      args.push_back({"unsigned int", "queueSize"});
-      baseArgs.push_back("queueSize");
-      
       args.push_back({"Mercator::RefCountedArena *", "parentArena"});
       baseArgs.push_back("parentArena");
-    }
-  
-  if (mod->isEnumerate())
-    {
-      args.push_back({"unsigned int", "enumId"});
-      baseArgs.push_back("enumId");
+      
+      if (mod->isEnumerate())
+	{
+	  args.push_back({"unsigned int", "enumId"});
+	  baseArgs.push_back("enumId");
+	}
     }
   
   // modules with per-node parameters have a node parameter accessor
@@ -331,20 +270,12 @@ void genDeviceModuleConstructor(const App *app,
     }
   
   f.unindent();
-  
-  f.add("{");
-  f.indent();
-  
-  // initialize device module's output channels
-  genDeviceModuleChannelInitStmts(mod, f);
-  
-  f.unindent();
-  f.add("}");
+  f.add("{}");
 }
 
 
 //
-// @brief generate a device-side node class
+// @brief generate a device-side NodeFunction class
 //
 // @param mod node type for which we are generating class
 // @param f Formatter to receive generated code
@@ -408,6 +339,8 @@ void genDeviceModuleClass(const App *app,
   // enumerated modules (begin(), end(), getParent())
   if (fromType)
     {
+      f.add("public:");
+      
       f.add("__device__");
       f.add(genFcnHeader("void",
 			 "begin",
@@ -418,6 +351,8 @@ void genDeviceModuleClass(const App *app,
 			 "end", 
 			 "") +";");
       f.add("");
+      
+      f.add("private:");
       
       f.add("__device__");
       f.add(genFcnHeader(fromType->name + "*",
@@ -430,8 +365,8 @@ void genDeviceModuleClass(const App *app,
 	"Mercator::ParentBuffer<" + fromType->name + ">";
       
       f.add(pbType + " *pb = static_cast<" + 
-	    pbType + " *>(parentArena);");
-      f.add("return pb->get(parentIdx);");
+	    pbType + " *>(this->parentArena);");
+      f.add("return pb->get(this->parentIdx);");
       
       f.unindent();
       f.add("}");
@@ -542,14 +477,20 @@ void genDeviceModuleClass(const App *app,
       
       if (!mod->isSource() && !mod->isSink())
 	{
+	  f.add("public:");
+	  
 	  // generate hook functions (filled by user)
 	  f.add("__device__ void init(); // called once per block before run()");
 	  f.add("__device__ void cleanup(); // called once per block after run()");
 	}
     }
   
+
+  
   if (mod->isSource())
     {
+      f.add("public:");
+      
       // initialize the source from the data passed down from the host
       f.add("__device__");
       f.add(genFcnHeader("void", "init", ""));
@@ -573,6 +514,8 @@ void genDeviceModuleClass(const App *app,
     }
   else if (mod->isSink())
     {
+      f.add("public:");
+      
       // initialize the sink from the data passed down from the host
       f.add("__device__");
       f.add(genFcnHeader("void", "init", ""));
@@ -626,9 +569,8 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   
   {
     // include only the module type specializations needed by the app
-    bool needsSingleItem = false;
-    bool needsMultiItem = false;
-    bool needsBuffered = false;
+    bool needsUser      = false;
+    bool needsBuffered  = false;
     bool needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
@@ -639,26 +581,22 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  needsEnumerate = true;
 	else if (!mod->get_useAllThreads())
 	  needsBuffered = true;
-	else if (mod->get_nElements() > 1)
-	  needsMultiItem = true;
-	else 
-	  needsSingleItem = true;
+	else
+	  needsUser = true;
       }
     
-    if (needsSingleItem)
-      f.add(genUserInclude("deviceCode/Node_SingleItem.cuh"));
+    if (needsUser)
+      f.add(genUserInclude("deviceCode/NodeFunction_User.cuh"));
     
-    if (needsMultiItem)
-      f.add(genUserInclude("deviceCode/Node_MultiItem.cuh"));
-
     if (needsBuffered)
-      f.add(genUserInclude("deviceCode/Node_Buffered.cuh"));
+      f.add(genUserInclude("deviceCode/NodeFunction_Buffered.cuh"));
     
     if (needsEnumerate)
-      f.add(genUserInclude("deviceCode/Node_Enumerate.cuh"));
+      f.add(genUserInclude("deviceCode/NodeFunction_Enumerate.cuh"));
     
     f.add(genUserInclude("deviceCode/Node_Source.cuh"));
-    f.add(genUserInclude("deviceCode/Node_Sink.cuh"));
+    f.add(genUserInclude("deviceCode/NodeFunction_Sink.cuh"));
+    f.add(genUserInclude("deviceCode/Node.cuh"));
     f.add("");
   }
   

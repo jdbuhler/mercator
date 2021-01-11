@@ -22,7 +22,8 @@ set(CMAKE_INSTALL_PREFIX /export/project/hondius/stimcheck/umercator/mercator-${
 ######################################################################
 
 # Point to the LLVM installation's path (required) 
-set(LLVM_PATH /project/cassini/llvm)
+set(LLVM_PATH /project/cassini/llvm-11.0.0)
+#set(LLVM_PATH /usr)
 
 ######################################################################
 # MAKE CONFIGURATION

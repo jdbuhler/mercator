@@ -106,7 +106,7 @@ namespace Mercator  {
     
     ///////////////////////////////////////////////////////////
     
-  protected:
+  public:
     
     //
     // @brief inspector for the dsNodes array (for subclasses)

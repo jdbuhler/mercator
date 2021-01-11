@@ -41,7 +41,9 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
     
     __device__
-    NodeBase(Scheduler *ischeduler, unsigned int iregion, NodeBase *iusNode)
+    NodeBase(Scheduler *ischeduler, 
+	     unsigned int iregion, 
+	     NodeBase *iusNode)
       : region(iregion),
 	scheduler(ischeduler),
 	usNode(iusNode),
@@ -83,6 +85,11 @@ namespace Mercator  {
     virtual
     void fire() = 0;
     
+    __device__
+    virtual void init() {}
+
+    __device__
+    virtual void cleanup() {}
     
     ///////////////////////////////////////////////////////////
     // SCHEDULING PROTOCOL API
@@ -179,21 +186,6 @@ namespace Mercator  {
 	    scheduler->addFireableNode(this);
 	}
     }
-        
-    ////////////////////////////////////////////////////////////////
-    // INIT and CLEANUP stubs, called at the beginning and end of app
-    // execution, respectively.  These may be reimplemented by the
-    // user for any user-defined node with state, and system-defined
-    // nodes can use them too.
-    ////////////////////////////////////////////////////////////////
-    
-    __device__
-    virtual
-    void init() {}
-    
-    __device__
-    virtual
-    void cleanup() {}
     
     ///////////////////////////////////////////////////////////////////
     // OUTPUT CODE FOR INSTRUMENTATION
@@ -252,6 +244,8 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
     OccCounter occCounter;
 #endif
+    
+  public:
     
     ///////////////////////////////////////////////////////////////
     // FLUSHING API
@@ -344,12 +338,10 @@ namespace Mercator  {
       flushStatus = NO_FLUSH;
     }
 
-  protected:
-    
     __device__
     bool isBlocked() const
     { return blocked; }
-
+    
   private:
 
     const unsigned int region;   // region identifier for flushing    

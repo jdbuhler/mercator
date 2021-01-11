@@ -30,10 +30,9 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
 
     __device__
-    RefCountedArena(unsigned int isize,
-		    NodeBase *iblockingNode = nullptr)
+    RefCountedArena(unsigned int isize)
       : size(isize),
-	blockingNode(iblockingNode)
+	blockingNode(nullptr)
     {
       freeList = new unsigned int [size];
       for (unsigned int j = 0; j < size; j++)
@@ -42,6 +41,10 @@ namespace Mercator  {
       
       refCounts = new unsigned int [size];
     }
+
+    __device__
+    void setBlockingNode(NodeBase *iblockingNode)
+    { blockingNode = iblockingNode; }
     
     __device__
     virtual ~RefCountedArena()
@@ -111,8 +114,8 @@ namespace Mercator  {
     
   private:
     
-    const unsigned int size;         // number of allocated entries
-    NodeBase* const blockingNode;    // node that will block if arena fills
+    const unsigned int size;   // number of allocated entries
+    NodeBase* blockingNode;    // node that will block if arena fills
     
     unsigned int *freeList;    // array listing all free entries
     unsigned int freeListSize; // # of entries on free list
@@ -136,9 +139,8 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
 
     __device__
-    ParentBuffer(unsigned int size,
-		 NodeBase *blockingNode = nullptr)
-      : RefCountedArena(size, blockingNode)
+    ParentBuffer(unsigned int size)
+      : RefCountedArena(size)
     { data = new T [size]; }
     
     __device__
