@@ -217,7 +217,7 @@ namespace Mercator  {
 		      
 	  __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
 	  
-	  __shared__ unsigned int basePtr;
+	  __shared__ size_t basePtr;
 	  if (IS_BOSS())
 	    basePtr = channel->dsReserve(numToWrite);
 	  

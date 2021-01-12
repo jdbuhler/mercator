@@ -100,7 +100,7 @@ namespace Mercator  {
     // @return index of start of reserved space
     //
     __device__
-    unsigned int reserve(unsigned int nElts)
+    size_t reserve(unsigned int nElts)
     {
       assert(IS_BOSS());
       assert(getOccupancy() <= getCapacity() - nElts);

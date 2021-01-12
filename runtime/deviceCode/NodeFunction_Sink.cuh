@@ -101,7 +101,7 @@ namespace Mercator  {
     //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
-		       unsigned int start,
+		       size_t start,
 		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
@@ -112,7 +112,7 @@ namespace Mercator  {
       
       __syncthreads(); // BEGIN WRITE basePtr (ds sink ptr is not read)
       
-      __shared__ unsigned int basePtr;
+      __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = sink->reserve(limit);
       
@@ -132,7 +132,7 @@ namespace Mercator  {
 	  
 	  if (srcIdx < limit)
 	    {
-	      const T &myData = queue.getElt(start + srcIdx);
+	      const T &myData = queue.get(start + srcIdx);
 	      sink->put(basePtr, srcIdx, myData);
 	    }
 	}

@@ -121,7 +121,7 @@ namespace Mercator  {
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
       
-      __shared__ unsigned int dsBase;
+      __shared__ size_t dsBase;
       if (IS_BOSS())
 	dsBase = channel->dsReserve(totalToWrite);
       

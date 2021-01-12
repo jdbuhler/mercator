@@ -102,7 +102,7 @@ namespace Mercator  {
     //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
-		       unsigned int start,
+		       size_t start,
 		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
@@ -117,7 +117,7 @@ namespace Mercator  {
     
       const T &myData =
 	(tid < nItems
-	 ? queue.getElt(start + tid)
+	 ? queue.get(start + tid)
 	 : queue.getDummy()); // don't create a null reference
       
       DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
@@ -182,7 +182,7 @@ namespace Mercator  {
     
       __syncthreads(); // BEGIN WRITE basePtr, ds queue
     
-      __shared__ unsigned int basePtr;
+      __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = channel->dsReserve(totalToWrite);
     

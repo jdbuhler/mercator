@@ -83,9 +83,9 @@ namespace Mercator  {
     // @param elt value to write
     //
     __device__
-    void putElt(unsigned int base,
-		unsigned int offset,
-		const T &elt) const
+    void put(size_t base,
+	     unsigned int offset,
+	     const T &elt) const
     {
       unsigned int myIdx = addModulo(base, offset, dataSize);
       
@@ -100,7 +100,7 @@ namespace Mercator  {
     // @return value read
     //
     __device__
-    T &getElt(unsigned int offset) const
+    T &get(size_t offset) const
     {
       assert(getOccupancy() > offset);
       
@@ -114,7 +114,7 @@ namespace Mercator  {
     //
     __device__
     T &getHead() const
-    { return getElt(0); }
+    { return get(0); }
     
     //
     // @brief return a reference to an actual item of type T that

@@ -104,7 +104,7 @@ namespace Mercator  {
     // @return starting index of reserved segment.
     //
     __device__
-    unsigned int dsReserve(unsigned int nToWrite)
+    size_t dsReserve(unsigned int nToWrite)
     {
       assert(IS_BOSS());
       

@@ -50,11 +50,11 @@ namespace Mercator  {
     // @param item item to be written
     //
     __device__
-    void dsWrite(unsigned int base,
+    void dsWrite(size_t base,
 		 unsigned int offset,
 		 const T &item) const
     {
-      static_cast<Queue<T>*>(dsQueue)->putElt(base, offset, item);
+      static_cast<Queue<T>*>(dsQueue)->put(base, offset, item);
     }
   }; // end Channel class
 }  // end Mercator namespace

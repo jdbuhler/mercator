@@ -137,7 +137,7 @@ namespace Mercator  {
       //
       __device__
       unsigned int doRun(const Queue<T> &queue, 
-			 unsigned int start,
+			 size_t start,
 			 unsigned int limit)
       {
 	unsigned int tid = threadIdx.x;
@@ -156,7 +156,7 @@ namespace Mercator  {
 	  {
 	    DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
 	    
-	    const T &myData = queue.getElt(start + tid);
+	    const T &myData = queue.get(start + tid);
 	    nf->run(myData);
 	  }
 	

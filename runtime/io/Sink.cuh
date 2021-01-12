@@ -62,7 +62,7 @@ namespace Mercator {
     // @return indx of beginning of reserved space in array
     //
     __device__
-    size_t reserve(size_t reqSize)
+    size_t reserve(unsigned int reqSize)
     {
       // try to reserve reqSize items
       size_t oldSize = myAtomicAdd(size, reqSize);
@@ -77,7 +77,7 @@ namespace Mercator {
     // 
     __device__
     virtual
-    void put(size_t base, size_t offset,
+    void put(size_t base, unsigned int offset,
 	     const T &elt) const = 0;
 
   private:
@@ -133,7 +133,7 @@ namespace Mercator {
     // @elt element to write
     //
     __device__
-    void put(size_t base, size_t offset,
+    void put(size_t base, unsigned int offset,
 	     const T &elt) const
     {
       data[base + offset] = elt;

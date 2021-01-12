@@ -79,7 +79,7 @@ namespace Mercator {
     //
     __device__
     unsigned int doRun(const Queue<T> &queue, 
-		       unsigned int start,
+		       size_t start,
 		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
@@ -97,7 +97,7 @@ namespace Mercator {
       // full parent buffer), indicate that we've read nothing
       if (myCurrentCount == myDataCount)
 	{
-	  const T &item = queue.getElt(start);
+	  const T &item = queue.get(start);
 	  
 	  // BEGIN WRITE blocking status, activeParent,
 	  // ds signal queue ptr in startItem()
@@ -147,7 +147,7 @@ namespace Mercator {
       
       __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
       
-      __shared__ unsigned int basePtr;
+      __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = channel->dsReserve(nEltsToWrite);
       

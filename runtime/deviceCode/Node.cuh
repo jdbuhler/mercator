@@ -331,7 +331,7 @@ namespace Mercator  {
       // SIGNAL HANDLING SWITCH
       /////////////////////////////
       
-      const Signal &s = signalQueue.getElt(sigIdx);
+      const Signal &s = signalQueue.get(sigIdx);
       
       switch (s.tag)
 	{
@@ -347,7 +347,7 @@ namespace Mercator  {
       
       // return credit from next signal if there is one
       return (sigIdx + 1 < signalQueue.getOccupancy()
-	      ? signalQueue.getElt(sigIdx + 1).credit
+	      ? signalQueue.get(sigIdx + 1).credit
 	      : 0);
     }
     
