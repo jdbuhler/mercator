@@ -16,7 +16,7 @@
 
 #include "Scheduler.cuh"
 
-#include "Channel.cuh"
+#include "ChannelBase.cuh"
 
 #include "options.cuh"
 
@@ -156,6 +156,14 @@ namespace Mercator  {
     
     
     //
+    // @brief is ths node currently blocked?
+    //
+    __device__
+    bool isBlocked() const
+    { return blocked; }
+    
+    
+    //
     // @brief set this node to blocking status
     //
     __device__
@@ -245,8 +253,6 @@ namespace Mercator  {
     OccCounter occCounter;
 #endif
     
-  public:
-    
     ///////////////////////////////////////////////////////////////
     // FLUSHING API
     // Flushing is used to ensure that all input to a node
@@ -283,15 +289,8 @@ namespace Mercator  {
     // then clears its flushing status; the rule of propagation given
     // above determines whether propagation succeeds.
     //////////////////////////////////////////////////////////////
-    
-    //
-    // @brief true iff the current node is flushing
-    //
-    __device__
-    bool isFlushing() const
-    {
-      return (flushStatus <= region);
-    }
+
+  public:
     
     //
     // @brief ask a downstream neighboring node to start a new
@@ -310,7 +309,18 @@ namespace Mercator  {
       
       return (dsNode->flushStatus == flushRegion);
     }
-
+    
+  protected:
+    
+    //
+    // @brief true iff the current node is flushing
+    //
+    __device__
+    bool isFlushing() const
+    {
+      return (flushStatus <= region);
+    }
+    
     //
     // @brief propagate our flushing status to a downstream neighbor.
     // Returns true iff status actually propagated
@@ -337,10 +347,6 @@ namespace Mercator  {
       
       flushStatus = NO_FLUSH;
     }
-
-    __device__
-    bool isBlocked() const
-    { return blocked; }
     
   private:
 

@@ -15,6 +15,8 @@
 
 #include "NodeFunction.cuh"
 
+#include "Channel.cuh"
+
 #include "ChannelBuffer.cuh"
 
 namespace Mercator  {

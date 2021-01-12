@@ -49,18 +49,31 @@ namespace Mercator  {
     __device__
     void setNode(NodeType *inode)
     { node = inode; }
-
+    
+    ////////////////////////////////////////////////////////
+    
+    //
+    // @brief return the parent arena associated with this NodeFunction
+    //
     __device__
     RefCountedArena *getParentArena() const
     { return parentArena; }
-    
+
+    //
+    // @brief return the current stored parent index
+    //
     __device__
     unsigned int getParentIdx() const
     { return parentIdx; }
-
-    __device__
+    
+    //
+    // @brief set the current stored parent index
+    //
+        __device__
     void setParentIdx(unsigned int i)
     { parentIdx = i; }
+    
+    ////////////////////////////////////////////////////////////
     
     //
     // init and cleanup functions for node

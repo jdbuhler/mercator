@@ -70,6 +70,9 @@ namespace Mercator  {
 	    delete channel;
 	}
     }
+
+    
+  protected:
     
     //
     // @brief associate a downstream edge with a channel
@@ -89,8 +92,6 @@ namespace Mercator  {
     }
     
     
-  protected:
-    
     //
     // @brief set a channel entry for this node
     // (called from node constructors)
@@ -105,7 +106,7 @@ namespace Mercator  {
     }
     
     ///////////////////////////////////////////////////////////
-    
+
   public:
     
     //

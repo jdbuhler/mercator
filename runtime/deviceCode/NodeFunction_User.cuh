@@ -177,7 +177,7 @@ namespace Mercator  {
       unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
     
       using Channel = Channel<DST>;
-    
+      
       Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
     
       __syncthreads(); // BEGIN WRITE basePtr, ds queue

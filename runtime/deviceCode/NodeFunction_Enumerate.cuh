@@ -5,10 +5,6 @@
 
 #include "NodeFunction.cuh"
 
-#include "Channel.cuh"
-
-#include "ParentBuffer.cuh"
-
 namespace Mercator {
 
   //
@@ -46,6 +42,9 @@ namespace Mercator {
 	activeParent(RefCountedArena::NONE)
     {}
     
+    // override basic NodeFunction::SetNode to ensure that we
+    // also associate our node with the parent buffer, in addition
+    // to whatever our superclass does.
     __device__
     void setNode(NodeType *node)
     {
@@ -58,7 +57,7 @@ namespace Mercator {
     // (to pass to nodes in this region)
     //
     __device__
-    RefCountedArena *getParentArena()
+    RefCountedArena *getArena()
     { return &parentBuffer; }
     
     ///////////////////////////////////////////////////////
@@ -192,6 +191,32 @@ namespace Mercator {
       return nFinished;
     }
     
+    
+    //
+    // @brief if we have emptied our inputs in response to a flush,
+    // signal our downstream neighbors so that, when they are flushing,
+    // they can finish off any open parent.
+    //
+    __device__
+    void flushComplete()
+    {
+      assert(IS_BOSS());
+      
+      if (activeParent != RefCountedArena::NONE)
+	{
+	  // item was already unreferenced when we finished it
+	  
+	  activeParent = RefCountedArena::NONE;
+	  
+	  // push a signal to force downstream nodes to finish off
+	  // previous parent
+	  Signal s_new(Signal::Enum);	
+	  s_new.parentIdx = RefCountedArena::NONE;
+	  
+	  node->getChannel(0)->pushSignal(s_new);
+	}
+    }
+    
   private:
     
     // ID of node's enumeration region (used for flushing)
@@ -246,33 +271,6 @@ namespace Mercator {
       node->getChannel(0)->pushSignal(s_new);
       
       return pIdx;
-    }
-    
-  public:
-    
-    //
-    // @brief if we have emptied our inputs in response to a flush,
-    // signal our downstream neighbors so that, when they are flushing,
-    // they can finish off any open parent.
-    //
-    __device__
-    void flushComplete()
-    {
-      assert(IS_BOSS());
-      
-      if (activeParent != RefCountedArena::NONE)
-	{
-	  // item was already unreferenced when we finished it
-	  
-	  activeParent = RefCountedArena::NONE;
-	  
-	  // push a signal to force downstream nodes to finish off
-	  // previous parent
-	  Signal s_new(Signal::Enum);	
-	  s_new.parentIdx = RefCountedArena::NONE;
-	  
-	  node->getChannel(0)->pushSignal(s_new);
-	}
     }
   };
   

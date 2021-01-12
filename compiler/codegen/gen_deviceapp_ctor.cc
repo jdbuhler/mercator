@@ -111,7 +111,7 @@ void genNodeConstruction(const string &nodeObj,
 	    
 	    Node *enumNode = app->regionHeads[node->get_regionId()];
 	    string enumNodeFcnObj = "d"  + enumNode->get_name() + "Fcn";
-	    arenaObj = enumNodeFcnObj + "->getParentArena()";
+	    arenaObj = enumNodeFcnObj + "->getArena()";
 	  }
 	else
 	  arenaObj = "nullptr";

@@ -292,7 +292,7 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
-    NodeFcnType *nodeFunction;
+    NodeFcnType* const nodeFunction;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;
