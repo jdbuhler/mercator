@@ -58,7 +58,7 @@ dsWrite() for channels, which touches only the memory of the
 downstream queues (which will be sync'd in scheduler before it is read
 by another node) and push() for buffered nodes, which is carefully
 designed so that each thread touches non-overlapping storage within
-one call, and the subsequent completePush() function ensures that
+one call, and the subsequent finishWrite() function ensures that
 synchronization happens before the written data is read again.
 
 There are a number of cases in which a node needs to do some operation
@@ -116,7 +116,7 @@ encapsulate the implementation here.
 Data structures that are ``boss-only'' in the runtime include:
  - the worklist and its top pointer in the scheduler
  - the entire state of the parent buffer (but *NOT* the parent index
-   in each node)
+   in each NodeFunction)
  - the scheduling state of each node (active, nDSActive, ...) *except*
    for the blocking flag, which is read by all threads.
  - the numItemsWritten counter in channels, used to set credit for
