@@ -148,6 +148,12 @@ namespace Mercator {
     virtual
     typename SourceBase<T>::EltT get(size_t idx) const = 0;
     
+    //
+    // @brief return a dummy element we don't care about
+    //
+    __device__
+    typename SourceBase<T>::EltT getDummy() const { return get(0); }
+    
   private:
     
     const size_t size;
