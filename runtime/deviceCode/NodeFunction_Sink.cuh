@@ -132,7 +132,8 @@ namespace Mercator  {
 	  
 	  if (srcIdx < limit)
 	    {
-	      const T &myData = queue.get(start + srcIdx);
+	      const typename Queue<T>::EltT myData = 
+		queue.get(start + srcIdx);
 	      sink->put(basePtr, srcIdx, myData);
 	    }
 	}

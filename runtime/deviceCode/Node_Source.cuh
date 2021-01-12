@@ -235,7 +235,7 @@ namespace Mercator  {
 	      
 	      if (srcIdx < numToWrite)
 		{
-		  typename Source<T>::EltT myData =
+		  const typename Source<T>::EltT myData =
 		    source->get(pendingOffset + srcIdx);
 		  channel->dsWrite(basePtr, srcIdx, myData);
 		}

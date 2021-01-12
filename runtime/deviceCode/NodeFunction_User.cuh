@@ -115,7 +115,7 @@ namespace Mercator  {
     
       NODE_OCC_COUNT(nItems);
     
-      const T &myData =
+      const typename Queue<T>::EltT myData =
 	(tid < nItems
 	 ? queue.get(start + tid)
 	 : queue.getDummy()); // don't create a null reference

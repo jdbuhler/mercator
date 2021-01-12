@@ -72,7 +72,7 @@ namespace Mercator {
   template <typename T>
   class SourceBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
   public:
-    using EltT = const T&;
+    using EltT = T&;
     
     __device__
     virtual

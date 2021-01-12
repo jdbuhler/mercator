@@ -17,6 +17,22 @@
 
 namespace Mercator  {
 
+    template <typename T, typename Enable = void>
+  class TypedQueueBase;
+
+  template <typename T>
+  class TypedQueueBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
+  public:
+    using EltT = T;
+  };
+
+  template <typename T>
+  class TypedQueueBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
+  public:
+    using EltT = T&;
+  };
+
+  
   //
   // @class Queue
   // @brief FIFO queue holding items that are in transit from one
@@ -34,9 +50,11 @@ namespace Mercator  {
   // @tparam T Type of data item held in this Queue
   //
   template<typename T>
-  class Queue : public QueueBase {
-  
+  class Queue : public QueueBase, public TypedQueueBase<T> {
+
   public:
+
+    using EltT = typename TypedQueueBase<T>::EltT;
     
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
@@ -100,7 +118,7 @@ namespace Mercator  {
     // @return value read
     //
     __device__
-    T &get(size_t offset) const
+    EltT get(size_t offset) const
     {
       assert(getOccupancy() > offset);
       
@@ -113,7 +131,7 @@ namespace Mercator  {
     // @brief read the element at the head of the queue
     //
     __device__
-    T &getHead() const
+    EltT getHead() const
     { return get(0); }
     
     //
@@ -123,7 +141,7 @@ namespace Mercator  {
     // it when caling run) where we need an "invalid" element.
     //
     __device__
-    const T &getDummy() const
+    const EltT getDummy() const
     { return data[0]; }
     
     
