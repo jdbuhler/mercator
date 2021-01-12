@@ -18,7 +18,8 @@ namespace Mercator {
   // @tparam T type of input item
   //
   template<typename T, 
-	   unsigned int THREADS_PER_BLOCK>
+	   unsigned int THREADS_PER_BLOCK,
+	   typename DerivedNodeFnType>
   class NodeFunction_Enumerate : public NodeFunction<1> {
     
     using BaseType = NodeFunction<1>;
@@ -133,7 +134,8 @@ namespace Mercator {
 	  
 	  NODE_OCC_COUNT(1);
 	  
-	  myDataCount = findCount(item);
+	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
+	  myDataCount = nf->findCount(item);
 	  myCurrentCount = 0;
 	}
       
@@ -234,18 +236,7 @@ namespace Mercator {
 
     // the active parent object for enumeration
     unsigned int activeParent;
-    
-    //
-    // @brief find the number of data items that need to be enumerated
-    // from the current parent object.
-    //
-    // Like the run function, this is filled out by the user in the
-    // generated code.  This function is called SINGLE-THREADED.
-    //
-    __device__
-    virtual
-    unsigned int findCount(const T &item) const = 0;
-    
+        
     //
     // @brief begin enumeration of a new parent object. Add the object
     // to the parent buffer, store its index in the buffer in the

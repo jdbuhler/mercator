@@ -50,9 +50,7 @@ namespace Mercator  {
     
     
     __device__
-    virtual
-      ~QueueBase()
-    {}
+    virtual ~QueueBase() {}
     
     /////////////////////////////////////////////////////////
     

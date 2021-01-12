@@ -77,7 +77,7 @@ namespace Mercator  {
     }
 
     __device__
-    virtual ~Node()
+    ~Node()
     {
       delete nodeFunction;
     }
@@ -358,7 +358,6 @@ namespace Mercator  {
     // @param s signal to handle
     //
     __device__
-    virtual
     void handleEnum(const Signal &s)
     {
       unsigned int pIdx = nodeFunction->getParentIdx();

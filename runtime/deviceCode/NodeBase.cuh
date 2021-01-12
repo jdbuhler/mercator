@@ -52,8 +52,7 @@ namespace Mercator  {
     {}
     
     __device__
-    virtual 
-    ~NodeBase() {}
+    virtual ~NodeBase() {}
 
     //
     // @brief associate a downstream edge with a channel
@@ -72,8 +71,7 @@ namespace Mercator  {
     // (Only used for debugging.)
     //
     __device__
-    virtual
-    bool hasPending() const = 0;
+    virtual bool hasPending() const = 0;
     
     
     //
@@ -82,12 +80,20 @@ namespace Mercator  {
     // appropriately by different subclasses of Node.
     //
     __device__
-    virtual
-    void fire() = 0;
-    
+    virtual void fire() = 0;
+
+    //
+    // @brief initialization code run each time an app starts.
+    // Subclasses supply their own implementations if desired
+    //
     __device__
     virtual void init() {}
 
+
+    //
+    // @brief initialization code run each time an app finishes.
+    // Subclasses supply their own implementations if desired
+    //
     __device__
     virtual void cleanup() {}
     

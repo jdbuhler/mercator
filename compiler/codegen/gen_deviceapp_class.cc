@@ -89,6 +89,7 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	  baseType = 
 	    "NodeFunction_Enumerate<" + inTypeString
 	    + ", THREADS_PER_BLOCK"
+	    + ", " + mod->get_name() // for CRTP
 	    + ">";
 	}
       else
@@ -114,8 +115,6 @@ string genDeviceModuleBaseType(const ModuleType *mod)
   
   return baseType;
 }
-
-
 
 
 //
@@ -315,6 +314,19 @@ void genDeviceModuleClass(const App *app,
 			 genDeviceModuleRunFcnParams(mod)) + ";");
       f.add("");
     }
+
+  
+  if (mod->isEnumerate())
+    {
+      string inputType = mod->get_inputType()->name;
+      
+      f.add("__device__");
+      f.add(genFcnHeader("unsigned int",
+			 "findCount", 
+			 "const " + inputType + " &parent") + " const;");
+      
+      f.add("");
+    }
   
   f.add("private:", true);
   f.add("");
@@ -372,19 +384,7 @@ void genDeviceModuleClass(const App *app,
       f.add("}");
       f.add("");
     }
-  
-  if (mod->isEnumerate())
-    {
-      string inputType = mod->get_inputType()->name;
-      
-      f.add("__device__");
-      f.add(genFcnHeader("unsigned int",
-			 "findCount", 
-			 "const " + inputType + " &parent") + " const;");
-
-      f.add("");
-    }
-  
+    
   if (mod->hasNodeParams())
     {
       // generate node parameter storage

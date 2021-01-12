@@ -42,8 +42,7 @@ namespace Mercator  {
     }
     
     __device__
-    virtual
-    ~ChannelBufferBase()
+    virtual ~ChannelBufferBase()
     { 
       delete [] nextSlot; 
     }
