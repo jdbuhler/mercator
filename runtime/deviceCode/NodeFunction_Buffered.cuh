@@ -43,6 +43,7 @@ namespace Mercator  {
   //
     template<typename T,
 	     unsigned int numChannels,
+	     template <typename> class InputView,
 	     unsigned int THREADS_PER_BLOCK,
 	     unsigned int threadGroupSize,
 	     unsigned int maxActiveThreads,
@@ -136,7 +137,7 @@ namespace Mercator  {
       // @return number of items ACTUALLY consumed (may be 0).
       //
       __device__
-      unsigned int doRun(const Queue<T> &queue, 
+      unsigned int doRun(const InputView<T> &view,
 			 size_t start,
 			 unsigned int limit)
       {
@@ -156,7 +157,8 @@ namespace Mercator  {
 	  {
 	    DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
 	    
-	    const T &myData = queue.get(start + tid);
+	    const typename InputView<T>::EltT myData = 
+	      view.get(start + tid);
 	    nf->run(myData);
 	  }
 	

@@ -81,14 +81,16 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	{
 	  baseType =
 	    "NodeFunction_Sink"
-	    "<" + inTypeString 
-	    + ", THREADS_PER_BLOCK>";
+	    "<" + inTypeString
+	    + ", Mercator::Queue"
+	    ", THREADS_PER_BLOCK>";
 	}
       else if (mod->isEnumerate())
 	{
 	  baseType = 
 	    "NodeFunction_Enumerate<" + inTypeString
-	    + ", THREADS_PER_BLOCK"
+	    + ", Mercator::Queue"
+	    ", THREADS_PER_BLOCK"
 	    + ", " + mod->get_name() // for CRTP
 	    + ">";
 	}
@@ -105,7 +107,8 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	    moduleTypeVariant
 	    + "<" + inTypeString
 	    + ", " + to_string(mod->get_nChannels())
-	    + ", THREADS_PER_BLOCK"
+	    + ", Mercator::Queue"
+	    ", THREADS_PER_BLOCK"
             ", " + to_string(mod->get_nThreads())
             + ", " + to_string(mod->get_inputLimit())
 	    + ", " + mod->get_name() // for CRTP

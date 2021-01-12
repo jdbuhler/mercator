@@ -24,6 +24,7 @@ namespace Mercator  {
 
   //
   template<typename T, 
+	   template<typename> class InputView,
 	   unsigned int THREADS_PER_BLOCK>
   class NodeFunction_Sink : public NodeFunction<0> {
 
@@ -100,7 +101,7 @@ namespace Mercator  {
     // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
-    unsigned int doRun(const Queue<T> &queue, 
+    unsigned int doRun(const InputView<T> &view,
 		       size_t start,
 		       unsigned int limit)
     {
@@ -118,7 +119,7 @@ namespace Mercator  {
       
       __syncthreads(); // END WRITE basePtr
       
-      // use every thread to copy from our queue to sink
+      // use every thread to copy from view to sink
       for (unsigned int base = 0; 
 	   base < limit; 
 	   base += THREADS_PER_BLOCK)
@@ -132,8 +133,8 @@ namespace Mercator  {
 	  
 	  if (srcIdx < limit)
 	    {
-	      const typename Queue<T>::EltT myData = 
-		queue.get(start + srcIdx);
+	      const typename InputView<T>::EltT myData = 
+		view.get(start + srcIdx);
 	      sink->put(basePtr, srcIdx, myData);
 	    }
 	}
