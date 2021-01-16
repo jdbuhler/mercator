@@ -31,13 +31,12 @@ namespace Mercator  {
   //
   template<typename T, 
 	   unsigned int numChannels,
-	   unsigned int THREADS_PER_BLOCK>
-  class Node_Source : 
-    public NodeBaseWithChannels<numChannels> {
+	   unsigned int THREADS_PER_BLOCK,
+	   template<template <typename U> typename View> typename NodeFcnKind>
+  class Node_Source : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
-    
-  private:
+    using NodeFcnType = NodeFcnKind<Source>;
     
     using BaseType::getChannel;
     using BaseType::getDSNode;
@@ -68,45 +67,31 @@ namespace Mercator  {
     __device__
     Node_Source(Scheduler *scheduler,
 		unsigned int region,
-		size_t *itailPtr)
+		size_t *itailPtr,
+		const SourceData<T> *isourceData,
+		NodeFcnType *inodeFunction)
       : BaseType(scheduler, region, nullptr),
 	tailPtr(itailPtr),
-	source(nullptr)
+	sourceData(isourceData),
+	nodeFunction(inodeFunction),
+	source(nullptr),
+	nDataPending(0),
+	basePtr(0),
+	sourceExhausted(false)
     {
+      nodeFunction->setNode(this);
+      
 #ifdef INSTRUMENT_OCC
       occCounter.setMaxRunSize(THREADS_PER_BLOCK);
 #endif
     }
     
-    //
-    // @brief construct a Source object from the raw data passed down
-    // to the device.
-    //
-    // @param sourceData source data passed from host to device
-    // @return a Source object whose subtype matches the input data
-    //
     __device__
-    Source<T> *createSource(const SourceData<T> &sourceData,
-			    SourceMemory<T> *mem)
+    virtual
+    ~Node_Source()
     {
-      Source<T> *source;
-      
-      switch (sourceData.kind)
-	{
-	case SourceData<T>::Buffer:
-	  source = new (mem) SourceBuffer<T>(sourceData.bufferData,
-					     tailPtr);
-	  break;
-	  
-	case SourceData<T>::Range:
-	  source = new (mem) SourceRange<T>(sourceData.rangeData,
-					    tailPtr);
-	  
-	  break;
-	}
-      
-      return source;
-    }
+      delete nodeFunction;
+    }    
     
     //
     // @brief Create and initialize an output channel.
@@ -140,21 +125,19 @@ namespace Mercator  {
     
     /////////////////////////////////////////////////////////////////
     
-    //
-    // @brief prepare for the app's main kernel to run
-    // Set our input source, then try to get an initial reservation
-    // from the input source, so that the application has work to do.
-    // If no work is available, set our tail state true to so indicate.
-    //
-    // Called single-threaded
-    //
-    // @param source input source  to use
-    //
     __device__
-    void setInputSource(Source<T> *isource)
-    {
-      assert(IS_BOSS());
-      source = isource;
+    void init() 
+    { 
+      if (IS_BOSS())
+	source = createSource(sourceData);
+      
+      nodeFunction->init(); 
+    }
+    
+    __device__
+    void cleanup() 
+    { 
+      nodeFunction->cleanup(); 
     }
     
     //
@@ -166,7 +149,7 @@ namespace Mercator  {
     {
       return false; // cannot get this info from source
     }
-
+    
     //
     // @brief fire the node, copying as much input as possible from
     // the source to the downstream queues.  This will cause at least
@@ -177,131 +160,179 @@ namespace Mercator  {
     __device__
     void fire()
     {
-      int tid = threadIdx.x;
-      
       TIMER_START(input);
       
-      // determine the amount of data needed to activate at least one
-      // downstream node by filling its queue.
-      
-      size_t numToRequest = UINT_MAX;
-      for (unsigned int c = 0; c < numChannels; c++)
-	numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
-      
-      // if the source advises a lower request size than what we planned,
-      // honor that.  Note that this may cause us to neither fill any
-      // output queue nor exhaust the input.
-      numToRequest = min(numToRequest, source->getRequestLimit());
-      
-      // BEGIN WRITE pendingOffset, numToWrite (src ptr not read)
-      __syncthreads();
-      
-      __shared__ size_t pendingOffset;
-      __shared__ size_t numToWrite;
-      
-      if (IS_BOSS())
+      if (nDataPending == 0)
 	{
-	  // ask the source buffer for as many inputs as we want
-	  numToWrite = source->reserve(numToRequest, &pendingOffset);
+	  // determine the amount of data needed to fill at least one
+	  // downstream queue
+	  
+	  size_t numToRequest = UINT_MAX;
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
+	  
+	  // if the source advises a lower request size than what we planned,
+	  // honor that.  Note that this may cause us to neither fill any
+	  // output queue nor exhaust the input.
+	  numToRequest = min(numToRequest, source->getRequestLimit());
+	  
+	  // BEGIN WRITE nDataPending, basePtr
+	  __syncthreads();      
+	  
+	  if (IS_BOSS())
+	    {
+	      // ask the source buffer for as many inputs as we want
+	      nDataPending = source->reserve(numToRequest, &basePtr);
+	      if (nDataPending < numToRequest)
+		sourceExhausted = true;
+	    }
+	  
+	  // END WRITE nDataPending, bsePtr
+	  __syncthreads();
 	}
+
+      // # of items available to consume from queue
+      unsigned int nDataToConsume = nDataPending;
       
-      __syncthreads(); // END WRITE pendingOffset, numToWrite
+      // # of items already consumed from queue
+      unsigned int nDataConsumed = 0;
+      
+      // threshold for declaring data queue "empty" for scheduling
+      const unsigned int emptyThreshold = 0;
+      
+      bool dsActive = false;
       
       TIMER_STOP(input);
+      TIMER_START(run);
       
-      TIMER_START(output);
-      
-      for (unsigned int c = 0; c < numChannels; c++)
+      //
+      // run until input queue satisfies EMPTY condition, or 
+      // writing output causes some downstream neighbor to activate.
+      //
+      while (nDataToConsume - nDataConsumed > emptyThreshold && !dsActive)
 	{
-	  Channel<T> *channel = static_cast<Channel<T>*>(getChannel(c));
-		      
-	  __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
+	  // determine the max # of items we may safely consume this time
+	  unsigned int limit = nDataToConsume - nDataConsumed;
 	  
-	  __shared__ size_t basePtr;
-	  if (IS_BOSS())
-	    basePtr = channel->dsReserve(numToWrite);
+	  unsigned int nFinished;
 	  
-	  __syncthreads(); // END WRITE basePtr, ds queue tail
+	  // doRun() tries to consume input; could cause node to block
+	  nFinished = nodeFunction->doRun(*source, basePtr + nDataConsumed, 
+					  limit);
 	  
-	  for (size_t base = 0; 
-	       base < numToWrite; 
-	       base += THREADS_PER_BLOCK)
+	  nDataConsumed += nFinished;
+	  
+	  //
+	  // Check whether any child needs to be activated
+	  //
+	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
-#ifdef INSTRUMENT_OCC
-	      unsigned int vecSize = min((unsigned long)numToWrite - base, (unsigned long)THREADS_PER_BLOCK);
-	      NODE_OCC_COUNT(vecSize);
-#endif
-	      size_t srcIdx = base + tid;
-	      
-	      if (srcIdx < numToWrite)
+	      if (getChannel(c)->checkDSFull())
 		{
-		  const typename Source<T>::EltT myData =
-		    source->get(pendingOffset + srcIdx);
-		  channel->dsWrite(basePtr, srcIdx, myData);
+		  dsActive = true;
+		  
+		  if (IS_BOSS())
+		    getDSNode(c)->activate();
 		}
 	    }
+	  
+	  // don't keep trying to run the node if it is blocked
+	  if (this->isBlocked())
+	    break;
 	}
       
-      TIMER_STOP(output);
+      TIMER_STOP(run);
       
       TIMER_START(input);
       
+      // BEGIN WRITE nDataPending, state changes in flushComplete()
+      __syncthreads(); 
+      
       if (IS_BOSS())
 	{
-	  if (numToWrite < numToRequest)
+	  nDataPending -= nDataConsumed;
+	  basePtr      += nDataConsumed;
+	 
+	  if (nDataToConsume - nDataConsumed <= emptyThreshold)
 	    {
-	      // no inputs remain in source
-	      this->deactivate();
-	      
-	      // no more inputs to read -- force downstream nodes
-	      // into flushing mode and activate them (if not
-	      // already active).  Even if they have no input,
-	      // they must fire once to propagate flush mode to
-	      // *their* downstream nodes.
-	      for (unsigned int c = 0; c < numChannels; c++)
+	      if (sourceExhausted)
 		{
-		  NodeBase *dsNode = getDSNode(c);
+		  this->deactivate();
 		  
-		  if (this->initiateFlush(dsNode, 0)) // 0 = global region ID
-		    dsNode->activate();
-		}
-	    }
-	  else
-	    {
-	      bool dsActive = false;
-	      
-	      //
-	      // Check whether any child needs to be activated
-	      //
-	      for (unsigned int c = 0; c < numChannels; c++)
-		{
-		  if (getChannel(c)->checkDSFull())
+		  // no more inputs to read -- force downstream nodes
+		  // into flushing mode and activate them (if not
+		  // already active).  Even if they have no input,
+		  // they must fire once to propagate flush mode to
+		  // *their* downstream nodes.
+		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
-		      dsActive = true;
-		      getDSNode(c)->activate();
+		      NodeBase *dsNode = getDSNode(c);
+		      
+		      // 0 = global region ID
+		      if (this->initiateFlush(dsNode, 0)) 
+			dsNode->activate();
 		    }
+		  
+		  nodeFunction->flushComplete();
 		}
-	      
-	      // If we did not fill any downstream queues or exhaust
-	      // the input stream, we need to forcibly re-enqueue
-	      // ourselves and fire again.  This can happen only if
-	      // the source artificially limited our input request
-	      // size.
-	      if (!dsActive)
-		this->forceReschedule();
+	      else if (!dsActive && !this->isBlocked())
+		{
+		  // If we did not activate a downstream node or exhaust
+		  // the input stream, we need to forcibly re-enqueue
+		  // ourselves and fire again, since we remain fireable
+		  // and our descendants might not be.
+		  this->forceReschedule();
+		}
 	    }
 	}
+      
+      // END WRITE nDataPending, state changes in flushComplete()
+      // [suppressed because we are assumed to sync before next firing]
+      // __syncthreads(); 
       
       TIMER_STOP(input);
     }
     
   private:
-    
-    size_t* const tailPtr;
-    
-    Source<T>* source;
-  };
   
+    size_t* const tailPtr;
+    const SourceData<T>* const sourceData;
+    NodeFcnType* const nodeFunction;
+  
+    Source<T>* source;
+    SourceMemory<T> sourceMem;
+  
+    size_t nDataPending;
+    size_t basePtr;
+    bool sourceExhausted;
+    
+    //
+    // @brief construct a Source object from the raw data passed down
+    // to the device.
+    //
+    // @param sourceData source data passed from host to device
+    // @return a Source object whose subtype matches the input data
+    //
+    __device__
+    Source<T> *createSource(const SourceData<T> *sourceData)
+    {
+      Source<T> *source;
+      switch (sourceData->kind)
+	{
+	case SourceData<T>::Buffer:
+	  source = new (&sourceMem) SourceBuffer<T>(sourceData->bufferData,
+						    tailPtr);
+	  break;
+	case SourceData<T>::Range:
+	  source = new (&sourceMem) SourceRange<T>(sourceData->rangeData,
+						   tailPtr);
+	  break;
+	}
+    
+      return source;
+    }
+  };
+
 }; // namespace Mercator
 
 #endif

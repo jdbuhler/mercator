@@ -43,14 +43,15 @@ namespace Mercator  {
   //
     template<typename T,
 	     unsigned int numChannels,
-	     template <typename> class InputView,
+	     template <typename U> typename InputView,
 	     unsigned int THREADS_PER_BLOCK,
 	     unsigned int threadGroupSize,
 	     unsigned int maxActiveThreads,
-	     typename DerivedNodeFnType>
+	     template <template <typename V> typename View> typename DerivedNodeFnKind>
     class NodeFunction_Buffered : public NodeFunction<numChannels> {
       
       using BaseType = NodeFunction<numChannels>;
+      using DerivedNodeFnType = DerivedNodeFnKind<InputView>;
       
       using BaseType::node;
       

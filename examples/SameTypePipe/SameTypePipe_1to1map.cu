@@ -4,10 +4,10 @@
 
 #include "BlackScholes/BlackScholes_device.cuh"
 
-__device__
-void 
-SameTypePipe_1to1map_dev::
-A::init()
+__MDECL__
+void
+SameTypePipe_1to1map_dev::A<InputView>::
+init()
 {
   const int threadWidth = getNumActiveThreads();
   
@@ -28,10 +28,10 @@ A::init()
     }
 }
 
-__device__
-void 
-SameTypePipe_1to1map_dev::
-A::run(const PipeEltT &inputItem)
+__MDECL__
+void
+SameTypePipe_1to1map_dev::A<InputView>::
+run(const PipeEltT &inputItem)
 { 
   PipeEltT myItem = inputItem;
   
@@ -72,10 +72,10 @@ A::run(const PipeEltT &inputItem)
     push(myItem);
 }
 
-__device__
+__MDECL__
 void
-SameTypePipe_1to1map_dev::
-A::cleanup()
+SameTypePipe_1to1map_dev::A<InputView>::
+cleanup()
 {
   if (threadIdx.x == 0)
     delete [] getState()->randState;

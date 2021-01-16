@@ -28,6 +28,7 @@ using namespace std;
 // @param f Formatter to receive generated code
 static
 void genNodeChannelInitStmts(const ModuleType *mod,
+			     const string modType,
 			     const string &nodeObj,
 			     const string &nodeFcnObj,
 			     Formatter &f)
@@ -48,7 +49,7 @@ void genNodeChannelInitStmts(const ModuleType *mod,
       
       f.add(nodeObj + "->initChannel<"
 	    + channel->type->name + ">("
-	    + mod->get_name() + "::Out::" + channel->name + ", "
+	    + modType + "::Out::" + channel->name + ", "
 		+ to_string(spaceRequired)
 	    + (channel->isAggregate ? ", true);" : ");"));
       
@@ -57,7 +58,7 @@ void genNodeChannelInitStmts(const ModuleType *mod,
 	  // channel is buffered -- create its buffer object
 	  f.add(nodeFcnObj + "->initChannelBuffer<"
 		+ channel->type->name + ">("
-		+ mod->get_name() + "::Out::" + channel->name + ", "
+		+ modType + "::Out::" + channel->name + ", "
 		+ to_string(channel->maxOutputs)
 		+ ");");
 	}
@@ -80,8 +81,13 @@ void genNodeConstruction(const string &nodeObj,
 			 const App *app,
 			 Formatter &f)
 {
+  bool isSourceNode =
+    node->get_usEdge()->usNode->get_moduleType()->isSource();
+  
   string hostModuleType = "Host::" + mod->get_name();
-  string deviceModuleType  = mod->get_name();
+  string deviceModuleKind = mod->get_name();
+  string deviceModuleType  = deviceModuleKind +
+    "<Mercator::" + (isSourceNode ? "Source>" : "Queue>");
   
   string nodeFunctionObj = nodeObj + "Fcn";
   
@@ -90,118 +96,123 @@ void genNodeConstruction(const string &nodeObj,
   string hostModuleParamObj = "params->p" + mod->get_name();
   string hostAppParamObj    = "params->appParams";
   
-  // allocate the node object
-  {
-    if (!mod->isSource())
-      {
-	// allocate the corresponding node function object
 	
-	string nextStmt =
-	  deviceModuleType + "* " + nodeFunctionObj +
-	  " = new " + deviceModuleType + "(";
-	
-	vector<string> arglist;
-	
-	string arenaObj;
-	if (node->get_regionId() > 0) // node is in a non-base region
-	  {
-	    // add pointer to region head's parent buffer. which
-	    // already exists because we construct nodes in
-	    // topological order
-	    
+  // allocate the node function object
+  
+  string nextStmt =
+    deviceModuleType + "* " + nodeFunctionObj +
+    " = new " + deviceModuleType + "(";
+  
+  vector<string> arglist;
+  
+  string arenaObj;
+  if (node->get_regionId() > 0) // node is in a non-base region
+    {
+      // add pointer to region head's parent buffer. which
+      // already exists because we construct nodes in
+      // topological order
+      
 	    Node *enumNode = app->regionHeads[node->get_regionId()];
 	    string enumNodeFcnObj = "d"  + enumNode->get_name() + "Fcn";
 	    arenaObj = enumNodeFcnObj + "->getArena()";
-	  }
-	else
-	  arenaObj = "nullptr";
+    }
+  else
+    arenaObj = "nullptr";
+  
+  arglist.push_back(arenaObj);
+  
+  if (mod->isEnumerate())
+    arglist.push_back(to_string(node->get_enumerateId()));
+  
+  if (mod->hasNodeParams())
+    arglist.push_back("&" + hostNodeParamObj);
+  
+  if (mod->hasModuleParams())
+    arglist.push_back("&" + hostModuleParamObj);
+  
+  if (app->hasParams())
+    arglist.push_back("&" + hostAppParamObj);
+  
+  if (arglist.size() > 0)
+    {
+      nextStmt += arglist[0];
+      for (unsigned int j = 1; j < arglist.size(); j++)
+	nextStmt += ", " + arglist[j];
+    }
+  
+  nextStmt += ");";
+  
+  // verify that allocation succeeded	
+  f.add(nextStmt);
+  f.add("assert(" + nodeFunctionObj + " != nullptr);");
+  
+  
+  // allocate the containing node object
+  
+  const ModuleType *parentMod = node->get_usEdge()->usNode->get_moduleType();
+  
+  if (parentMod->isSource())
+    {
+      string sourceModName = parentMod->get_name();
+      
+      // allocate the node object
+      string NodeType = "Mercator::Node_Source< " + 
+	mod->get_inputType()->name +
+	", " + to_string(mod->get_nChannels()) +
+	", THREADS_PER_BLOCK"
+	", " + deviceModuleKind + ">";
+      
+      nextStmt =
+	NodeType + " * " + nodeObj + " = new " + NodeType + "(";
+      
+      nextStmt += "&scheduler";
+      
+      nextStmt += ", " + to_string(node->get_regionId());
+      
+      nextStmt += ", tailPtr";
+      
+      nextStmt += ", &params->n" + sourceModName + "[0].sourceData";
+      
+      nextStmt += ", " + nodeFunctionObj;
+      
+      nextStmt += ");";
+      
+      f.add(nextStmt);
+    }
+  else
+    {
+      string NodeType = "Mercator::Node< " + 
+	mod->get_inputType()->name +
+	", " + to_string(mod->get_nChannels()) +
+	", THREADS_PER_BLOCK"
+	", " + deviceModuleKind + ">";
+      
+      nextStmt =
+	NodeType + " * " + nodeObj + " = new " + NodeType + "(";
+      
+      nextStmt += "&scheduler";
+      
+      nextStmt += ", " + to_string(node->get_regionId());
+      
+      const Edge *usEdge = node->get_usEdge();
+      nextStmt += ", d" + usEdge->usNode->get_name();
+      nextStmt += ", " + to_string(usEdge->usChannel->id);
+      
+      nextStmt += 
+	", " + to_string(node->get_queueSize() * options.queueScaler);
+      
+      nextStmt += ", " + nodeFunctionObj;
+      
+      nextStmt += ");";
 	
-	arglist.push_back(arenaObj);
-	
-	if (mod->isEnumerate())
-	  arglist.push_back(to_string(node->get_enumerateId()));
-	
-	if (mod->hasNodeParams())
-	  arglist.push_back("&" + hostNodeParamObj);
-	
-	if (mod->hasModuleParams())
-	  arglist.push_back("&" + hostModuleParamObj);
-	
-	if (app->hasParams())
-	  arglist.push_back("&" + hostAppParamObj);
-	
-	if (arglist.size() > 0)
-	  {
-	    nextStmt += arglist[0];
-	    for (unsigned int j = 1; j < arglist.size(); j++)
-	      nextStmt += ", " + arglist[j];
-	  }
-	
-	nextStmt += ");";
-	
-	// verify that allocation succeeded	
-	f.add(nextStmt);
-	f.add("assert(" + nodeFunctionObj + " != nullptr);");
-	
-	// Now allocate the node object
-	string NodeType = "Mercator::Node< " + 
-	  mod->get_inputType()->name +
-	  ", " + to_string(mod->get_nChannels()) +
-	  ", THREADS_PER_BLOCK"
-	  ", " + deviceModuleType + ">";
-	
-	nextStmt =
-	  NodeType + " * " + nodeObj + " = new " + NodeType + "(";
-	
-	nextStmt += "&scheduler";
-	
-	nextStmt += ", " + to_string(node->get_regionId());
-	
-	const Edge *usEdge = node->get_usEdge();
-	nextStmt += ", d" + usEdge->usNode->get_name();
-	nextStmt += ", " + to_string(usEdge->usChannel->id);
-	
-	nextStmt += 
-	  ", " + to_string(node->get_queueSize() * options.queueScaler);
-	
-	nextStmt += ", " + nodeFunctionObj;
-	
-	nextStmt += ");";
-	
-	// verify that allocation succeeded	
-	f.add(nextStmt);
-	f.add("assert(" + nodeObj + " != nullptr);");
-      }
-    else
-      {
-	// source node 
-	string nextStmt =
-	  deviceModuleType + "* " + nodeObj + " = new " + deviceModuleType + "(";
-	
-	nextStmt += "&scheduler";
-	
-	nextStmt += ", " + to_string(node->get_regionId());
-	
-	nextStmt += ", tailPtr";
-	
-	if (mod->hasNodeParams())
-	  nextStmt += ", &" + hostNodeParamObj;
-	
-	if (mod->hasModuleParams())
-	  nextStmt += ", &" + hostModuleParamObj;
-	
-	if (app->hasParams())
-	  nextStmt += ", &" + hostAppParamObj;
-	
-	nextStmt += ");";
-	
-	f.add(nextStmt);
-	f.add("assert(" + nodeObj + " != nullptr);"); // verify that allocation succeeded
-      }
-    
-    // allocate the channels for the node
-    genNodeChannelInitStmts(mod, nodeObj, nodeFunctionObj, f);
-  }
+      f.add(nextStmt);
+    }
+  
+  // verify that allocation succeeded	
+  f.add("assert(" + nodeObj + " != nullptr);");
+  
+  // allocate the channels for the node
+  genNodeChannelInitStmts(mod, deviceModuleType, nodeObj, nodeFunctionObj, f);
 }
 
 
@@ -227,24 +238,29 @@ void genDeviceAppConstructor(const App *app,
   
   // instantiate all nodes of the app in topological order
   
-  f.add("// initialize each node of the app on the device");
+  f.add("// construct each node of the app on the device");
   
   for (const Node *node : app->nodes)
     {
-      string nodeObj = "d" + node->get_name();
-            
-      genNodeConstruction(nodeObj, node, node->get_moduleType(), app, f);
-      f.add("");
+      if (!node->get_moduleType()->isSource()) // source was not built
+	{
+	  string nodeObj = "d" + node->get_name();
+	  genNodeConstruction(nodeObj, node, node->get_moduleType(), app, f);
+	  f.add("");
+	}
     }
   
   // create an array of all nodes to initialize the scheduler 
   
   string nextStmt = "Mercator::NodeBase *nodes[] = {";
+
   for (const Node *node : app->nodes)
     {
-      string nodeObj = "d" + node->get_name();
-      
-      nextStmt += nodeObj + ", ";
+      if (!node->get_moduleType()->isSource()) // source was not built
+	{
+	  string nodeObj = "d" + node->get_name();
+	  nextStmt += nodeObj + ", ";
+	}
     }
   nextStmt += "};";
   f.add(nextStmt);

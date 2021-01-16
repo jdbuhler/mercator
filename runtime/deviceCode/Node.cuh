@@ -40,11 +40,12 @@ namespace Mercator  {
   template <typename T, 
 	    unsigned int numChannels,
 	    unsigned int THREADS_PER_BLOCK, // FIXME: needed?
-	    typename NodeFcnType>
+	   template<template <typename U> typename View> typename NodeFcnKind>
   class Node : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
-
+    using NodeFcnType = NodeFcnKind<Queue>;
+    
     using BaseType::getChannel;
     using BaseType::getDSNode;
     
@@ -77,6 +78,7 @@ namespace Mercator  {
     }
 
     __device__
+    virtual
     ~Node()
     {
       delete nodeFunction;

@@ -64,56 +64,45 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 {
   string baseType;
   
-  if (mod->isSource())
+  // get data type for this node
+  string inTypeString = mod->get_inputType()->name;
+  
+  if (mod->isSink())
     {
       baseType =
-	"Node_Source"
-	"<" + mod->get_channel(0)->type->name
-	+ ", " + to_string(mod->get_nChannels())
-	+ ", THREADS_PER_BLOCK>";
+	"NodeFunction_Sink"
+	"<" + inTypeString
+	+ ", InputView"
+	", THREADS_PER_BLOCK>";
+    }
+  else if (mod->isEnumerate())
+    {
+      baseType = 
+	"NodeFunction_Enumerate<" + inTypeString
+	+ ", InputView"
+	    ", THREADS_PER_BLOCK"
+	+ ", " + mod->get_name() // for CRTP
+	+ ">";
     }
   else
     {
-      // get data type for this node
-      string inTypeString = mod->get_inputType()->name;
+      string moduleTypeVariant;
       
-      if (mod->isSink())
-	{
-	  baseType =
-	    "NodeFunction_Sink"
-	    "<" + inTypeString
-	    + ", Mercator::Queue"
-	    ", THREADS_PER_BLOCK>";
-	}
-      else if (mod->isEnumerate())
-	{
-	  baseType = 
-	    "NodeFunction_Enumerate<" + inTypeString
-	    + ", Mercator::Queue"
-	    ", THREADS_PER_BLOCK"
-	    + ", " + mod->get_name() // for CRTP
-	    + ">";
-	}
+      if (!mod->get_useAllThreads()) //runWithAllThreads
+	moduleTypeVariant = "NodeFunction_Buffered";
       else
-	{
-	  string moduleTypeVariant;
-	  
-	  if (!mod->get_useAllThreads()) //runWithAllThreads
-	    moduleTypeVariant = "NodeFunction_Buffered";
-	  else
-	    moduleTypeVariant = "NodeFunction_User";
-	  
-	  baseType =
-	    moduleTypeVariant
-	    + "<" + inTypeString
-	    + ", " + to_string(mod->get_nChannels())
-	    + ", Mercator::Queue"
-	    ", THREADS_PER_BLOCK"
-            ", " + to_string(mod->get_nThreads())
-            + ", " + to_string(mod->get_inputLimit())
-	    + ", " + mod->get_name() // for CRTP
-	    + ">";
-	}
+	moduleTypeVariant = "NodeFunction_User";
+      
+      baseType =
+	moduleTypeVariant
+	+ "<" + inTypeString
+	+ ", " + to_string(mod->get_nChannels())
+	+ ", InputView"
+	", THREADS_PER_BLOCK"
+	", " + to_string(mod->get_nThreads())
+	+ ", " + to_string(mod->get_inputLimit())
+	+ ", " + mod->get_name() // for CRTP
+	+ ">";
     }
   
   return baseType;
@@ -165,7 +154,7 @@ void genDeviceModuleConstructor(const App *app,
 				const ModuleType *mod,
 				Formatter &f)
 {
-  string baseType = genDeviceModuleBaseType(mod);
+  string baseType = "Mercator::" + genDeviceModuleBaseType(mod);
   
   struct Arg  { string type; string name; };
   struct Init { string name; string initExpr; };
@@ -174,29 +163,13 @@ void genDeviceModuleConstructor(const App *app,
   vector<Init> inits;
   vector<string> baseArgs;
   
-  if (mod->isSource())
+  args.push_back({"Mercator::RefCountedArena *", "parentArena"});
+  baseArgs.push_back("parentArena");
+  
+  if (mod->isEnumerate())
     {
-      // all nodes take a pointer to the app scheduler and a region ID
-      args.push_back({"Mercator::Scheduler *", "scheduler"});
-      baseArgs.push_back("scheduler");
-      
-      args.push_back({"unsigned int", "region"});
-      baseArgs.push_back("region");
-      
-      // source takes global tail pointer
-      args.push_back({"size_t *", "tailPtr"});
-      baseArgs.push_back("tailPtr");
-    }
-  else
-    {
-      args.push_back({"Mercator::RefCountedArena *", "parentArena"});
-      baseArgs.push_back("parentArena");
-      
-      if (mod->isEnumerate())
-	{
-	  args.push_back({"unsigned int", "enumId"});
-	  baseArgs.push_back("enumId");
-	}
+      args.push_back({"unsigned int", "enumId"});
+      baseArgs.push_back("enumId");
     }
   
   // modules with per-node parameters have a node parameter accessor
@@ -209,7 +182,7 @@ void genDeviceModuleConstructor(const App *app,
       
       inits.push_back({"nodeParams", "inodeParams"});
     }
-
+  
   // modules with per-module parameters have a module parameter accessor
   if (mod->hasModuleParams())
     {
@@ -291,7 +264,8 @@ void genDeviceModuleClass(const App *app,
   string classHeader = 
     mod->get_name() + " final "
     ": public Mercator::" + baseType;
-  
+
+  f.add("template <template<typename> typename InputView>");
   f.add("class " + classHeader + " {");
   f.indent();
   
@@ -337,9 +311,10 @@ void genDeviceModuleClass(const App *app,
   if (mod->isUser())
     {
       // generate reflectors for user code to learn about this module
-      f.add("using " + baseType + "::getNumActiveThreads;");
-      f.add("using " + baseType + "::getThreadGroupSize;");
-      f.add("using " + baseType + "::isThreadGroupLeader;");
+      f.add("using Mercator::" + baseType + "::getNumActiveThreads;");
+      f.add("using Mercator::" + baseType + "::getThreadGroupSize;");
+      f.add("using Mercator::" + baseType + "::isThreadGroupLeader;");
+      f.add("using Mercator::" + baseType + "::push;");
       
       f.add("");
     }
@@ -445,7 +420,7 @@ void genDeviceModuleClass(const App *app,
       f.add("");
     }
   
-
+  
   if (mod->hasState())
     {
       // generate node state structure
@@ -478,7 +453,7 @@ void genDeviceModuleClass(const App *app,
       
       f.add("");
       
-      if (!mod->isSource() && !mod->isSink())
+      if (!mod->isSink())
 	{
 	  f.add("public:");
 	  
@@ -488,34 +463,7 @@ void genDeviceModuleClass(const App *app,
 	}
     }
   
-
-  
-  if (mod->isSource())
-    {
-      f.add("public:");
-      
-      // initialize the source from the data passed down from the host
-      f.add("__device__");
-      f.add(genFcnHeader("void", "init", ""));
-      f.add("{");
-      f.indent();
-      
-      f.add("if (threadIdx.x == 0)");
-      f.add("{");
-      f.indent();
-      
-      f.add("state.source = createSource(nodeParams->sourceData, &state.sourceMem);");
-      f.add("setInputSource(state.source);");
-      
-      f.unindent();
-      f.add("}");
-      
-      f.unindent();
-      f.add("}");
-  
-      f.add("");
-    }
-  else if (mod->isSink())
+  if (mod->isSink())
     {
       f.add("public:");
       
@@ -580,7 +528,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
       {
 	if (mod->isSource() || mod->isSink())
 	  continue;
-	else if(mod->isEnumerate())
+	else if (mod->isEnumerate())
 	  needsEnumerate = true;
 	else if (!mod->get_useAllThreads())
 	  needsBuffered = true;
@@ -597,8 +545,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     if (needsEnumerate)
       f.add(genUserInclude("deviceCode/NodeFunction_Enumerate.cuh"));
     
-    f.add(genUserInclude("deviceCode/Node_Source.cuh"));
     f.add(genUserInclude("deviceCode/NodeFunction_Sink.cuh"));
+    
+    f.add(genUserInclude("deviceCode/Node_Source.cuh"));
     f.add(genUserInclude("deviceCode/Node.cuh"));
     f.add("");
   }
@@ -609,7 +558,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   // begin device app class
   f.add("class " + DeviceAppClass +
 	" : public Mercator::DeviceApp<" 
-	+ app->name + "::NUM_NODES, "
+	+ to_string(app->nodes.size() - 1) + "," // for source
 	+ to_string(app->threadWidth) + "," 
 	+ to_string(options.deviceStackSize) + ","
 	+ to_string(options.deviceHeapSize)
@@ -619,7 +568,8 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   // generate class def for each module type and its nodes
   for (const ModuleType *mod : app->modules)
     {
-      genDeviceModuleClass(app, mod, f);
+      if (!mod->isSource()) // do not create a separate source class
+	genDeviceModuleClass(app, mod, f);
       f.add("");
     }
 
@@ -630,7 +580,12 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   
   f.unindent();
   f.add("}; // end class " + DeviceAppClass);
-  
+
+  f.add("");
+  f.add("#define __MDECL__ \\");
+  f.add("   template <template<typename T> typename InputView> __device__ ");
+  f.add("");
+	
   f.add("#endif"); // end of include guard  
 
   f.emit(deviceClassFileName);
