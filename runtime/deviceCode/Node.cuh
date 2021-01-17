@@ -39,7 +39,7 @@ namespace Mercator  {
   //
   template <typename T, 
 	    unsigned int numChannels,
-	    unsigned int THREADS_PER_BLOCK, // FIXME: needed?
+	    unsigned int THREADS_PER_BLOCK, // not needed
 	   template<template <typename U> typename View> typename NodeFcnKind>
   class Node : public NodeBaseWithChannels<numChannels> {
     
@@ -133,7 +133,6 @@ namespace Mercator  {
       return (!queue.empty() || !signalQueue.empty());
     }
 
-    
     //
     // @brief main firing loop. Consume data and signals according to
     // the synchronization dictated by the scheduling protocol.
@@ -149,21 +148,23 @@ namespace Mercator  {
     {
       TIMER_START(input);
       
-      Queue<T> &queue = this->queue;
-      Queue<Signal> &signalQueue = this->signalQueue; 
-      
-      // # of items available to consume from queue
+      // # of items available to consume from data queue
       unsigned int nDataToConsume = queue.getOccupancy();
+      
+      // # of items already consumed from data queue
+      unsigned int nDataConsumed = 0;
+      
+      // # of signals available to consume from signal queue
       unsigned int nSignalsToConsume = signalQueue.getOccupancy();
+      
+      // # of signals already consumed from signal queue
+      unsigned int nSignalsConsumed = 0;
       
       // # of credits before next signal, if one exists
       unsigned int nCredits = (nSignalsToConsume == 0
 			       ? 0
 			       : signalQueue.getHead().credit);
       
-      // # of items already consumed from queue
-      unsigned int nDataConsumed = 0;
-      unsigned int nSignalsConsumed = 0;
       
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
@@ -176,7 +177,7 @@ namespace Mercator  {
       // run until input queue satisfies EMPTY condition, or 
       // writing output causes some downstream neighbor to activate.
       //
-      while ((nDataToConsume - nDataConsumed > emptyThreshold || 
+      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
 	      nSignalsConsumed < nSignalsToConsume) &&
 	     !dsActive)
 	{
@@ -224,7 +225,8 @@ namespace Mercator  {
 	  //
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
-	      if (getChannel(c)->checkDSFull())
+	      ChannelBase *channel = getChannel(c);
+	      if (channel->checkDSFull() || channel->checkDSSigFull())
 		{
 		  dsActive = true;
 		  
@@ -249,6 +251,7 @@ namespace Mercator  {
 	{
 	  // release any input we have consumed
 	  queue.release(nDataConsumed);
+	  
 	  signalQueue.release(nSignalsConsumed);
 	  
 	  // store any unused credits before next signal, if one exists
@@ -256,29 +259,29 @@ namespace Mercator  {
 	    signalQueue.getHead().credit = nCredits;
 	  
 	  // did we empty our input queue?
-	  if (nDataToConsume - nDataConsumed <= emptyThreshold &&
+	  if (nDataToConsume - nDataConsumed <= emptyThreshold && 
 	      nSignalsConsumed == nSignalsToConsume)
 	    {
 	      this->deactivate(); 
 	      
 	      if (this->isFlushing())
-	      {
-		// force downstream neighbors into flushing mode and
-		// activate them (if not already active).  Even if
-		// they have no input, they must fire once to
-		// propagate the flush and activate *their* downstream
-		// neighbors.
-		for (unsigned int c = 0; c < numChannels; c++)
-		  {
-		    NodeBase *dsNode = getDSNode(c);
-		    
-		    if (this->propagateFlush(dsNode))
-		      dsNode->activate();
-		  }
-		
-		nodeFunction->flushComplete();
-		this->clearFlush();  // disable flushing
-	      }
+		{
+		  // force downstream neighbors into flushing mode and
+		  // activate them (if not already active).  Even if
+		  // they have no input, they must fire once to
+		  // propagate the flush and activate *their* downstream
+		  // neighbors.
+		  for (unsigned int c = 0; c < numChannels; c++)
+		    {
+		      NodeBase *dsNode = getDSNode(c);
+		      
+		      if (this->propagateFlush(dsNode))
+			dsNode->activate();
+		    }
+		  
+		  nodeFunction->flushComplete();
+		  this->clearFlush();  // disable flushing
+		}
 	    }
 	}
       
@@ -290,7 +293,7 @@ namespace Mercator  {
     }
     
   private:
-
+    
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
@@ -327,8 +330,6 @@ namespace Mercator  {
     __device__
     unsigned int handleSignal(unsigned int sigIdx)
     {
-      const Queue<Signal> &signalQueue = this->signalQueue;
-      
       /////////////////////////////
       // SIGNAL HANDLING SWITCH
       /////////////////////////////

@@ -92,8 +92,13 @@ namespace Mercator  {
     __device__
     bool checkDSFull() const
     {
-      return (dsQueue->getFreeSpace() < minFreeSpace ||
-	      dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
+      return (dsQueue->getFreeSpace() < minFreeSpace);
+    }
+    
+    __device__
+    bool checkDSSigFull() const
+    {
+      return (dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
     }
     
     //
