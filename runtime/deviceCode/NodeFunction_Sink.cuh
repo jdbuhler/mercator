@@ -44,46 +44,10 @@ namespace Mercator  {
     //
     __device__
     NodeFunction_Sink(RefCountedArena *parentArena)
-      : BaseType(parentArena),
-	sink(nullptr)
+      : BaseType(parentArena)
     {}
     
-    //
-    // @brief construct a Sink object from the raw data passed down
-    // to the device.
-    //
-    // @param sinkData sink data passed from host to device
-    // @return a Sink object whose subtype matches the input data
-    //
-    __device__
-    static
-    Sink<T> *createSink(const SinkData<T> &sinkData,
-			SinkMemory<T> *mem)
-    {
-      Sink<T> *sink;
-      
-      switch (sinkData.kind)
-	{
-	case SinkData<T>::Buffer:
-	  sink = new (mem) SinkBuffer<T>(sinkData.bufferData);
-	  break;
-	}
-      
-      return sink;
-    }
-    
     ////////////////////////////////////////////////////////////
-    
-    //
-    // @brief set our sink at the beginning of a run of the main kernel
-    //
-    __device__
-    void setOutputSink(Sink<T>* isink)
-    { 
-      assert(IS_BOSS());
-      
-      sink = isink; 
-    }
     
     //
     // doRun() writes full thread-widths of inputs at a time
@@ -115,7 +79,7 @@ namespace Mercator  {
       
       __shared__ size_t basePtr;
       if (IS_BOSS())
-	basePtr = sink->reserve(limit);
+	basePtr = sink.reserve(limit);
       
       __syncthreads(); // END WRITE basePtr
       
@@ -135,16 +99,16 @@ namespace Mercator  {
 	    {
 	      const typename InputView<T>::EltT myData = 
 		view.get(start + srcIdx);
-	      sink->put(basePtr, srcIdx, myData);
+	      sink.put(basePtr, srcIdx, myData);
 	    }
 	}
       
       return limit;
     }
     
-  private:
+  protected:
 
-    Sink<T>* sink;
+    Sink<T> sink;
 
   };
   

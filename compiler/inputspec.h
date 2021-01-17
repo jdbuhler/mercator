@@ -200,7 +200,7 @@ namespace input {
   struct NodeType {
     
     enum Kind {
-      isSource, isSink, isGensym, isOther
+      isSink, isGensym, isOther
     };
     
     std::string name;    // names a module for standard nodes
@@ -242,11 +242,14 @@ namespace input {
   struct NodeStmt {
     std::string name;
     NodeType *type;
+    bool isSource;
     
     NodeStmt(const std::string &name,
-	     NodeType *type)
+	     NodeType *type,
+	     bool isSource)
       : name(name),
-	type(type)
+	type(type),
+	isSource(isSource)
     {}
     
     ~NodeStmt()

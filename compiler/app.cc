@@ -50,6 +50,7 @@ Node::Node(const string &iname,
     mIdx(imIdx),
     regionId(0),
     enumerateId(0),
+    isSource(false),
     queueSize(0),
     treeEdge(nullptr),
     cycleEdge(nullptr),
@@ -177,6 +178,9 @@ void Node::print() const
       
       cout << endl;
     }
+
+  if (isSource)
+    cout << "* Node is APPLICATION SOURCE\n";
   
   cout << " * Tree predecessor: " 
        << (treeEdge ? treeEdge->usNode->name : "NONE")
@@ -190,10 +194,7 @@ void Node::print() const
 void ModuleType::print() const
 {
   cout << "MODULE TYPE " << name << " : ";
-  if (inputType)
-    inputType->print();
-  else
-    cout << "NULL [source]";
+  inputType->print();
   cout << endl << "  ->  " << endl;
   
   for (unsigned int j = 0; j < nChannels; j++)

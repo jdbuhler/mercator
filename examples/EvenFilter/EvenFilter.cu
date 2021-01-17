@@ -3,7 +3,7 @@
 // Device-side app to filter even numbers
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include "EvenFilter_dev.cuh"
@@ -20,18 +20,15 @@ unsigned int munge(unsigned int key)
   return key;
 }
 
-//
-// Hash each input item and return only those hash values that
-// are even numbers.
-//
-__device__
+__MDECL__
 void EvenFilter_dev::
-f_type::run(const unsigned int& inputItem)
+filter<InputView>::run(const size_t& inputItem, unsigned int nInputs)
 {
-  unsigned int v = munge(inputItem);
+  unsigned int v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
-  if (v % 2 == 0)
-    push(v); // eqv to "push(v, Out::accept);"
+  push(v, v % 2 == 0); // defaults to pushing to Out::accept
+
 }
+

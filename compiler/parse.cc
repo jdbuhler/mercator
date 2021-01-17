@@ -95,11 +95,10 @@ scrapeTypes(const input::AppSpec *app,
 	}
     }
   
-  // get types from source or sink nodes
+  // get types from sink nodes
   for (const input::NodeStmt *node : app->nodes)
     {
-      if (node->type->kind == input::NodeType::isSource ||
-	  node->type->kind == input::NodeType::isSink)
+      if (node->type->kind == input::NodeType::isSink)
 	{
 	  typeStrings.insert(node->type->dataType->name);
 	}

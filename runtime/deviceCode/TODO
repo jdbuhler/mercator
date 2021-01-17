@@ -1,12 +1,9 @@
-- change user-facing spec to specify one node as Source
-[e.g. Source node : moduleType; rather than Node node : moduleType;]
-
 - Source line should include optional "Array paramname"
   to read items from an array of source node's input type
   referenced through paramname, which must have same type as
   source's input type
 
-- Default behavior is just to pass size_t values, and program will
+- Current behavior is just to pass size_t values, and app will
   not typecheck if source module does not take size_ts.
  
 - Generate an app-level "SourceView" object that the Source should

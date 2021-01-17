@@ -15,6 +15,7 @@ struct CommandOptions {
   
   bool emitDeps;            // run in emit dependency mode
   bool generateSkeletons;   // run in generate skeleton mode
+  std::string skeletonFileName; // name of skeleton file
   
   unsigned int threadsPerBlock; // # threads per GPU block
   unsigned int deviceStackSize; // size of device stack

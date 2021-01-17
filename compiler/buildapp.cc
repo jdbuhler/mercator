@@ -149,6 +149,8 @@ App *buildApp(const input::AppSpec *appSpec)
 	  
 	  app->modules.push_back(module);
 	  app->modules.push_back(enumModule);
+	  
+
 	}
       else
 	app->modules.push_back(module);
@@ -204,7 +206,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	       << is.module
 	       << endl;
 	  abort();
-
+	  
 	}
       
       ModuleType *module = app->modules[mId];
@@ -237,11 +239,10 @@ App *buildApp(const input::AppSpec *appSpec)
       //
       
       int mId;
-      if (ns->type->kind == input::NodeType::isSource ||
-	  ns->type->kind == input::NodeType::isSink)
+      if (ns->type->kind == input::NodeType::isSink)
 	{
 	  const string &typeStr = ns->type->dataType->name;
-	  
+		  
 	  //
 	  // VALIDATE that typeStr names a valid type
 	  // 
@@ -254,66 +255,29 @@ App *buildApp(const input::AppSpec *appSpec)
 	    }
 	  
 	  unsigned int typeId = appSpec->typeInfo->typeId(typeStr);
+
+	  string moduleName = "__MTR_SINK_" + to_string(typeId);
 	  
-	  if (ns->type->kind == input::NodeType::isSource)
+	  // retrieve the sink module type; create it if it
+	  // doesn't exist
+	  mId = app->moduleNames.find(moduleName);
+	  if (mId == SymbolTable::NOT_FOUND)
 	    {
-	      string moduleName = "__MTR_SOURCE_" + to_string(typeId);
+	      mId = app->modules.size();
 	      
-	      // retrieve the source module type; create it if it
-	      // doesn't exist
-	      mId = app->moduleNames.find(moduleName);
-	      if (mId == SymbolTable::NOT_FOUND)
-		{
-		  mId = app->modules.size();
-		  
-		  ModuleType *module = 
-		    new ModuleType(moduleName,
-				   mId,
-				   nullptr, 1, 
-				   ModuleType::F_isSource,
-				   app->threadWidth);
-		  
-		  // a source module has a single channel named "__out"
-		  string channelName = "__out";
-		  
-		  module->channelNames.insertUnique(channelName, 0);
-		  
-		  Channel *channel = new Channel(channelName, 0,
-						 new DataType(typeStr),
-						 1, false, 0);
-		  
-		  module->set_channel(0, channel);
-		  
-		  app->moduleNames.insertUnique(moduleName, mId);
-		  
-		  app->modules.push_back(module);
-		}
-	    }
-	  else // isSink
-	    {
-	      string moduleName = "__MTR_SINK_" + to_string(typeId);
+	      ModuleType *module = 
+		new ModuleType(moduleName,
+			       mId,
+			       new DataType(typeStr), 0, 
+			       ModuleType::F_isSink,
+			       app->threadWidth);
 	      
-	      // retrieve the sink module type; create it if it
-	      // doesn't exist
-	      mId = app->moduleNames.find(moduleName);
-	      if (mId == SymbolTable::NOT_FOUND)
-		{
-		  mId = app->modules.size();
-		  
-		  ModuleType *module = 
-		    new ModuleType(moduleName,
-				   mId,
-				   new DataType(typeStr), 0, 
-				   ModuleType::F_isSink,
-				   app->threadWidth);
-		  
-		  app->moduleNames.insertUnique(moduleName, mId);
-		  
-		  app->modules.push_back(module);
-		}
+	      app->moduleNames.insertUnique(moduleName, mId);
+	      
+	      app->modules.push_back(module);
 	    }
 	}
-      else // non-source, non-sink node
+      else // non-sink node
 	{
 	  //
 	  // VALIDATE that node's module type is valid, and
@@ -337,6 +301,9 @@ App *buildApp(const input::AppSpec *appSpec)
       Node *node = new Node(ns->name,
 			    module,
 			    nLocalId);
+      
+      if (ns->isSource)
+	node->set_isSource(true);
       
       app->nodes.push_back(node);
       module->nodes.push_back(node);
@@ -367,14 +334,24 @@ App *buildApp(const input::AppSpec *appSpec)
 	  Edge *edge = new Edge(enumNode, enumModule->get_channel(0), node);
 	  
 	  enumNode->set_dsEdge(0, edge);
-		}
-      
-      if (node->get_moduleType()->isSource())
+	  
+	  if (node->get_isSource())
+	    {
+	      node->set_isSource(false);
+	      enumNode->set_isSource(true);
+	    }
+	}
+    }
+  
+  
+  //
+  // VALIDATE that app has unique source node, and
+  // record it if none has yet been seen.
+  //
+  for (Node *node : app->nodes)
+    {
+      if (node->get_isSource())
 	{
-	  //
-	  // VALIDATE that app has unique source node, and
-	  // record it if none has yet been seen.
-	  //
 	  if (app->sourceNode)
 	    {
 	      cerr << "ERROR: app " << app->name
@@ -462,6 +439,7 @@ App *buildApp(const input::AppSpec *appSpec)
       
       Edge *edge = new Edge(usNode, usChannel, dsNode);
       
+      
       //
       // VALIDATE that types at the two endpoints of the edge are
       // compatible.
@@ -502,6 +480,16 @@ App *buildApp(const input::AppSpec *appSpec)
   // make sure app's graph has a source, and that no edges are omitted.
   validateTopologyComplete(app);
   
+  // make sure input type of source module is size_t
+  // (later, we will handle other types)
+  const DataType *inputType = 
+    app->sourceNode->get_moduleType()->get_inputType();
+  if (!appSpec->typeInfo->compareTypes(inputType->name, "size_t"))
+    {
+      cerr << "ERROR: input type of source must be size_t\n";
+      abort();
+    }
+    
   int vId = 0;
   for (const input::DataStmt *var : appSpec->vars)
     {      
@@ -602,38 +590,12 @@ App *buildApp(const input::AppSpec *appSpec)
     }
   
   //
-  // Each source module type has a parameter which is the data
-  // describing its source (passed from the host), and a state
-  // variable which is a Source object (constructed on the device).
-  // Similarly, each sink module type has a data parameter and
-  // an object state variable.
+  // Each sink module type has a parameter which is the data
+  // describing its sink (passed from the host).
   //
   for (ModuleType *mod : app->modules)
     {
-      if (mod->isSource())
-	{
-	  string dataType = mod->get_channel(0)->type->name;
-	  DataItem *v;
-	  
-	  v = new DataItem("sourceData",
-			   new DataType("Mercator::SourceData<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeParams.push_back(v);
-	  
-	  v = new DataItem("source",
-			   new DataType("Mercator::Source<" 
-					+ dataType
-					+ ">*"));
-	  mod->nodeState.push_back(v);
-	  
-	  v = new DataItem("sourceMem",
-			   new DataType("Mercator::SourceMemory<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeState.push_back(v);
-	}
-      else if (mod->isSink())
+      if (mod->isSink())
 	{
 	  string dataType = mod->get_inputType()->name;
 	  DataItem *v;
@@ -643,20 +605,8 @@ App *buildApp(const input::AppSpec *appSpec)
 					+ dataType
 					+ ">"));
 	  mod->nodeParams.push_back(v);
-	  
-	  v = new DataItem("sink",
-			   new DataType("Mercator::Sink<"
-					+ dataType
-					+ ">*"));
-	  mod->nodeState.push_back(v);
-
-	  v = new DataItem("sinkMem",
-			   new DataType("Mercator::SinkMemory<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeState.push_back(v);
-
 	}
+
     }
   
   //

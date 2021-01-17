@@ -167,11 +167,15 @@ public:
   
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
   
+  bool get_isSource() const { return isSource; }
+  
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
   
   void set_regionId(int r) { regionId = r; }
   
   void set_enumerateId(int e) { enumerateId = e; }
+  
+  void set_isSource(bool v) { isSource = v; }
   
   void print() const;
   
@@ -185,6 +189,7 @@ private:
 
   unsigned int regionId;
   unsigned int enumerateId;
+  bool isSource;
   
   unsigned int queueSize;
   

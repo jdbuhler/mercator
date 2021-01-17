@@ -19,26 +19,17 @@ int main()
   
   srand(0);
   
-  unsigned int *inputValues = new unsigned int [NVALUES];
   unsigned int *outputValues = new unsigned int [NVALUES];
-  
-  for (unsigned int j = 0; j < NVALUES; j++)
-    inputValues[j] = rand();
   
   // begin MERCATOR usage
   
-  Mercator::Buffer<unsigned int> inputBuffer(NVALUES);
   Mercator::Buffer<unsigned int> outputBufferAccept(NVALUES);
   
   EvenFilter efapp;
   
-  efapp.src.setSource(inputBuffer);
   efapp.snk.setSink(outputBufferAccept);
   
-  // move data into the input buffer
-  inputBuffer.set(inputValues, NVALUES);
-  
-  efapp.run();
+  efapp.run(NVALUES);
   
   // get data out of the output buffer
   unsigned int outSize = outputBufferAccept.size();
@@ -53,7 +44,6 @@ int main()
   cout  << outputValues[i]<< endl;
   }
 */
-  delete [] inputValues;
   delete [] outputValues;
   
   return 0;

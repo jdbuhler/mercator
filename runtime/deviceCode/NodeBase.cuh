@@ -81,7 +81,7 @@ namespace Mercator  {
     //
     __device__
     virtual void fire() = 0;
-
+    
     //
     // @brief initialization code run each time an app starts.
     // Subclasses supply their own implementations if desired

@@ -100,7 +100,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	  abort();
 	}
       
-      if (node->get_moduleType()->isSource()) // no input queue
+      if (node->get_isSource()) // no input queue
 	continue;
       
       // compute max inputs/run call and outputs/input for tree parent

@@ -39,7 +39,7 @@ namespace Mercator  {
   //
   template <typename T, 
 	    unsigned int numChannels,
-	    unsigned int THREADS_PER_BLOCK, // not needed
+	    bool UseSignals,
 	   template<template <typename U> typename View> typename NodeFcnKind>
   class Node : public NodeBaseWithChannels<numChannels> {
     
@@ -70,7 +70,7 @@ namespace Mercator  {
 	 NodeFcnType *inodeFunction)
       : BaseType(scheduler, region, usNode),
 	queue(queueSize),
-        signalQueue(queueSize), // could be smaller?
+        signalQueue(UseSignals ? queueSize : 0), // could be smaller?
 	nodeFunction(inodeFunction)
     {
       usNode->setDSEdge(usChannel, this, &queue, &signalQueue);
@@ -78,8 +78,7 @@ namespace Mercator  {
     }
 
     __device__
-    virtual
-    ~Node()
+    virtual ~Node()
     {
       delete nodeFunction;
     }
@@ -155,16 +154,25 @@ namespace Mercator  {
       unsigned int nDataConsumed = 0;
       
       // # of signals available to consume from signal queue
-      unsigned int nSignalsToConsume = signalQueue.getOccupancy();
-      
+      unsigned int nSignalsToConsume = 0;
+
       // # of signals already consumed from signal queue
       unsigned int nSignalsConsumed = 0;
-      
+	  
       // # of credits before next signal, if one exists
-      unsigned int nCredits = (nSignalsToConsume == 0
-			       ? 0
-			       : signalQueue.getHead().credit);
+      unsigned int nCredits = 0;
+	  
       
+      if (UseSignals)
+	{
+	  // # of signals available to consume from signal queue
+	  unsigned int nSignalsToConsume = signalQueue.getOccupancy();
+	  
+	  // # of credits before next signal, if one exists
+	  unsigned int nCredits = (nSignalsToConsume == 0
+				   ? 0
+				   : signalQueue.getHead().credit);
+	}
       
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
@@ -202,17 +210,20 @@ namespace Mercator  {
 	  else
 	    nFinished = 0;
 	  
-	  //
-	  // Track credit to next signal, and consume if needed.
-	  //
-	  if (nSignalsConsumed < nSignalsToConsume)
+	  if (UseSignals)
 	    {
-	      nCredits -= nFinished;
-	      
-	      if (nCredits == 0 && !this->isBlocked())
+	      //
+	      // Track credit to next signal, and consume if needed.
+	      //
+	      if (nSignalsConsumed < nSignalsToConsume)
 		{
-		  nCredits = this->handleSignal(nSignalsConsumed);
-		  nSignalsConsumed++;
+		  nCredits -= nFinished;
+		  
+		  if (nCredits == 0 && !this->isBlocked())
+		    {
+		      nCredits = this->handleSignal(nSignalsConsumed);
+		      nSignalsConsumed++;
+		    }
 		}
 	    }
 	  
@@ -226,7 +237,8 @@ namespace Mercator  {
 	  for (unsigned int c = 0; c < numChannels; c++)
 	    {
 	      ChannelBase *channel = getChannel(c);
-	      if (channel->checkDSFull() || channel->checkDSSigFull())
+	      if (channel->checkDSFull() || 
+		  (UseSignals && channel->checkDSSigFull()))
 		{
 		  dsActive = true;
 		  
@@ -252,11 +264,14 @@ namespace Mercator  {
 	  // release any input we have consumed
 	  queue.release(nDataConsumed);
 	  
-	  signalQueue.release(nSignalsConsumed);
-	  
-	  // store any unused credits before next signal, if one exists
-	  if (nSignalsToConsume > nSignalsConsumed)
-	    signalQueue.getHead().credit = nCredits;
+	  if (UseSignals)
+	    {
+	      signalQueue.release(nSignalsConsumed);
+	      
+	      // store any unused credits before next signal, if one exists
+	      if (nSignalsToConsume > nSignalsConsumed)
+		signalQueue.getHead().credit = nCredits;
+	    }
 	  
 	  // did we empty our input queue?
 	  if (nDataToConsume - nDataConsumed <= emptyThreshold && 

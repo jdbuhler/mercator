@@ -44,7 +44,7 @@ void genNodeChannelInitStmts(const ModuleType *mod,
       unsigned int spaceRequired;
       if (mod->isUser())
 	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
-      else // source or enumerate can keep going until channel fills
+      else // enumerate can keep going until channel fills
 	spaceRequired = 1; 
       
       f.add(nodeObj + "->initChannel<"
@@ -81,13 +81,10 @@ void genNodeConstruction(const string &nodeObj,
 			 const App *app,
 			 Formatter &f)
 {
-  bool isSourceNode =
-    node->get_usEdge()->usNode->get_moduleType()->isSource();
-  
   string hostModuleType = "Host::" + mod->get_name();
   string deviceModuleKind = mod->get_name();
   string deviceModuleType  = deviceModuleKind +
-    "<Mercator::" + (isSourceNode ? "Source>" : "Queue>");
+    "<Mercator::" + (node->get_isSource() ? "Source>" : "Queue>");
   
   string nodeFunctionObj = nodeObj + "Fcn";
   
@@ -149,12 +146,8 @@ void genNodeConstruction(const string &nodeObj,
   
   // allocate the containing node object
   
-  const ModuleType *parentMod = node->get_usEdge()->usNode->get_moduleType();
-  
-  if (parentMod->isSource())
+  if (node->get_isSource())
     {
-      string sourceModName = parentMod->get_name();
-      
       // allocate the node object
       string NodeType = "Mercator::Node_Source< " + 
 	mod->get_inputType()->name +
@@ -171,7 +164,7 @@ void genNodeConstruction(const string &nodeObj,
       
       nextStmt += ", tailPtr";
       
-      nextStmt += ", &params->n" + sourceModName + "[0].sourceData";
+      nextStmt += ", &params->nInputs";
       
       nextStmt += ", " + nodeFunctionObj;
       
@@ -181,10 +174,13 @@ void genNodeConstruction(const string &nodeObj,
     }
   else
     {
+      // only nodes in non-zero enumeration regions use signals
+      bool usesSignals = (node->get_regionId() > 0);
+      
       string NodeType = "Mercator::Node< " + 
 	mod->get_inputType()->name +
 	", " + to_string(mod->get_nChannels()) +
-	", THREADS_PER_BLOCK"
+	", " + to_string(usesSignals) +
 	", " + deviceModuleKind + ">";
       
       nextStmt =
@@ -204,7 +200,7 @@ void genNodeConstruction(const string &nodeObj,
       nextStmt += ", " + nodeFunctionObj;
       
       nextStmt += ");";
-	
+      
       f.add(nextStmt);
     }
   

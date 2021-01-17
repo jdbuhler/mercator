@@ -98,6 +98,7 @@ class mercator_driver;
 
 %type <std::string> typename_string channelname modulename sourcefilename
 %type <std::string> appname nodename varscope edgechannelspec
+%type <bool> node_or_source
 %type <input::NodeType *> nodetype
 %type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
@@ -235,7 +236,7 @@ mappingspec:
 
 // node stmt: declare a node as instance of a given module
 nodestmt:
-"node" nodename ":" nodetype ";"
+node_or_source nodename ":" nodetype ";"
 { 
   input::NodeStmt *node;
   
@@ -248,12 +249,12 @@ nodestmt:
      $4->mt->name = gensymType;
      driver.currApp()->modules.push_back($4->mt);
      
-     node = new input::NodeStmt($2, new input::NodeType(gensymType));
+     node = new input::NodeStmt($2, new input::NodeType(gensymType), $1);
      delete $4;
   }
   else
   {
-     node = new input::NodeStmt($2, $4);
+     node = new input::NodeStmt($2, $4, $1);
   }
 
   if (!driver.currApp())
@@ -264,6 +265,11 @@ nodestmt:
   driver.currApp()->nodes.push_back(node);
 };
 
+node_or_source:
+ "node"
+{ $$ = false; }
+| "source"
+{ $$ = true; };
 
 nodename: "identifier"
 { $$ = $1; };
@@ -271,8 +277,6 @@ nodename: "identifier"
 
 nodetype: 
   "identifier"                    { $$ = new input::NodeType($1); }
-| "source" "<" basetypename ">"  
-       { $$ = new input::NodeType(input::NodeType::isSource, $3); }
 | "sink" "<" basetypename ">"  
          { $$ = new input::NodeType(input::NodeType::isSink, $3); }
 | moduletype                      { $$ = new input::NodeType($1); };

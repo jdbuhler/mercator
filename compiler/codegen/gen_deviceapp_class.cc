@@ -320,7 +320,7 @@ void genDeviceModuleClass(const App *app,
     }
 
   const DataType *fromType = 
-    (mod->isSource() || mod->isSink()
+    (mod->isSink()
      ? nullptr
      : mod->get_inputType()->from);
   
@@ -453,14 +453,11 @@ void genDeviceModuleClass(const App *app,
       
       f.add("");
       
-      if (!mod->isSink())
-	{
-	  f.add("public:");
-	  
-	  // generate hook functions (filled by user)
-	  f.add("__device__ void init(); // called once per block before run()");
-	  f.add("__device__ void cleanup(); // called once per block after run()");
-	}
+      f.add("public:");
+      
+      // generate hook functions (filled by user)
+      f.add("__device__ void init(); // called once per block before run()");
+      f.add("__device__ void cleanup(); // called once per block after run()");
     }
   
   if (mod->isSink())
@@ -477,8 +474,7 @@ void genDeviceModuleClass(const App *app,
       f.add("{");
       f.indent();
       
-      f.add("state.sink = createSink(nodeParams->sinkData, &state.sinkMem);");
-      f.add("setOutputSink(state.sink);");
+      f.add("this->sink.init(nodeParams->sinkData.bufferData);");
       
       f.unindent();
       f.add("}");
@@ -526,7 +522,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     
     for (const ModuleType *mod : app->modules)
       {
-	if (mod->isSource() || mod->isSink())
+	if (mod->isSink())
 	  continue;
 	else if (mod->isEnumerate())
 	  needsEnumerate = true;
@@ -558,7 +554,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   // begin device app class
   f.add("class " + DeviceAppClass +
 	" : public Mercator::DeviceApp<" 
-	+ to_string(app->nodes.size() - 1) + "," // for source
+	+ to_string(app->nodes.size()) + ","
 	+ to_string(app->threadWidth) + "," 
 	+ to_string(options.deviceStackSize) + ","
 	+ to_string(options.deviceHeapSize)
@@ -568,8 +564,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   // generate class def for each module type and its nodes
   for (const ModuleType *mod : app->modules)
     {
-      if (!mod->isSource()) // do not create a separate source class
-	genDeviceModuleClass(app, mod, f);
+      genDeviceModuleClass(app, mod, f);
       f.add("");
     }
 
@@ -600,125 +595,136 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 // @brief generate the device-side skeleton file with run() functions
 //
 void genDeviceAppSkeleton(const string &skeletonFileName,
-			  const App *app)
+			  const vector<App *> apps)
 {
   Formatter f;
+
+  for (const App *app : apps)
+    {
+      string DeviceAppClass = app->name + "_dev";
+      
+      // user's skeleton should include the codegen'd class declaration
+      f.add(genUserInclude(DeviceAppClass + ".cuh"));
+    }
   
-  string DeviceAppClass = app->name + "_dev";
-  
-  // user's skeleton should include the codegen'd class declaration
-  f.add(genUserInclude(DeviceAppClass + ".cuh"));
   f.add("");
   
-  // generate class def for each module type
-  for (const ModuleType *mod : app->modules)
+  for (const App *app : apps)
     {
-      if (mod->isSource() || mod->isSink())
-	continue;
+      string DeviceAppClass = app->name + "_dev";
       
-      if (mod->hasState())
+      // generate class def for each module type
+      for (const ModuleType *mod : app->modules)
 	{
-	  // generate init function 
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::init", 
-			     ""));
+	  string ModClass = mod->get_name() + "<InputView>";
 	  
-	  f.add("{");
-	  f.add("");
+	  if (mod->isSink())
+	    continue;
+	  
+	  if (mod->hasState())
+	    {
+	      // generate init function 
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("void",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::init", 
+				 ""));
+	      
+	      f.add("{");
+	      f.add("");
+	      f.add("}");
+	      
+	      f.add("");
+	    }
+	  
+	  
+	  if (mod->get_inputType()->from)
+	    {
+	      //generate begin function
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("void",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::begin", 
+				 ""));
+	      
+	      f.add("{");
+	      f.add("");
+	      f.add("}");
+	      
+	      f.add("");
+	    }
+	  
+	  // non-enumerate regular modules get run functions
+	  if (!mod->isEnumerate())
+	    {
+	      // generate run function
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("void",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::run", 
+				 genDeviceModuleRunFcnParams(mod)));
+	      
+	      f.add("{");
+	      f.indent();
+	      
+	      f.add("");
+	      
+	      f.unindent();
+	      f.add("}");
+	      
+	      f.add("");
+	    }
+	  
+	  // enumerate modules get findCount()
+	  if (mod->isEnumerate())
+	    {
+	      string fromType = mod->get_inputType()->name;
+	      
+	      //generate findCount function
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("unsigned int",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::findCount", 
+				 "const " + fromType + " &parent") + " const");
+	      
+	      f.add("{");
+	      f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");
 	  f.add("}");
 	  
 	  f.add("");
-	}
-      
-      
-      if (mod->get_inputType()->from)
-	{
-	  //generate begin function
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::begin", 
-			     ""));
+	    }
 	  
-	  f.add("{");
-	  f.add("");
-	  f.add("}");
+	  if (mod->get_inputType()->from)
+	    {
+	      //generate end function
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("void",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::end", 
+				 ""));
+	      
+	      f.add("{");
+	      f.add("");
+	      f.add("}");
+	      
+	      f.add("");
+	    }
 	  
-	  f.add("");
-	}
-      
-      // non-enumerate regular modules get run functions
-      if (!mod->isEnumerate())
-	{
-          // generate run function
-          f.add("__device__");
-          f.add(genFcnHeader("void",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::run", 
-			     genDeviceModuleRunFcnParams(mod)));
-	  
-          f.add("{");
-          f.indent();
-	  
-          f.add("");
-	  
-          f.unindent();
-          f.add("}");
-	  
-          f.add("");
-	}
-      
-      // enumerate modules get findCount()
-      if (mod->isEnumerate())
-	{
-	  string fromType = mod->get_inputType()->name;
-	  
-	  //generate findCount function
-	  f.add("__device__");
-	  f.add(genFcnHeader("unsigned int",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::findCount", 
-			     "const " + fromType + " &parent") + " const");
-	  
-	  f.add("{");
-	  f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");
-	  f.add("}");
-	  
-	  f.add("");
-	}
-      
-      if (mod->get_inputType()->from)
-	{
-	  //generate end function
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::end", 
-			     ""));
-	  
-	  f.add("{");
-	  f.add("");
-	  f.add("}");
-	  
-	  f.add("");
-	}
-      
-      if (mod->hasState())
-	{
-	  // generate cleanup function
-	  f.add("__device__");
-	  f.add(genFcnHeader("void",
-			     DeviceAppClass + "::\n" + 
-			     mod->get_name() + "::cleanup", 
-			     ""));
-	  
-	  f.add("{");
-	  f.add("");
-	  f.add("}");
-	  
-	  f.add("");
+	  if (mod->hasState())
+	    {
+	      // generate cleanup function
+	      f.add("__MDECL__");
+	      f.add(genFcnHeader("void",
+				 DeviceAppClass + "::\n" + 
+				 ModClass + "::cleanup", 
+				 ""));
+	      
+	      f.add("{");
+	      f.add("");
+	      f.add("}");
+	      
+	      f.add("");
+	    }
 	}
     }
   

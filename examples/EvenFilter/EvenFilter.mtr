@@ -10,19 +10,18 @@ Application EvenFilter;
 
 // nodes
 
-Node src : Source<{unsigned int}> ;
+Module filter : size_t -> {unsigned int};
+AllThreads filter;
 
 //
 // By default, the filter module produces either 0 or 1 outputs
 // for each input on each output channel. This module has a
 // single, unnamed output channel.
 
-Node f : {unsigned int} -> {unsigned int};
+Source f : filter;
 
 Node snk : Sink<{unsigned int}> ;
 
 // edges
-
-Edge src -> f;
 
 Edge f -> snk;

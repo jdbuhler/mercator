@@ -68,13 +68,12 @@ namespace Mercator  {
     Node_Source(Scheduler *scheduler,
 		unsigned int region,
 		size_t *itailPtr,
-		const SourceData<T> *isourceData,
+		const size_t *inInputsPtr,
 		NodeFcnType *inodeFunction)
       : BaseType(scheduler, region, nullptr),
 	tailPtr(itailPtr),
-	sourceData(isourceData),
+	nInputsPtr(inInputsPtr),
 	nodeFunction(inodeFunction),
-	source(nullptr),
 	nDataPending(0),
 	basePtr(0),
 	sourceExhausted(false)
@@ -129,7 +128,7 @@ namespace Mercator  {
     void init() 
     { 
       if (IS_BOSS())
-	source = createSource(sourceData);
+	source.init(*nInputsPtr, tailPtr);
       
       nodeFunction->init(); 
     }
@@ -160,8 +159,6 @@ namespace Mercator  {
     __device__
     void fire()
     {
-      TIMER_START(input);
-      
       if (nDataPending == 0)
 	{
 	  // determine the amount of data needed to fill at least one
@@ -169,25 +166,26 @@ namespace Mercator  {
 	  
 	  size_t numToRequest = UINT_MAX;
 	  for (unsigned int c = 0; c < numChannels; c++)
-	    numToRequest = min(numToRequest, (size_t) getChannel(c)->dsCapacity());
+	    numToRequest = min(numToRequest, 
+			       (size_t) getChannel(c)->dsCapacity());
 	  
 	  // if the source advises a lower request size than what we planned,
 	  // honor that.  Note that this may cause us to neither fill any
 	  // output queue nor exhaust the input.
-	  numToRequest = min(numToRequest, source->getRequestLimit());
+	  numToRequest = min(numToRequest, source.getRequestLimit());
 	  
-	  // BEGIN WRITE nDataPending, basePtr
+	  // BEGIN WRITE nDataPending, basePtr, sourceExhausted
 	  __syncthreads();      
 	  
 	  if (IS_BOSS())
 	    {
 	      // ask the source buffer for as many inputs as we want
-	      nDataPending = source->reserve(numToRequest, &basePtr);
+	      nDataPending = source.reserve(numToRequest, &basePtr);
 	      if (nDataPending < numToRequest)
 		sourceExhausted = true;
 	    }
 	  
-	  // END WRITE nDataPending, bsePtr
+	  // END WRITE nDataPending, basePtr, sourceExhausted
 	  __syncthreads();
 	}
 
@@ -198,12 +196,14 @@ namespace Mercator  {
       unsigned int nDataConsumed = 0;
       
       // threshold for declaring data queue "empty" for scheduling
+      // To actually use the input hint from the nodeFunction, we
+      // need to be able to stop with nDataToConsume > 0 and ask for
+      // another input block to get the # of elts over the input hint 
+      // size.  This will require an InputView that can fuse two
+      // source ranges.
       const unsigned int emptyThreshold = 0;
       
       bool dsActive = false;
-      
-      TIMER_STOP(input);
-      TIMER_START(run);
       
       //
       // run until input queue satisfies EMPTY condition, or 
@@ -217,7 +217,7 @@ namespace Mercator  {
 	  unsigned int nFinished;
 	  
 	  // doRun() tries to consume input; could cause node to block
-	  nFinished = nodeFunction->doRun(*source, basePtr + nDataConsumed, 
+	  nFinished = nodeFunction->doRun(source, basePtr + nDataConsumed, 
 					  limit);
 	  
 	  nDataConsumed += nFinished;
@@ -240,10 +240,6 @@ namespace Mercator  {
 	  if (this->isBlocked())
 	    break;
 	}
-      
-      TIMER_STOP(run);
-      
-      TIMER_START(input);
       
       // BEGIN WRITE nDataPending, state changes in flushComplete()
       __syncthreads(); 
@@ -289,48 +285,19 @@ namespace Mercator  {
       // END WRITE nDataPending, state changes in flushComplete()
       // [suppressed because we are assumed to sync before next firing]
       // __syncthreads(); 
-      
-      TIMER_STOP(input);
     }
     
   private:
   
     size_t* const tailPtr;
-    const SourceData<T>* const sourceData;
+    const size_t *const nInputsPtr;
     NodeFcnType* const nodeFunction;
   
-    Source<T>* source;
-    SourceMemory<T> sourceMem;
-  
+    Source<T> source;
+    
     size_t nDataPending;
     size_t basePtr;
     bool sourceExhausted;
-    
-    //
-    // @brief construct a Source object from the raw data passed down
-    // to the device.
-    //
-    // @param sourceData source data passed from host to device
-    // @return a Source object whose subtype matches the input data
-    //
-    __device__
-    Source<T> *createSource(const SourceData<T> *sourceData)
-    {
-      Source<T> *source;
-      switch (sourceData->kind)
-	{
-	case SourceData<T>::Buffer:
-	  source = new (&sourceMem) SourceBuffer<T>(sourceData->bufferData,
-						    tailPtr);
-	  break;
-	case SourceData<T>::Range:
-	  source = new (&sourceMem) SourceRange<T>(sourceData->rangeData,
-						   tailPtr);
-	  break;
-	}
-    
-      return source;
-    }
   };
 
 }; // namespace Mercator

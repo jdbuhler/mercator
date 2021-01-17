@@ -112,13 +112,15 @@ public:
   {
     string code = "";
     
+    code += "#include <cstddef>\n"; // for default input type size_t
+    
     // add all references to the current code
     for (const string &ref : references)
       code += "#include \"" + ref + "\"\n";
     
     // add dummy variables for ASTContext to be able to grab QualTypes easily
     int dummyNumber = 0;
-    code = code + "\nvoid __typecheck_dummyDecls() {\n";
+    code += "\nvoid __typecheck_dummyDecls() {\n";
     for (const string &typeString : typeStrings)
       {
 	if (typeString != "NULL") 
@@ -130,7 +132,15 @@ public:
 	    ++dummyNumber;
 	  }
       }
-    code = code + "}";
+    
+    // add dummy variable specifically for size_t so we can use it later
+    {
+      string varName = "__typecheck_dummy_sizet";
+      originalTypeStrings.insert(make_pair(varName, "size_t")); 
+      code += "size_t __typecheck_dummy_sizet;\n";
+    }
+    
+    code += "}";
     
     //Set up args for building the ASTContext 
     vector<string> args;

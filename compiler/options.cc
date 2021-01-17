@@ -18,7 +18,7 @@
 
 using namespace std;
 
-const char OptionList[] = ":a:DhH:I:Ko:q:S:t:v";
+const char OptionList[] = ":a:DhH:I:K:o:q:S:t:v";
 
 CommandOptions options;
 
@@ -36,8 +36,8 @@ static void printUsage()
        << "   (by default, check system includes, CUDA includes, and\n"
        << "    the directory where the spec file is located)\n"
        << "\n"
-       << " -K\n"
-       << "   generate a skeleton user stub files for apps\n"
+       << " -K <path>\n"
+       << "   generate a skeleton user stub files for apps at <path>\n"
        << "    (default: generate runtime support code for apps)\n"
        << "\n"
        << " -o <path>\n"
@@ -98,6 +98,7 @@ bool parseCommandLine(int argc, char **argv)
 	      
 	    case 'K':
 	      options.generateSkeletons = true;
+	      options.skeletonFileName = optarg;
 	      break;
 	      
 	    case 'o':
