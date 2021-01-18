@@ -15,8 +15,6 @@
 
 #include "Channel.cuh"
 
-#include "io/Source.cuh"
-
 #include "timing_options.cuh"
 
 namespace Mercator  {
@@ -31,12 +29,12 @@ namespace Mercator  {
   //
   template<typename T, 
 	   unsigned int numChannels,
-	   unsigned int THREADS_PER_BLOCK, // Needed?
-	   template<template <typename U> typename View> typename NodeFcnKind>
+	   typename Source,
+	   template<typename View> typename NodeFnKind>
   class Node_Source : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
-    using NodeFcnType = NodeFcnKind<Source>;
+    using NodeFnType = NodeFnKind<Source>;
     
     using BaseType::getChannel;
     using BaseType::getDSNode;
@@ -67,10 +65,12 @@ namespace Mercator  {
     __device__
     Node_Source(Scheduler *scheduler,
 		unsigned int region,
+		Source *isource,
 		size_t *itailPtr,
 		const size_t *inInputsPtr,
-		NodeFcnType *inodeFunction)
+		NodeFnType *inodeFunction)
       : BaseType(scheduler, region, nullptr),
+	source(isource),
 	tailPtr(itailPtr),
 	nInputsPtr(inInputsPtr),
 	nodeFunction(inodeFunction),
@@ -86,6 +86,7 @@ namespace Mercator  {
     ~Node_Source()
     {
       delete nodeFunction;
+      delete source;
     }    
     
     //
@@ -124,7 +125,10 @@ namespace Mercator  {
     void init() 
     { 
       if (IS_BOSS())
-	source.init(*nInputsPtr, tailPtr);
+	{
+	  source->init();
+	  source->setup(*nInputsPtr, tailPtr);
+	}
       
       nodeFunction->init(); 
     }
@@ -133,6 +137,9 @@ namespace Mercator  {
     void cleanup() 
     { 
       nodeFunction->cleanup(); 
+      
+      if (IS_BOSS())
+	source->cleanup();
     }
     
     //
@@ -168,7 +175,7 @@ namespace Mercator  {
 	  // if the source advises a lower request size than what we planned,
 	  // honor that.  Note that this may cause us to neither fill any
 	  // output queue nor exhaust the input.
-	  numToRequest = min(numToRequest, source.getRequestLimit());
+	  numToRequest = min(numToRequest, source->getRequestLimit());
 	  
 	  // BEGIN WRITE nDataPending, basePtr, sourceExhausted
 	  __syncthreads();      
@@ -176,7 +183,7 @@ namespace Mercator  {
 	  if (IS_BOSS())
 	    {
 	      // ask the source buffer for as many inputs as we want
-	      nDataPending = source.reserve(numToRequest, &basePtr);
+	      nDataPending = source->reserve(numToRequest, &basePtr);
 	      if (nDataPending < numToRequest)
 		sourceExhausted = true;
 	    }
@@ -213,7 +220,7 @@ namespace Mercator  {
 	  unsigned int nFinished;
 	  
 	  // doRun() tries to consume input; could cause node to block
-	  nFinished = nodeFunction->doRun(source, basePtr + nDataConsumed, 
+	  nFinished = nodeFunction->doRun(*source, basePtr + nDataConsumed, 
 					  limit);
 	  
 	  nDataConsumed += nFinished;
@@ -284,12 +291,12 @@ namespace Mercator  {
     }
     
   private:
-  
+
+    Source* const source;
+    
     size_t* const tailPtr;
     const size_t *const nInputsPtr;
-    NodeFcnType* const nodeFunction;
-  
-    Source<T> source;
+    NodeFnType* const nodeFunction;
     
     size_t nDataPending;
     size_t basePtr;

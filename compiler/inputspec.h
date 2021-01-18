@@ -242,18 +242,37 @@ namespace input {
   struct NodeStmt {
     std::string name;
     NodeType *type;
-    bool isSource;
     
     NodeStmt(const std::string &name,
-	     NodeType *type,
-	     bool isSource)
+	     NodeType *type)
       : name(name),
-	type(type),
-	isSource(isSource)
+	type(type)
     {}
     
     ~NodeStmt()
     { delete type; }
+  };
+
+  struct SourceStmt {
+    enum SourceKind { SourceIdx, SourceBuffer, SourceFunction };
+    
+    std::string node;
+    SourceKind kind;
+    std::string param;
+
+    SourceStmt(const std::string &node,
+	       SourceKind kind)
+      : node(node),
+	kind(kind)
+    {}
+    
+    SourceStmt(const std::string &node,
+	       SourceKind kind,
+	       const std::string &param)
+      : node(node),
+	kind(kind),
+	param(param)
+    {}	       
   };
   
   //
@@ -316,6 +335,8 @@ namespace input {
     std::vector<NodeStmt *>  nodes;
     
     std::vector<EdgeStmt>    edges;
+
+    std::vector<SourceStmt>  sources;
     
     std::vector<ILimitStmt>  ilimits;
     

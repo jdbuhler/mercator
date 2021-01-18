@@ -24,15 +24,13 @@ AllThreads BracketFind;
 Module CoordinateSwap : {unsigned int} from Line -> Aggregate accept<Position>;
 AllThreads CoordinateSwap;
 
-
-Node src : Source<Line>;
 Node bf : BracketFind;
 Node cs : CoordinateSwap;
 Node snk : Sink<Position>;
 
 // edges
 
-Edge src -> bf;
+Source bf buffer;
 Edge bf -> cs;
 Edge cs -> snk;
 

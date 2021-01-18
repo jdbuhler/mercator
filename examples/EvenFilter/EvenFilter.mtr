@@ -18,10 +18,10 @@ AllThreads filter;
 // for each input on each output channel. This module has a
 // single, unnamed output channel.
 
-Source f : filter;
-
+Node f : filter;
 Node snk : Sink<{unsigned int}> ;
 
-// edges
+Source f;
 
+// edges
 Edge f -> snk;

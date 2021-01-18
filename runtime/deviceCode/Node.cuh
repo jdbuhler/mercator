@@ -40,11 +40,11 @@ namespace Mercator  {
   template <typename T, 
 	    unsigned int numChannels,
 	    bool UseSignals,
-	   template<template <typename U> typename View> typename NodeFcnKind>
+	   template<typename View> typename NodeFnKind>
   class Node : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
-    using NodeFcnType = NodeFcnKind<Queue>;
+    using NodeFnType = NodeFnKind<Queue<T>>;
     
     using BaseType::getChannel;
     using BaseType::getDSNode;
@@ -67,7 +67,7 @@ namespace Mercator  {
 	 NodeBase *usNode,
 	 unsigned int usChannel,
 	 unsigned int queueSize,
-	 NodeFcnType *inodeFunction)
+	 NodeFnType *inodeFunction)
       : BaseType(scheduler, region, usNode),
 	queue(queueSize),
         signalQueue(UseSignals ? queueSize : 0), // could be smaller?
@@ -153,6 +153,7 @@ namespace Mercator  {
       // # of items already consumed from data queue
       unsigned int nDataConsumed = 0;
       
+      
       // # of signals available to consume from signal queue
       unsigned int nSignalsToConsume = 0;
 
@@ -161,23 +162,22 @@ namespace Mercator  {
 	  
       // # of credits before next signal, if one exists
       unsigned int nCredits = 0;
-	  
       
       if (UseSignals)
 	{
 	  // # of signals available to consume from signal queue
-	  unsigned int nSignalsToConsume = signalQueue.getOccupancy();
+	  nSignalsToConsume = signalQueue.getOccupancy();
 	  
 	  // # of credits before next signal, if one exists
-	  unsigned int nCredits = (nSignalsToConsume == 0
-				   ? 0
-				   : signalQueue.getHead().credit);
+	  nCredits = (nSignalsToConsume == 0
+		      ? 0
+		      : signalQueue.getHead().credit);
 	}
       
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
 				     ? 0
-				     : NodeFcnType::inputSizeHint - 1);
+				     : NodeFnType::inputSizeHint - 1);
       
       bool dsActive = false;
       
@@ -312,7 +312,7 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
-    NodeFcnType* const nodeFunction;
+    NodeFnType* const nodeFunction;
     
 #ifdef INSTRUMENT_TIME
     using BaseType::inputTimer;

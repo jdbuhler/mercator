@@ -13,14 +13,13 @@ Application SameTypePipe_1to1map_AT;
 // MODULE TYPES
 //
 Module A : PipeEltT -> PipeEltT;
-
 AllThreads A;
 
 //
 // NODES
 //
 
-Node sourceNode : Source<PipeEltT>;
+Source A1node buffer;
 
 Node A1node : A;
 Node A2node : A;
@@ -34,7 +33,6 @@ Node sinkNodeAccept : Sink<PipeEltT>;
 // CONNECTIONS BETWEEN NODES
 //
 
-Edge sourceNode -> A1node;
 Edge A1node -> A2node;
 Edge A2node -> A3node;
 Edge A3node -> A4node;

@@ -233,9 +233,9 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
       
       //
-      // Look up the module type of this node.  Source and sink nodes
-      // are handled specially according to their data types; we create
-      // their module types if they do not yet exist.
+      // Look up the module type of this node.  Sink nodes are handled
+      // specially according to their data types; we create their
+      // module types if they do not yet exist.
       //
       
       int mId;
@@ -302,9 +302,6 @@ App *buildApp(const input::AppSpec *appSpec)
 			    module,
 			    nLocalId);
       
-      if (ns->isSource)
-	node->set_isSource(true);
-      
       app->nodes.push_back(node);
       module->nodes.push_back(node);
       
@@ -334,38 +331,10 @@ App *buildApp(const input::AppSpec *appSpec)
 	  Edge *edge = new Edge(enumNode, enumModule->get_channel(0), node);
 	  
 	  enumNode->set_dsEdge(0, edge);
-	  
-	  if (node->get_isSource())
-	    {
-	      node->set_isSource(false);
-	      enumNode->set_isSource(true);
-	    }
+
+	  node->set_enumerator(enumNode);
 	}
-    }
-  
-  
-  //
-  // VALIDATE that app has unique source node, and
-  // record it if none has yet been seen.
-  //
-  for (Node *node : app->nodes)
-    {
-      if (node->get_isSource())
-	{
-	  if (app->sourceNode)
-	    {
-	      cerr << "ERROR: app " << app->name
-		   << " has multiple source nodes." << endl
-		   << " (" << app->sourceNode->get_name() 
-		   << ", "
-		   << node->get_name() << ')'
-		   << endl;
-	      abort();
-	    }
-	  else
-	    app->sourceNode = node;
-	}
-    }
+    }  
   
   for (const input::EdgeStmt es : appSpec->edges)
     {
@@ -477,18 +446,6 @@ App *buildApp(const input::AppSpec *appSpec)
       usNode->set_dsEdge(uscId, edge);
     }
   
-  // make sure app's graph has a source, and that no edges are omitted.
-  validateTopologyComplete(app);
-  
-  // make sure input type of source module is size_t
-  // (later, we will handle other types)
-  const DataType *inputType = 
-    app->sourceNode->get_moduleType()->get_inputType();
-  if (!appSpec->typeInfo->compareTypes(inputType->name, "size_t"))
-    {
-      cerr << "ERROR: input type of source must be size_t\n";
-      abort();
-    }
     
   int vId = 0;
   for (const input::DataStmt *var : appSpec->vars)
@@ -608,7 +565,94 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
 
     }
+
+    
+  //
+  // Process the source designation.  VALIDATE that exactly
+  // one node has been designated source.
+  //
+  if (appSpec->sources.size() == 0)
+    {
+      cerr << "ERROR: app " << app->name
+	   << " has no designated source node." << endl;
+      abort();
+    }
+  else if (appSpec->sources.size() > 1)
+    {
+     cerr << "ERROR: app " << app->name
+	  << " has two or more designated source nodes." << endl;
+     abort();
+    }
+  else
+    {
+      const input::SourceStmt &ss = appSpec->sources[0];
+      
+      int nid = app->nodeNames.find(ss.node);
+      if (nid == SymbolTable::NOT_FOUND)
+	{
+	  cerr << "ERROR: source statement designates nonexistent node "
+	       << ss.node << endl;
+	  abort();
+	}
+
+      Node *node = app->nodes[nid];
+      if (node->get_moduleType()->isFormerlyEnumerate())
+	node = node->get_enumerator();
+
+      node->set_isSource(true);
+      app->sourceNode = node;
+
+      if (ss.kind == input::SourceStmt::SourceIdx)
+	{
+	  app->sourceKind = App::SourceIdx;
+	  
+	  // make sure input type of source module is size_t
+	  const DataType *inputType = 
+	    app->sourceNode->get_moduleType()->get_inputType();
+	  
+	  if (!appSpec->typeInfo->compareTypes(inputType->name, "size_t"))
+	    {
+	      cerr << "ERROR: input type of source node "
+		   << node->get_name()
+		   << "should be size_t\n";
+	      abort();
+	    }
+	}
+      else if (ss.kind == input::SourceStmt::SourceBuffer)
+	{
+	  app->sourceKind = App::SourceBuffer;
+	  string varName = "__input";
+	  
+	  //
+	  // VALIDATE that variable name is unique for this app, and
+	  // record mapping from name to index in global variable array.
+	  //
+	  if (!app->varNames.insertUnique(varName, vId++))
+	    {
+	      cerr << "ERROR: app variable "
+		   << app->name << "::" << varName
+		   << " is reserved for internal use."
+		   << endl;
+	      abort();
+	    }
+	  
+	  string sourceDataType = 
+	    app->sourceNode->get_moduleType()->get_inputType()->name;
+	  
+	  DataItem *v = new DataItem(varName,
+				     new DataType(sourceDataType + "*"));
+	  app->params.push_back(v);
+	  
+	  app->sourceParam = varName;
+	}
+      else // function
+	app->sourceKind = App::SourceFunction;
+    }
+
+  // make sure app's graph has a source, and that no edges are omitted.
+  validateTopologyComplete(app);
   
+
   //
   // VALIDATE that all modules are used in the app.  If a module
   // is not used, warn and do not generate code for it.

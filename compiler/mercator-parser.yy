@@ -71,9 +71,11 @@ class mercator_driver;
   AGGREGATE "aggregate"
   ALLTHREADS "allthreads"
   APPLICATION "application"
+  BUFFER "buffer"
   EDGE    "edge"
   ENUMERATE "enumerate"
   FROM    "from"
+  FUNCTION "function"
   ILIMIT  "ilimit"
   MAPPING "mapping"
   MODULE  "module"
@@ -98,8 +100,8 @@ class mercator_driver;
 
 %type <std::string> typename_string channelname modulename sourcefilename
 %type <std::string> appname nodename varscope edgechannelspec
-%type <bool> node_or_source
 %type <input::NodeType *> nodetype
+%type <input::SourceStmt::SourceKind> sourcetype
 %type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
 %type <input::ChannelSpec *> channel simplechannel 
@@ -141,6 +143,7 @@ stmt:
 | ilimitstmt
 | threadwidthstmt
 | nodestmt
+| sourcestmt
 | edgestmt
 | mappingstmt
 | paramstmt
@@ -236,7 +239,7 @@ mappingspec:
 
 // node stmt: declare a node as instance of a given module
 nodestmt:
-node_or_source nodename ":" nodetype ";"
+"node" nodename ":" nodetype ";"
 { 
   input::NodeStmt *node;
   
@@ -249,12 +252,12 @@ node_or_source nodename ":" nodetype ";"
      $4->mt->name = gensymType;
      driver.currApp()->modules.push_back($4->mt);
      
-     node = new input::NodeStmt($2, new input::NodeType(gensymType), $1);
+     node = new input::NodeStmt($2, new input::NodeType(gensymType));
      delete $4;
   }
   else
   {
-     node = new input::NodeStmt($2, $4, $1);
+     node = new input::NodeStmt($2, $4);
   }
 
   if (!driver.currApp())
@@ -265,12 +268,6 @@ node_or_source nodename ":" nodetype ";"
   driver.currApp()->nodes.push_back(node);
 };
 
-node_or_source:
- "node"
-{ $$ = false; }
-| "source"
-{ $$ = true; };
-
 nodename: "identifier"
 { $$ = $1; };
 
@@ -280,6 +277,26 @@ nodetype:
 | "sink" "<" basetypename ">"  
          { $$ = new input::NodeType(input::NodeType::isSink, $3); }
 | moduletype                      { $$ = new input::NodeType($1); };
+
+
+sourcestmt:
+"source" nodename sourcetype ";"
+{
+   input::SourceStmt src($2, $3);
+   
+   if (!driver.currApp())
+   {
+      error(yyla.location, "Edge statement outside app context");
+      exit(EXIT_FAILURE);
+   }
+   driver.currApp()->sources.push_back(src);
+};
+
+
+sourcetype:
+ %empty       { $$ = input::SourceStmt::SourceIdx; }
+| "function"  { $$ = input::SourceStmt::SourceFunction; }
+| "buffer"    { $$ = input::SourceStmt::SourceBuffer; };
 
 
 // edge stmt: declare an edge from a channel out of one node into another

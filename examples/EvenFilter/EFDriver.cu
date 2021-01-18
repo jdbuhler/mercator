@@ -7,7 +7,6 @@
 //
 
 #include <iostream>
-#include <cstdlib>
 
 #include "EvenFilter.cuh"
 
@@ -16,8 +15,6 @@ using namespace std;
 int main()
 {
   const unsigned int NVALUES = 1000000000; // one BEEEELLION values
-  
-  srand(0);
   
   unsigned int *outputValues = new unsigned int [NVALUES];
   
@@ -38,12 +35,11 @@ int main()
   // end MERCATOR usage
   
   cout << "# outputs = " << outSize << endl;
-
-/*
-  for(unsigned int i=0;i<outSize; i++){
-  cout  << outputValues[i]<< endl;
-  }
-*/
+  /*
+  for(unsigned int i = 0; i < outSize; i++)
+    cout << outputValues[i] << endl;
+  */
+  
   delete [] outputValues;
   
   return 0;

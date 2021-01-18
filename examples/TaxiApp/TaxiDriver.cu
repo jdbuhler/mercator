@@ -181,11 +181,11 @@ int main(int argc, char** argv)
   Taxi efapp;
   
   efapp.getParams()->text = d_string;
-  efapp.src.setSource(inputBuffer);
+  efapp.setSource(inputBuffer);
   efapp.snk.setSink(outputBuffer);
   
   cout << "RUNNING APP..." << endl;
-  efapp.run();
+  efapp.run(inputBuffer.size());
   cout << "APP FINISHED!" << endl;
   
   // get data out of the output buffer

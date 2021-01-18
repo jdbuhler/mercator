@@ -18,12 +18,13 @@ namespace Mercator {
   // @tparam T type of input item
   //
   template<typename T, 
-	   template<typename> class InputView,
+	   typename InputView,
 	   unsigned int THREADS_PER_BLOCK,
-	   typename DerivedNodeFnType>
+	   template <typename View> typename DerivedNodeFnKind>
   class NodeFunction_Enumerate : public NodeFunction<1> {
     
     using BaseType = NodeFunction<1>;
+    using DerivedNodeFnType = DerivedNodeFnKind<InputView>;
     
     using BaseType::node;
     
@@ -79,7 +80,7 @@ namespace Mercator {
     // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
-    unsigned int doRun(const InputView<T> &view,
+    unsigned int doRun(const InputView &view,
 		       size_t start,
 		       unsigned int limit)
     {
@@ -98,7 +99,7 @@ namespace Mercator {
       // full parent buffer), indicate that we've read nothing
       if (myCurrentCount == myDataCount)
 	{
-	  const typename InputView<T>::EltT item = view.get(start);
+	  const typename InputView::EltT item = view.get(start);
 	  
 	  // BEGIN WRITE blocking status, activeParent,
 	  // ds signal queue ptr in startItem()
@@ -234,7 +235,7 @@ namespace Mercator {
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
-
+    
     // the active parent object for enumeration
     unsigned int activeParent;
         

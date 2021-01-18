@@ -1,14 +1,14 @@
 #include "Taxi_dev.cuh"
 #include "StrFunc.cuh"
 
-__device__
+__MDECL__
 void Taxi_dev::
-BracketFind::begin()
+BracketFind<InputView>::begin()
 {}
 
-__device__
+__MDECL__
 void Taxi_dev::
-BracketFind::run(const unsigned int& charIdx, unsigned int nInputs)
+BracketFind<InputView>::run(const unsigned int& charIdx, unsigned int nInputs)
 {
   const Line* line = getParent();
   const char *text = getAppParams()->text + line->start;
@@ -23,19 +23,19 @@ BracketFind::run(const unsigned int& charIdx, unsigned int nInputs)
   push(charIdx, foundBracket); 
 }
 
-__device__
+__MDECL__
 void Taxi_dev::
-BracketFind::end()
+BracketFind<InputView>::end()
 {}
 
-__device__
+__MDECL__
 void Taxi_dev::
-CoordinateSwap::begin()
+CoordinateSwap<InputView>::begin()
 {}
 
-__device__
+__MDECL__
 void Taxi_dev::
-CoordinateSwap::run(const unsigned int& charIdx, unsigned int nInputs)
+CoordinateSwap<InputView>::run(const unsigned int& charIdx, unsigned int nInputs)
 {
   const Line *line = getParent();
   const char *text = getAppParams()->text + line->start;
@@ -61,14 +61,14 @@ CoordinateSwap::run(const unsigned int& charIdx, unsigned int nInputs)
   push(p, foundPosition);
 }
 
-__device__
+__MDECL__
 void Taxi_dev::
-CoordinateSwap::end()
+CoordinateSwap<InputView>::end()
 {}
 
-__device__
+__MDECL__
 unsigned int Taxi_dev::
-__enumerateFor_BracketFind::findCount(const Line &parent) const
+__enumerateFor_BracketFind<InputView>::findCount(const Line &parent) const
 {
   return parent.length;
 }

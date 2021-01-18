@@ -1,12 +1,12 @@
-#ifndef __SOURCE_CUH
-#define __SOURCE_CUH
+#ifndef __SOURCEBASE_CUH
+#define __SOURCEBASE_CUH
 
 //
-// @file Source.cuh
-// device-side source object associated with Node_Source
+// @file SourceBase.cuh
+// Base for device-side source objects associated with Node_Source
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <type_traits>
@@ -15,24 +15,24 @@
 namespace Mercator {
   
   template <typename T, typename Enable = void>
-  class SourceBase;
+  class SourceEltBase;
 
   template <typename T>
-  class SourceBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
+  class SourceEltBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
   public:
     using EltT = T;
   };
 
   template <typename T>
-  class SourceBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
+  class SourceEltBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
   public:
-    using EltT = T&;
+    using EltT = const T&;
   };
   
   // Actual Source class begins here
   
   template <typename T>  
-  class Source : public SourceBase<T> {
+  class SourceBase : public SourceEltBase<T> {
     
   public:
     
@@ -43,20 +43,21 @@ namespace Mercator {
     // @param tail external tail pointer
     //
     __device__
-    Source()
+    SourceBase()
       : size(0),
 	tail(nullptr)
     {}
     
     __device__
-    void init(size_t nInputs,
-	      size_t *itail)
+    void setup(size_t nInputs,
+	       size_t *itail)
     {
       size = nInputs;
       reqLimit = max((size_t) 1, size / gridDim.x);
       
       tail = itail;
     }
+    
     
     //
     // @brief get advisory request limit based on input stream size, so
@@ -95,25 +96,6 @@ namespace Mercator {
 			   ? 0 
 			   : size - *base));
     }
-    
-    
-    //
-    // @brief get an element from the array
-    //
-    __device__
-    typename Source<T>::EltT get(size_t idx) const 
-    {
-      assert(idx <= size);
-            
-      return idx;
-    }
-    
-    
-    //
-    // @brief return a dummy element we don't care about
-    //
-    __device__
-    typename Source<T>::EltT getDummy() const { return get(0); }
     
   private:
     

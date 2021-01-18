@@ -262,7 +262,6 @@ void genHostAppHeader(const string &hostClassFileName,
   f.add(genUserInclude("hostCode/AppDriverBase.cuh"));
   f.add("");
   
-  f.add(genUserInclude("io/Source.cuh"));
   f.add(genUserInclude("io/Sink.cuh"));
   f.add("");
   
@@ -311,6 +310,18 @@ void genHostAppHeader(const string &hostClassFileName,
 		     ""));
   f.add("{ return &allParams.appParams; }");
   f.add("");
+  
+  if (app->sourceKind == App::SourceBuffer)
+    {
+      string sourceType = 
+	app->sourceNode->get_moduleType()->get_inputType()->name;
+      
+      f.add(genFcnHeader("void", "setSource", 
+			 "const Mercator::Buffer<" + sourceType + "> &buffer"));
+      f.add("{ getParams()->" + app->sourceParam + 
+	    " = buffer.getData()->data; }");
+      f.add("");
+    }
   
   // generate each module's host-side class
   for (const ModuleType *mod : app->modules)

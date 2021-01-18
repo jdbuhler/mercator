@@ -9,6 +9,7 @@
 // Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
+#include <type_traits>
 #include <cassert>
 
 #include "QueueBase.cuh"

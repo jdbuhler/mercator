@@ -159,14 +159,14 @@ int main(int argc, char* argv[])
 	lastUpperBd = upperBd;
       }
       
-      // associate buffers with nodes
+      // associate buffers with input and output
       
-      app.sourceNode.setSource(inBuffer);
+      app.setSource(inBuffer);
       app.sinkNodeAccept.setSink(outBufferAccept);
       
       cout << "SAME-TYPE-PIPE APP LAUNCHING.\n" ;
       // run main function
-      app.run();
+      app.run(inBuffer.size());
       
       cout << "SAME-TYPE-PIPE APP FINISHED.\n" ;
       

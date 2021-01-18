@@ -14,8 +14,3 @@ add_mercator_app(TARGET ModFilter
 add_mercator_executable(TARGET ModFilterTest
 			APPS ModFilter
 			SOURCES MFDriver.cu)
-
-add_mercator_executable(TARGET ModFilterRangeTest
-			APPS ModFilter
-			SOURCES MFRangeDriver.cu)
-

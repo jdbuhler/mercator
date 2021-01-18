@@ -24,11 +24,15 @@ __MDECL__
 void EvenFilter_dev::
 filter<InputView>::run(const size_t& inputItem, unsigned int nInputs)
 {
-  unsigned int v = munge((unsigned int) inputItem);
+  unsigned int tid = threadIdx.x;
+  unsigned int v;
+  
+  if (tid < nInputs)
+    v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
-  push(v, v % 2 == 0); // defaults to pushing to Out::accept
+  push(v, tid < nInputs && (v % 2) == 0); // defaults to pushing to Out::accept
 
 }
 

@@ -168,6 +168,8 @@ public:
   Edge *get_dsEdge(int i) const { return dsEdges[i]; }
   
   bool get_isSource() const { return isSource; }
+
+  Node *get_enumerator() const { return enumerator; }
   
   void set_dsEdge(int i, Edge *e) const { dsEdges[i] = e; }
   
@@ -176,6 +178,8 @@ public:
   void set_enumerateId(int e) { enumerateId = e; }
   
   void set_isSource(bool v) { isSource = v; }
+
+  void set_enumerator(Node *n) { enumerator = n; }
   
   void print() const;
   
@@ -192,6 +196,9 @@ private:
   bool isSource;
   
   unsigned int queueSize;
+
+  Node *enumerator;            // if we have an enumerated input, which
+                               // node actually does the enumerating?
   
   Edge **dsEdges;              // one per channel
   
@@ -363,11 +370,15 @@ private:
 //
 struct App {
 
+  enum SourceKind { SourceIdx, SourceBuffer, SourceFunction };
+  
   std::string name;
 
   unsigned int threadWidth;
   
   Node *sourceNode;
+  SourceKind sourceKind;
+  std::string sourceParam; // for array sources only
   
   std::vector<ModuleType *> modules;
   
@@ -386,7 +397,8 @@ struct App {
   App(const std::string &iname, unsigned int ithreadWidth)
     : name(iname),
       threadWidth(ithreadWidth),
-      sourceNode(nullptr)
+      sourceNode(nullptr),
+      sourceKind(SourceIdx)
   {}
   
   ~App()

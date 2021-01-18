@@ -265,7 +265,7 @@ void genDeviceModuleClass(const App *app,
     mod->get_name() + " final "
     ": public Mercator::" + baseType;
 
-  f.add("template <template<typename> typename InputView>");
+  f.add("template <typename InputView>");
   f.add("class " + classHeader + " {");
   f.indent();
   
@@ -489,6 +489,83 @@ void genDeviceModuleClass(const App *app,
   f.add("}; // end class " + mod->get_name());
 }
 
+static
+void genDeviceAppSourceClass(const App *app,
+			     Formatter &f)
+{
+  string paramsType = app->name + "::" + "AppParams";
+  string sourceType =
+    app->sourceNode->get_moduleType()->get_inputType()->name;
+
+  f.add("class Source : public Mercator::SourceBase<" + sourceType + "> {");
+  f.indent();
+  
+  f.add("public:");
+  
+  f.add("using EltT = Mercator::SourceBase<" + sourceType + ">::EltT;");
+  
+  f.add("__device__");
+  f.add("Source(const " + paramsType + "* appParams)");
+  f.add(" : appParams(appParams) {}");
+  f.add("");
+
+  if (app->sourceKind == App::SourceFunction)
+    {
+      // we'll emit these as stubs in the skeleton file
+      f.add("__device__");
+      f.add("void init();");
+      
+      f.add("__device__");
+      f.add("EltT get(size_t idx) const;");
+      
+      f.add("__device__");
+      f.add("void cleanup();");
+    }
+  else if (app->sourceKind == App::SourceBuffer)
+    {
+      f.add("__device__");
+      f.add("void init()");
+      f.add("{ data = getAppParams()->__input; }");
+
+      f.add("__device__");
+      f.add("EltT get(size_t idx) const { return data[idx]; }");
+      
+      f.add("__device__");
+      f.add("void cleanup() {}");
+    }
+  else // default: just return the given idx
+    {
+      f.add("__device__");
+      f.add("void init() {}");
+
+      f.add("__device__");
+      f.add("EltT get(size_t idx) const { return idx; }");
+      
+      f.add("__device__");
+      f.add("void cleanup() {}");
+    }
+  f.add("");
+  
+  f.add("private:");
+  f.add("const " + paramsType + "* const appParams;");
+  f.add("");
+  
+  if (app->sourceKind == App::SourceBuffer)
+    {
+      const ModuleType *sourceMod = app->sourceNode->get_moduleType();
+      const string &sourceType = sourceMod->get_inputType()->name;
+      f.add("const " + sourceType + "* data;");
+      f.add("");
+    }
+  
+  f.add("__device__");
+  f.add("const " + paramsType + "* getAppParams() const");
+  f.add("{ return appParams; }");
+
+  f.unindent();
+  f.add("};");
+  f.add("");
+}
 
 
 //
@@ -549,6 +626,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   }
   
   f.add(genUserInclude("deviceCode/Scheduler_impl.cuh"));
+  f.add(genUserInclude("io/SourceBase.cuh"));
   f.add("");
   
   // begin device app class
@@ -560,6 +638,8 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	+ to_string(options.deviceHeapSize)
 	+ "> {");
   f.indent();
+
+  genDeviceAppSourceClass(app, f);
   
   // generate class def for each module type and its nodes
   for (const ModuleType *mod : app->modules)
@@ -578,7 +658,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 
   f.add("");
   f.add("#define __MDECL__ \\");
-  f.add("   template <template<typename T> typename InputView> __device__ ");
+  f.add("   template <typename InputView> __device__ ");
   f.add("");
 	
   f.add("#endif"); // end of include guard  
@@ -612,6 +692,28 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
   for (const App *app : apps)
     {
       string DeviceAppClass = app->name + "_dev";
+
+      // if needed, generate stubs for source with user-supplied function
+      if (app->sourceKind == App::SourceFunction)
+	{
+	  f.add("__device__");
+	  f.add("void ");
+	  f.add(DeviceAppClass + "::Source::init()");
+	  f.add("{}");
+	  f.add("");
+	  
+	  f.add("__device__");
+	  f.add(DeviceAppClass + "::Source::EltT");
+	  f.add(DeviceAppClass + "::Source::get(size_t idx) const");
+	  f.add("{ /* return the idxth elt of the source */ }");
+	  f.add("");
+
+	  f.add("__device__");
+	  f.add("void ");
+	  f.add(DeviceAppClass + "::Source::cleanup()");
+	  f.add("{}");
+	  f.add("");
+	}
       
       // generate class def for each module type
       for (const ModuleType *mod : app->modules)

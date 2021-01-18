@@ -40,11 +40,11 @@ namespace Mercator  {
   //
   template<typename T,
 	   unsigned int numChannels,
-	   template<typename> class InputView,
+	   typename InputView,
 	   unsigned int THREADS_PER_BLOCK,
 	   unsigned int threadGroupSize,
 	   unsigned int maxActiveThreads,
-	   template <template <typename V> typename View> typename DerivedNodeFnKind>
+	   template <typename View> typename DerivedNodeFnKind>
   class NodeFunction_User : public NodeFunction<numChannels> {
     
     using BaseType = NodeFunction<numChannels>;
@@ -103,7 +103,7 @@ namespace Mercator  {
     // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
-    unsigned int doRun(const InputView<T> &view, 
+    unsigned int doRun(const InputView &view, 
 		       size_t start,
 		       unsigned int limit)
     {
@@ -116,11 +116,13 @@ namespace Mercator  {
       //
     
       NODE_OCC_COUNT(nItems);
-    
-      const typename InputView<T>::EltT myData =
+
+      assert(nItems > 0);
+      
+      const typename InputView::EltT myData =
 	(tid < nItems
 	 ? view.get(start + tid)
-	 : view.getDummy()); // don't create a null reference
+	 : view.get(start)); // don't create null ref -- assumes nItems > 0
       
       DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
       nf->run(myData, nItems);

@@ -24,7 +24,7 @@ namespace Mercator  {
 
   //
   template<typename T, 
-	   template<typename> class InputView,
+	   typename InputView,
 	   unsigned int THREADS_PER_BLOCK>
   class NodeFunction_Sink : public NodeFunction<0> {
 
@@ -65,7 +65,7 @@ namespace Mercator  {
     // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
-    unsigned int doRun(const InputView<T> &view,
+    unsigned int doRun(const InputView &view,
 		       size_t start,
 		       unsigned int limit)
     {
@@ -97,7 +97,7 @@ namespace Mercator  {
 	  
 	  if (srcIdx < limit)
 	    {
-	      const typename InputView<T>::EltT myData = 
+	      const typename InputView::EltT myData = 
 		view.get(start + srcIdx);
 	      sink.put(basePtr, srcIdx, myData);
 	    }

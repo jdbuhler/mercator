@@ -83,7 +83,6 @@ int main(int argc, char* argv[])
   Mercator::Buffer<PipeEltT> inBuffer(NUM_INPUTS);
   Mercator::Buffer<PipeEltT> outBufferAccept(MAX_OUTPUTS);
   
-  
   // create app object
   APP_TYPE app;
   
@@ -161,12 +160,12 @@ int main(int argc, char* argv[])
       
       // associate buffers with nodes
       
-      app.sourceNode.setSource(inBuffer);
+      app.setSource(inBuffer);
       app.sinkNodeAccept.setSink(outBufferAccept);
       
       cout << "SAME-TYPE-PIPE APP LAUNCHING.\n" ;
       // run main function
-      app.run();
+      app.run(inBuffer.size());
       
       cout << "SAME-TYPE-PIPE APP FINISHED.\n" ;
       

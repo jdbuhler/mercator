@@ -84,7 +84,10 @@ void genNodeConstruction(const string &nodeObj,
   string hostModuleType = "Host::" + mod->get_name();
   string deviceModuleKind = mod->get_name();
   string deviceModuleType  = deviceModuleKind +
-    "<Mercator::" + (node->get_isSource() ? "Source>" : "Queue>");
+    "<" + (node->get_isSource()
+	   ? "Source" 
+	   : "Mercator::Queue<" + mod->get_inputType()->name + ">")
+    + ">";
   
   string nodeFunctionObj = nodeObj + "Fcn";
   
@@ -148,11 +151,14 @@ void genNodeConstruction(const string &nodeObj,
   
   if (node->get_isSource())
     {
+      // create the actual source object
+      f.add("Source *sourceObj = new Source(&params->appParams);");
+      
       // allocate the node object
-      string NodeType = "Mercator::Node_Source< " + 
+      string NodeType = "Mercator::Node_Source<" + 
 	mod->get_inputType()->name +
 	", " + to_string(mod->get_nChannels()) +
-	", THREADS_PER_BLOCK"
+	", Source"
 	", " + deviceModuleKind + ">";
       
       nextStmt =
@@ -161,6 +167,8 @@ void genNodeConstruction(const string &nodeObj,
       nextStmt += "&scheduler";
       
       nextStmt += ", " + to_string(node->get_regionId());
+      
+      nextStmt += ", sourceObj";
       
       nextStmt += ", tailPtr";
       
@@ -177,7 +185,7 @@ void genNodeConstruction(const string &nodeObj,
       // only nodes in non-zero enumeration regions use signals
       bool usesSignals = (node->get_regionId() > 0);
       
-      string NodeType = "Mercator::Node< " + 
+      string NodeType = "Mercator::Node<" + 
 	mod->get_inputType()->name +
 	", " + to_string(mod->get_nChannels()) +
 	", " + to_string(usesSignals) +
