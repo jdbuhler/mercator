@@ -145,21 +145,6 @@ namespace Mercator  {
 	}
     }
     
-    //
-    // @brief Schedule ourself for firing.  This is needed in case
-    // the node did not empty its input or fill its output when it
-    // last became active (possible only due to blocking on another
-    // resource or insufficient input to the Source).
-    //
-    __device__
-    void forceReschedule()
-    {
-      assert(IS_BOSS());
-      assert(isActive() && nDSActive == 0 && !isBlocked());
-      
-      scheduler->addFireableNode(this);
-    }
-    
     
     //
     // @brief is ths node currently blocked?
