@@ -31,7 +31,7 @@ namespace Mercator  {
   //
   template<typename T, 
 	   unsigned int numChannels,
-	   unsigned int THREADS_PER_BLOCK,
+	   unsigned int THREADS_PER_BLOCK, // Needed?
 	   template<template <typename U> typename View> typename NodeFcnKind>
   class Node_Source : public NodeBaseWithChannels<numChannels> {
     
@@ -79,10 +79,6 @@ namespace Mercator  {
 	sourceExhausted(false)
     {
       nodeFunction->setNode(this);
-      
-#ifdef INSTRUMENT_OCC
-      occCounter.setMaxRunSize(THREADS_PER_BLOCK);
-#endif
     }
     
     __device__
