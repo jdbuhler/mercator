@@ -3,10 +3,10 @@
 
 //
 // @file Node_Source.cuh
-// @brief Node that gets its input from a source object
+// @brief a node that gets its input from an external source
 //
 // MERCATOR
-// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <climits>
@@ -26,6 +26,8 @@ namespace Mercator  {
   //
   // @tparam T type of input item
   // @tparam numChannels  number of output channels
+  // @tparam Source type of source object from which we read inputs
+  // @tparam NodeFnKind type of node function that supplies doRun()
   //
   template<typename T, 
 	   unsigned int numChannels,
@@ -50,7 +52,7 @@ namespace Mercator  {
 #endif
     
   public: 
-
+    
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
     ///////////////////////////////////////////////////////

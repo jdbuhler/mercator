@@ -7,7 +7,7 @@
 //        group processes a single input per call to run()
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
@@ -22,7 +22,7 @@ namespace Mercator  {
 
   //
   // @class NodeFunction_User
-  // @brief MERCATOR node whose run() fcn takes one input per thread
+  // @brief MERCATOR node function whose run() fcn takes one input per thread
   // group. We use CRTP to derive subtypes of this node so that the
   // run() function can be inlined.  The expected signature
   // of run is
@@ -33,10 +33,11 @@ namespace Mercator  {
   //
   // @tparam T type of input item
   // @tparam numChannels  number of output channels
+  // @tparam InputView type of input view passed to doRun()
   // @tparam THREADS_PER_BLOCK constant giving thread block size
   // @tparam threadGroupSize number of threads per input
   // @tparam maxActiveThreads max # of threads that can take input at once 
-  // @tparam DerivedNodeFnType subtype that defines the run() function
+  // @tparam DerivedNodeFnKind subtype that defines the run() function
   //
   template<typename T,
 	   unsigned int numChannels,

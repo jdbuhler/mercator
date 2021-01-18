@@ -3,10 +3,10 @@
 
 //
 // @file NodeBaseWithChannels.cuh
-// @brief a MERCATOR node that knows its input type
+// @brief a node base class that supplies a channel and dsNode array
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cassert>
@@ -20,16 +20,10 @@
 namespace Mercator  {
 
   //
-  // @class Node
-  // @brief most general typed node
+  // @class NodeBaseWithChannels
+  // @brief base class to store/provide channel and dsNode information
   //
-  // @tparam T type of input
   // @tparam numChannels  number of channels
-  // @tparam numEltsPerGroup number of input elements/thread
-  // @tparam threadGroupSize  number of threads in a thread group
-  // @tparam maxActiveThreads max # of live threads in any call to run()
-  // @tparam runWithAllThreads call run() with all threads, or just as many
-  //           as have inputs?
   //
   template <unsigned int numChannels>
   class NodeBaseWithChannels : public NodeBase {

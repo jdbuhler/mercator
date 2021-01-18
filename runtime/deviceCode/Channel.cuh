@@ -6,7 +6,7 @@
 // @brief MERCATOR channel object
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include "ChannelBase.cuh"
@@ -18,6 +18,8 @@ namespace Mercator  {
   //
   // @class Channel
   // @brief Holds all data associated with an output stream from a node.
+  //
+  // @tparam T type of object written to channel
   //
   template <typename T>
   class Channel : public ChannelBase {

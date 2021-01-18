@@ -8,7 +8,7 @@
 //   initialization, finalization, and instrumentation printing.
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <climits>

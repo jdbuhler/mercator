@@ -99,9 +99,9 @@ void run(const T &item);
 
 ---------------------------------------------------------------
 
-NodeFunction_Enumerate::DerivedNodeFunctionType
+NodeFunction_Enumerate::DerivedNodeFunctionKind{InputView}
 
 Used for CRTP to avoid virtualization of specific NodeFunction behaviors
 
 // return the # of elements of input item
-unsigned intfindCount(const T &item) const;
+unsigned int findCount(const T &item) const;

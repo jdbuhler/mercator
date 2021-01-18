@@ -70,12 +70,12 @@ add_subdirectory(EvenFilter)
 
 add_subdirectory(ModFilter)
 
-add_subdirectory(SplitFilter)
+#add_subdirectory(SplitFilter)
 
-add_subdirectory(LoopFilter)
+#add_subdirectory(LoopFilter)
 
-add_subdirectory(AsyncFilter)
+#add_subdirectory(AsyncFilter)
 
-add_subdirectory(Mandelbrot)
+#add_subdirectory(Mandelbrot)
 
 add_subdirectory(TaxiApp)

@@ -621,7 +621,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     f.add(genUserInclude("deviceCode/NodeFunction_Sink.cuh"));
     
     f.add(genUserInclude("deviceCode/Node_Source.cuh"));
-    f.add(genUserInclude("deviceCode/Node.cuh"));
+    f.add(genUserInclude("deviceCode/Node_Queue.cuh"));
     f.add("");
   }
   

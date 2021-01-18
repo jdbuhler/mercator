@@ -1,12 +1,12 @@
-#ifndef __NODE_CUH
-#define __NODE_CUH
+#ifndef __NODE_QUEUE_CUH
+#define __NODE_QUEUE_CUH
 
 //
-// @file Node.cuh
-// @brief a MERCATOR node that knows its input type
+// @file Node_Queue.cuh
+// @brief a node that gets its input from a Queue
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>
@@ -30,18 +30,19 @@
 namespace Mercator  {
 
   //
-  // @class Node
+  // @class Node_Queue
   // @brief most general typed node
   //
   // @tparam T type of input
   // @tparam numChannels  number of channels
-  // @tparam DerivedNodeType subtype of node for CRTP-based call to doRun()
+  // @tparam UsesSignals true iff node ever needs to process signals
+  // @tparam NodeFnKind type of node function that supplies doRun()
   //
   template <typename T, 
 	    unsigned int numChannels,
 	    bool UseSignals,
 	   template<typename View> typename NodeFnKind>
-  class Node : public NodeBaseWithChannels<numChannels> {
+  class Node_Queue : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
     using NodeFnType = NodeFnKind<Queue<T>>;
@@ -62,12 +63,12 @@ namespace Mercator  {
     // @param queueSize requested size for node's input queue
     //
     __device__
-    Node(Scheduler *scheduler, 
-	 unsigned int region,
-	 NodeBase *usNode,
-	 unsigned int usChannel,
-	 unsigned int queueSize,
-	 NodeFnType *inodeFunction)
+    Node_Queue(Scheduler *scheduler, 
+	       unsigned int region,
+	       NodeBase *usNode,
+	       unsigned int usChannel,
+	       unsigned int queueSize,
+	       NodeFnType *inodeFunction)
       : BaseType(scheduler, region, usNode),
 	queue(queueSize),
         signalQueue(UseSignals ? queueSize : 0), // could be smaller?
@@ -78,7 +79,7 @@ namespace Mercator  {
     }
 
     __device__
-    virtual ~Node()
+    virtual ~Node_Queue()
     {
       delete nodeFunction;
     }
@@ -144,9 +145,7 @@ namespace Mercator  {
     //
     __device__
     void fire()
-    {
-      TIMER_START(input);
-      
+    {      
       // # of items available to consume from data queue
       unsigned int nDataToConsume = queue.getOccupancy();
       
@@ -195,10 +194,6 @@ namespace Mercator  {
 	     ? nCredits 
 	     : nDataToConsume - nDataConsumed);
 	  
-	  TIMER_STOP(input);
-	  
-	  TIMER_START(run);
-	  
 	  unsigned int nFinished;
 	  if (limit > 0)
 	    {
@@ -227,10 +222,6 @@ namespace Mercator  {
 		}
 	    }
 	  
-	  TIMER_STOP(run);
-	  
-	  TIMER_START(output);
-	  
 	  //
 	  // Check whether any child needs to be activated
 	  //
@@ -247,13 +238,9 @@ namespace Mercator  {
 		}
 	    }
 	  
-	  TIMER_STOP(output);
-	  
 	  // don't keep trying to run the node if it is blocked
 	  if (this->isBlocked())
 	    break;
-	  
-	  TIMER_START(input);
 	}
       
       // BEGIN WRITE queue ptrs, credit, state changes in flushComplete()
@@ -303,8 +290,6 @@ namespace Mercator  {
       // END WRITE queue ptrs, credit, state changes in flushComplete()
       // [suppressed because we are assumed to sync before next firing]
       // __syncthreads(); 
-      
-      TIMER_STOP(input);
     }
     
   private:
@@ -325,10 +310,7 @@ namespace Mercator  {
     //
     // As new signal types Foo are added in Signal.h, we need to add a
     // handler here named handleFoo() and update the switch stmt in
-    // handleSignal() accordingly.  Handlers are always VIRTUAL so
-    // that subclasses may override them; if a generic Node needs no
-    // handler for a signal, it should be given an empty function
-    // here, and the subclass should provide a new version.
+    // handleSignal() accordingly.
     ///////////////////////////////////////////////////////////////////
 
     // 
@@ -422,7 +404,7 @@ namespace Mercator  {
       if (pIdx != RefCountedArena::NONE) // is new parent valid?
 	nodeFunction->begin();
     }
-  };  // end Node class
+  };  // end Node_Queue class
 }  // end Mercator namespace
 
 #endif

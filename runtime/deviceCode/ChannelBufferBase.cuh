@@ -3,11 +3,11 @@
 
 //
 // @file ChannelBufferBase.cuh
-// @brief a buffer for a MERCATOR channel object to allow push() with 
+// @brief MERCATOR channel buffer object to allow push() with 
 // a subset of threads
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include "ChannelBase.cuh"

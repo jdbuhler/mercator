@@ -1,6 +1,16 @@
 #ifndef __NODEFUNCTION_ENUMERATE_CUH
 #define __NODEFUNCTION_ENUMERATE_CUH
 
+//
+// @file Node_Enumerate.cuh
+// @brief MERCATOR node function that enumerates the elements of a
+// composite item and passes a stream of element indices to its downstream
+// child.
+//
+// MERCATOR
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
+//
+
 #include <cassert>
 
 #include "NodeFunction.cuh"
@@ -16,7 +26,10 @@ namespace Mercator {
   // user-supplied findCount() function.
   //
   // @tparam T type of input item
-  //
+  // @tparam InputView type of input view passed to doRun()
+  // @tparam THREADS_PER_BLOCK constant giving thread block size
+  // @tparam DerivedNodeFnKind subtype that defines the findCount() function
+  // 
   template<typename T, 
 	   typename InputView,
 	   unsigned int THREADS_PER_BLOCK,

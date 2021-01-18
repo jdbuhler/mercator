@@ -185,7 +185,7 @@ void genNodeConstruction(const string &nodeObj,
       // only nodes in non-zero enumeration regions use signals
       bool usesSignals = (node->get_regionId() > 0);
       
-      string NodeType = "Mercator::Node<" + 
+      string NodeType = "Mercator::Node_Queue<" + 
 	mod->get_inputType()->name +
 	", " + to_string(mod->get_nChannels()) +
 	", " + to_string(usesSignals) +

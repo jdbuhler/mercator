@@ -7,7 +7,7 @@
 // a subset of threads
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>
@@ -25,6 +25,9 @@ namespace Mercator  {
   //
   // @class ChannelBuffer
   // @brief Buffers data sent to an output channel during a single run
+  //
+  // @tparam T type of object written to channel buffer
+  // @tparam THREADS_PER_BLOCK constant giving thread block size
   //
   template <typename T,
 	    unsigned int THREADS_PER_BLOCK>

@@ -21,7 +21,8 @@ namespace Mercator  {
   //         for a "sink" node.
   //
   // @tparam T type of input item
-
+  // @tparam InputView type of input view passed to doRun()
+  // @tparam THREADS_PER_BLOCK constant giving thread block size
   //
   template<typename T, 
 	   typename InputView,
