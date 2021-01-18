@@ -84,8 +84,7 @@ namespace Mercator  {
     }
     
     __device__
-    virtual
-    ~Node_Source()
+    virtual ~Node_Source()
     {
       delete nodeFunction;
       delete source;

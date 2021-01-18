@@ -52,7 +52,7 @@ namespace Mercator {
 			   unsigned int ienumId)
       : BaseType(parentArena),
 	enumId(ienumId),
-	parentBuffer(10), // for stress test -- increase to queue size?
+	parentBuffer(128), // FIXME: what size should it be?
         dataCount(0),
         currentCount(0),
 	activeParent(RefCountedArena::NONE)
@@ -99,7 +99,7 @@ namespace Mercator {
     {
       unsigned int tid = threadIdx.x;
       
-      using Channel = Channel<int>;
+      using Channel = Channel<unsigned int>;
       Channel *channel = static_cast<Channel*>(node->getChannel(0));
       
       unsigned int nFinished = 0;
