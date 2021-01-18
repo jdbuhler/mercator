@@ -178,9 +178,10 @@ namespace Mercator  {
 		numToRequest = min(numToRequest, 
 				   (size_t) getChannel(c)->dsCapacity());
 	    
-	      // if the source advises a lower request size than what we planned,
-	      // honor that.  Note that this may cause us to neither fill any
-	      // output queue nor exhaust the input.
+	      // if the source advises a lower request size than what
+	      // we planned, honor that.  Note that this may cause us
+	      // to neither fill any output queue nor exhaust the
+	      // input.
 	      numToRequest = min(numToRequest, source->getRequestLimit());
 	    
 	      // BEGIN WRITE nDataPending, basePtr, sourceExhausted
@@ -256,29 +257,26 @@ namespace Mercator  {
 	    {
 	      nDataPending -= nDataConsumed;
 	      basePtr      += nDataConsumed;
-	    
-	      if (nDataToConsume - nDataConsumed <= emptyThreshold)
+	      
+	      if (sourceExhausted && nDataPending == 0)
 		{
-		  if (sourceExhausted)
+		  this->deactivate();
+		  
+		  // no more inputs to read -- force downstream nodes
+		  // into flushing mode and activate them (if not
+		  // already active).  Even if they have no input,
+		  // they must fire once to propagate flush mode to
+		  // *their* downstream nodes.
+		  for (unsigned int c = 0; c < numChannels; c++)
 		    {
-		      this->deactivate();
+		      NodeBase *dsNode = getDSNode(c);
 		      
-		      // no more inputs to read -- force downstream nodes
-		      // into flushing mode and activate them (if not
-		      // already active).  Even if they have no input,
-		      // they must fire once to propagate flush mode to
-		      // *their* downstream nodes.
-		      for (unsigned int c = 0; c < numChannels; c++)
-			{
-			  NodeBase *dsNode = getDSNode(c);
-			
-			  // 0 = global region ID
-			  if (this->initiateFlush(dsNode, 0)) 
-			    dsNode->activate();
-			}
-		      
-		      nodeFunction->flushComplete();
+		      // 0 = global region ID
+		      if (this->initiateFlush(dsNode, 0)) 
+			dsNode->activate();
 		    }
+		  
+		  nodeFunction->flushComplete();
 		}
 	    }
 	  
