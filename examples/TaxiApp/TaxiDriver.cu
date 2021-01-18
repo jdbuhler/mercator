@@ -67,11 +67,21 @@ bool operator==(const Position &p1, const Position &p2)
 
 bool posnComp(const Position &p1, const Position &p2)
 {
+  const double EPS = 1.0e-6;
+  
   return (p1.tag < p2.tag ||
 	  (p1.tag == p2.tag &&
-	   (p1.latitude < p2.latitude ||
-	    (p1.latitude == p2.latitude &&
-	     p1.longitude == p2.longitude))));
+	   (p1.latitude < p2.latitude - EPS ||
+	    (!(p1.latitude > p2.latitude + EPS) &&
+	     p1.longitude < p2.longitude))));
+}
+
+bool posnEq(const Position &p1, const Position &p2)
+{
+  const double EPS = 1.0e-6;
+  return (p1.tag == p2.tag &&
+	  fabs(p1.latitude - p2.latitude) < EPS &&
+	  fabs(p1.longitude - p2.longitude) < EPS);
 }
 	     
 ostream &operator<<(ostream &os, const Position &p)
@@ -79,6 +89,7 @@ ostream &operator<<(ostream &os, const Position &p)
   os << '[' << p.tag << ", " << p.latitude << ", " << p.longitude << ']';
   return os;
 }
+
 
 void verifyOutput(Position *posns1, unsigned int nPosns1,
 		  Position *posns2, unsigned int nPosns2)
@@ -96,11 +107,12 @@ void verifyOutput(Position *posns1, unsigned int nPosns1,
   for (unsigned int j = 0; j < min(nPosns1,nPosns2); j++)
     {
 #if 1
-      if (!(posns1[j] == posns2[j]))
+      if (!posnEq(posns1[j], posns2[j]))
 	{
 	  cerr << "DIFFERENCE AT ENTRY " << j << ':' << endl;
 	  cerr << "CPU: " << posns1[j] << endl;
 	  cerr << "GPU: " << posns2[j] << endl;
+	  cerr << posns1[j].latitude - posns2[j].latitude << endl;
 	  return;
       	}
       
