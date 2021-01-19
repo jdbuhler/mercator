@@ -37,7 +37,8 @@ CoordinateSwap<InputView>::begin()
 
 __MDECL__
 void Taxi_dev::
-CoordinateSwap<InputView>::run(const unsigned int& charIdx, unsigned int nInputs)
+CoordinateSwap<InputView>::run(const unsigned int& charIdx, 
+			       unsigned int nInputs)
 {
   Position p;
     

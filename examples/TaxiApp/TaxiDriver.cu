@@ -190,17 +190,17 @@ int main(int argc, char** argv)
   
   inputBuffer.set(lines.data(), lines.size());
   
-  Taxi efapp;
+  Taxi app;
   
-  efapp.getParams()->text = d_string;
-  efapp.setSource(inputBuffer);
-  efapp.snk.setSink(outputBuffer);
+  app.getParams()->text = d_string;
+  app.setSource(inputBuffer);
+  app.snk.setSink(outputBuffer);
   
-  cout << "RUNNING APP..." << endl;
-  efapp.run(inputBuffer.size());
+  cout << "RUNNING APP WITH " << app.getNBlocks() << " BLOCKS" << endl;
+  app.run(inputBuffer.size());
   cout << "APP FINISHED!" << endl;
 
-#if 1  
+#if 0  
   // get data out of the output buffer
   unsigned int gpuOutputSize = outputBuffer.size();
   Position *gpuOutput = new Position [gpuOutputSize];
