@@ -39,7 +39,7 @@ Position *computeCPU(const char *text,
 	      char *end;
 	      
 	      double lon = d_strtod(&lineText[charIdx + 1], &end);
-	      double lat = d_strtod(end + 1, 0);
+	      double lat = d_strtod(end + 1, &end);
 	      
 	      Position p(lineNo, lat, lon);
 	      posns.push_back(p);
@@ -199,7 +199,8 @@ int main(int argc, char** argv)
   cout << "RUNNING APP..." << endl;
   efapp.run(inputBuffer.size());
   cout << "APP FINISHED!" << endl;
-  
+
+#if 1  
   // get data out of the output buffer
   unsigned int gpuOutputSize = outputBuffer.size();
   Position *gpuOutput = new Position [gpuOutputSize];
@@ -210,6 +211,7 @@ int main(int argc, char** argv)
   
   verifyOutput(cpuOutput, cpuOutputSize,
 	       gpuOutput, gpuOutputSize);
-  
+#endif
+
   return 0;
 }

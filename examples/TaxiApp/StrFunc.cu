@@ -6,90 +6,41 @@
  */
 
 #define isdigit(c) ((c) >= '0' && (c) <= '9')
-#define isspace(c) ((c) == ' ')
-
-//Skip Whitespaces
-__host__ __device__
-const char* skipwhite(const char *q) 
-{
-  const char *p = q;
-  while(isspace(*p))
-    ++p;
-  return p;
-}
 
 __host__ __device__
-double d_strtod(const char* str, char** end) 
-{
+double d_strtod(const char *p, char **end)
+{  
+  const unsigned int MAXNUMSIZE = 17;
+  static const double shift[] = 
+    {
+      1e-0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 
+      1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12, 1e-13,
+      1e-14, 1e-15, 1e-16 
+    };
+  
+  while (!isdigit(*p))
+    p++;
+    
+  bool isNegative = (*p == '-');
+  if (isNegative)
+    p++;
+  
+  const char *decimalPosn = nullptr;
   double d = 0.0;
-  int sign;
-  int n = 0;
-  const char *p, *a;
   
-  a = p = str;
-  p = skipwhite(p);
-  
-  /* decimal part */
-  sign = 1;
-  
-  if(*p == '-') 
+  for (unsigned int j = 0; j < MAXNUMSIZE; j++, p++)
     {
-      sign = -1;
-      ++p;
-    }
-  else if (*p == '+')
-    {
-      ++p;
+      if (isdigit(*p))
+	d = d * 10.0 + (double) (*p - '0');
+      else if (*p == '.')
+	decimalPosn = p;
+      else
+	break;
     }
   
-  if(isdigit(*p)) 
-    {
-      d = (double)(*p++ - '0');
-      //printf("d = %f\n", d);
-      while(*p && isdigit(*p)) 
-	{
-	  d = d * 10.0 + (double)(*p - '0');
-	  ++p;
-	  ++n;
-	  //printf("d = %f\n", d);
-	}
-      a = p;
-    }
-  else if(*p != '.')
-    goto done;
+  if (decimalPosn)
+    d *= shift[p-1 - decimalPosn];
   
-  d *= sign;
-  
-  
-  /* fraction part */
-  if (*p == '.') 
-    {
-      double f = 0.0;
-      double base = 0.1;
-      ++p;
-      
-      //printf("%c\n", *p);
-      if (isdigit(*p)) 
-	{
-	  while(*p && isdigit(*p)) 
-	    {
-	      f += base * (*p - '0');
-	      base /= 10.0;
-	      ++p;
-	      ++n;
-	      //printf("%c, %lf\n", *p, f);
-	    }
-	}
-      d += f * sign;
-      a = p;
-    }
-  
-  /* exponential part */
-  //Omitted because unused
-  
- done:
-  if(end)
-    *end = (char*) a;
-  
-  return d;
+  *end = (char *) p;
+  return (isNegative ? -d : d);
 }

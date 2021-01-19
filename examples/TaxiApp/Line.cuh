@@ -7,7 +7,6 @@ struct Line {
   
   __device__ __host__
   Line () 
-    : start(0), length(0), tag(0)
   {}
   
   __device__ __host__
