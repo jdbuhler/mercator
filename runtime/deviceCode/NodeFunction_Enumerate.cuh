@@ -87,10 +87,16 @@ namespace Mercator {
     // @brief function to execute code specific to this node.  This
     // function does NOT remove data from the queue.
     //
+    // This function assumes that we process either 0 or 1 inputs in
+    // one call to doRun().  We could loop to process more than 1
+    // input in a call if there is downstream space, but doRun is
+    // inlined in the node, so the benefits of adding an additional
+    // level of loop to avoid returning to the caller are negligible.
+    //
     // @param queue data queue containing items to be consumed
     // @param start index of first item in queue to consume
     // @param limit max number of items that this call may consume
-    // @return number of items ACTUALLY consumed (may be 0).
+    // @return number of items *FULLY* enumerated in this call (0 or 1)
     //
     __device__
     unsigned int doRun(const InputView &view,
@@ -114,7 +120,7 @@ namespace Mercator {
 	{
 	  const typename InputView::EltT item = view.get(start);
 	  
-	  // BEGIN WRITE blocking status, activeParent,
+	  // BEGIN WRITE blocking status, 
 	  // ds signal queue ptr in startItem()
 	  __syncthreads();
 	  
@@ -140,14 +146,12 @@ namespace Mercator {
 		}
 	    }
 	  
-	  // END WRITE blocking status, activeParent,
+	  // END WRITE blocking status,
 	  // ds signal queue ptr in startItem()
 	  __syncthreads();
 	  
 	  if (node->isBlocked())
 	    return 0;
-	  
-	  NODE_OCC_COUNT(1);
 	  
 	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
 	  myDataCount = nf->findCount(item);
@@ -189,9 +193,14 @@ namespace Mercator {
 	    {
 	      // finished with this parent item -- drop reference to it
 	      parentBuffer.unref(activeParent);
+	      activeParent = RefCountedArena::NONE;
 	    }				
 	  
+	  // We count an item as finished only when all of its elements
+	  // are enumerated; otherwise, the node might think it is done
+	  // and leave us with a partially enumerated last item.
 	  nFinished++;
+	  NODE_OCC_COUNT(1);		  
 	}
       
       __syncthreads(); // BEGIN WRITE dataCount, currentCount
@@ -212,26 +221,19 @@ namespace Mercator {
     //
     // @brief if we have emptied our inputs in response to a flush,
     // signal our downstream neighbors so that, when they are flushing,
-    // they can finish off any open parent.
+    // they can finish off any open parent they may have.
     //
     __device__
     void flushComplete()
     {
       assert(IS_BOSS());
       
-      if (activeParent != RefCountedArena::NONE)
-	{
-	  // item was already unreferenced when we finished it
-	  
-	  activeParent = RefCountedArena::NONE;
-	  
-	  // push a signal to force downstream nodes to finish off
-	  // previous parent
-	  Signal s_new(Signal::Enum);	
-	  s_new.parentIdx = RefCountedArena::NONE;
-	  
-	  node->getChannel(0)->pushSignal(s_new);
-	}
+      // push a signal to force downstream nodes to finish off
+      // previous parent
+      Signal s_new(Signal::Enum);	
+      s_new.parentIdx = RefCountedArena::NONE;
+      
+      node->getChannel(0)->pushSignal(s_new);
     }
     
   private:
