@@ -3,7 +3,7 @@
 // Taxi application in MERCATOR
 //
 // MERCATOR
-// Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 reference "Position.cuh";
@@ -12,15 +12,16 @@ reference "Line.cuh";
 Application Taxi;
 
 //
-// By default, the filter module produces either 0 or 1 outputs
-// for each input on each output channel. This module has a
-// single channel, called "accept" (though we need not use this
-// name anywhere).
-
-
+// enumerate all indices of a line and map occurrences of '[' not
+// immediately followed by another '[' to pointers to these occurrences
+//
 Module BracketFind : Enumerate Line -> {char *} from Line;
 AllThreads BracketFind;
 
+//
+// for each input pointer, parse the two coordinates x, y starting at that
+// pointer and emit a Position of the form <line's tag> y x
+//
 Module CoordinateSwap : {char *} from Line -> Aggregate Position;
 AllThreads CoordinateSwap;
 
