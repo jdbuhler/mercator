@@ -200,7 +200,7 @@ int main(int argc, char** argv)
   app.run(inputBuffer.size());
   cout << "APP FINISHED!" << endl;
 
-#if 0  
+#if 1 
   // get data out of the output buffer
   unsigned int gpuOutputSize = outputBuffer.size();
   Position *gpuOutput = new Position [gpuOutputSize];
