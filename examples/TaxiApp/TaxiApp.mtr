@@ -18,10 +18,10 @@ Application Taxi;
 // name anywhere).
 
 
-Module BracketFind : Enumerate Line -> accept<{unsigned int} from Line>;
+Module BracketFind : Enumerate Line -> {char *} from Line;
 AllThreads BracketFind;
 
-Module CoordinateSwap : {unsigned int} from Line -> Aggregate accept<Position>;
+Module CoordinateSwap : {char *} from Line -> Aggregate Position;
 AllThreads CoordinateSwap;
 
 Node bf : BracketFind;

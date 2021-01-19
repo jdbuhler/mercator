@@ -41,7 +41,7 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
   else
     {
       runFcnParams = 
-	"const " + inputType + "& inputItem";
+	inputType + " const & inputItem";
     }
   
   if (mod->get_useAllThreads())
@@ -300,7 +300,7 @@ void genDeviceModuleClass(const App *app,
       f.add("__device__");
       f.add(genFcnHeader("unsigned int",
 			 "findCount", 
-			 "const " + inputType + " &parent") + " const;");
+			 inputType + " const &parent") + " const;");
       
       f.add("");
     }
@@ -787,7 +787,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	      f.add(genFcnHeader("unsigned int",
 				 DeviceAppClass + "::\n" + 
 				 ModClass + "::findCount", 
-				 "const " + fromType + " &parent") + " const");
+				 fromType + " const &parent") + " const");
 	      
 	      f.add("{");
 	      f.add("\treturn 0;\t//Replace this return with the number of elements found for this enumeration.");

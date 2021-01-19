@@ -8,21 +8,20 @@ BracketFind<InputView>::begin()
 
 __MDECL__
 void Taxi_dev::
-BracketFind<InputView>::run(const unsigned int& charIdx, unsigned int nInputs)
+BracketFind<InputView>::run(unsigned int const & charIdx, unsigned int nInputs)
 {
+  const Line* line = getParent();
+  const char *text = getAppParams()->text + line->start;
   bool foundBracket = false;
   
   if (threadIdx.x < nInputs)
     {
-      const Line* line = getParent();
-      const char *text = getAppParams()->text + line->start;
-      
       foundBracket = (threadIdx.x < nInputs && 
 		      text[charIdx] == '[' &&
 		      text[charIdx + 1] != '[');
     }
   
-  push(charIdx, foundBracket);
+  push(text + charIdx, foundBracket);
 }
 
 __MDECL__
@@ -37,19 +36,17 @@ CoordinateSwap<InputView>::begin()
 
 __MDECL__
 void Taxi_dev::
-CoordinateSwap<InputView>::run(const unsigned int& charIdx, 
+CoordinateSwap<InputView>::run(char* const &text,
 			       unsigned int nInputs)
 {
   Position p;
     
   if (threadIdx.x < nInputs)
     {
-      const Line *line = getParent();
-      const char *text = getAppParams()->text + line->start;
-      
+      const Line* line = getParent();
       char* end;
       
-      double lon = d_strtod(&text[charIdx + 1], &end);
+      double lon = d_strtod(text + 1, &end);
       double lat = d_strtod(end + 1, &end);
       
       p = Position(line->tag, lat, lon); // Swap coords for output
@@ -65,7 +62,7 @@ CoordinateSwap<InputView>::end()
 
 __MDECL__
 unsigned int Taxi_dev::
-__enumerateFor_BracketFind<InputView>::findCount(const Line &parent) const
+__enumerateFor_BracketFind<InputView>::findCount(Line const &parent) const
 {
   return parent.length;
 }

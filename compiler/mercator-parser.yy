@@ -104,9 +104,9 @@ class mercator_driver;
 %type <input::SourceStmt::SourceKind> sourcetype
 %type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
-%type <input::ChannelSpec *> channel simplechannel 
-%type <std::vector<input::ChannelSpec *> *> channels
-%type <input::OutputSpec *> outputtype
+%type <input::ChannelSpec *> channel simplechannel
+%type <std::vector<input::ChannelSpec *> *> channels implicitchannel 
+%type <input::OutputSpec *> outputtype 
 %type <input::ModuleTypeStmt *> moduletype simplemoduletype
 %type <input::DataStmt *> varname scoped_varname;
 
@@ -408,17 +408,22 @@ inputtype:
 outputtype:
  "void"                  
 { $$ = new input::OutputSpec(input::OutputSpec::isVoid);  }
-| typename maxoutput
+| implicitchannel
+{ $$ = new input::OutputSpec($1); }
+| "aggregate" implicitchannel
+{ (*$2)[0]->isAggregate = true; $$ = new input::OutputSpec($2); }
+| channels               
+{ $$ = new input::OutputSpec($1); }
+;
+
+implicitchannel : typename maxoutput
 { 
   // a single channel does not need a name
   auto v = new std::vector<input::ChannelSpec *>;
   auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0), 0);
   v->push_back(c);
-  $$ = new input::OutputSpec(v);
+  $$ = v;
 }
-| channels               
-{ $$ = new input::OutputSpec($1); }
-;
 
 channels:
   channel           
