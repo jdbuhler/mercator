@@ -146,6 +146,8 @@ namespace Mercator  {
     __device__
     void fire()
     {      
+      TIMER_START(overhead);
+      
       // # of items available to consume from data queue
       unsigned int nDataToConsume = queue.getOccupancy();
       
@@ -197,8 +199,14 @@ namespace Mercator  {
 	  unsigned int nFinished;
 	  if (limit > 0)
 	    {
+	      TIMER_STOP(overhead);
+	      TIMER_START(user);
+	      
 	      // doRun() tries to consume input; could cause node to block
 	      nFinished = nodeFunction->doRun(queue, nDataConsumed, limit);
+	      
+	      TIMER_STOP(user);
+	      TIMER_START(overhead);
 	      
 	      nDataConsumed += nFinished;
 	    }
@@ -289,7 +297,9 @@ namespace Mercator  {
       
       // END WRITE queue ptrs, credit, state changes in flushComplete()
       // [suppressed because we are assumed to sync before next firing]
-      // __syncthreads(); 
+      // __syncthreads();
+      
+      TIMER_STOP(overhead);
     }
     
   private:
@@ -299,12 +309,6 @@ namespace Mercator  {
     
     NodeFnType* const nodeFunction;
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
     ////////////////////////////////////////////////////////////////////
     // SIGNAL HANDLING LOGIC
     //

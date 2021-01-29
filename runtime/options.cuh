@@ -55,6 +55,6 @@
 #define USE_MAX_BLOCKS
 
 //use random thread to record timings 
-#define RAND_TIMING_THREAD
+//#define RAND_TIMING_THREAD
 
 #endif

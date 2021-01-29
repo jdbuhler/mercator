@@ -41,12 +41,6 @@ namespace Mercator  {
     using BaseType::getChannel;
     using BaseType::getDSNode;
     
-#ifdef INSTRUMENT_TIME
-    using BaseType::inputTimer;
-    using BaseType::runTimer;
-    using BaseType::outputTimer;
-#endif
-
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
 #endif
@@ -163,6 +157,8 @@ namespace Mercator  {
     __device__
     void fire()
     {
+      TIMER_START(overhead);
+      
       bool dsActive = false;
       
       do 
@@ -221,11 +217,17 @@ namespace Mercator  {
 	      // determine the max # of items we may safely consume this time
 	      unsigned int limit = nDataToConsume - nDataConsumed;
 	      
+	      TIMER_STOP(overhead);
+	      TIMER_START(user);
+	      
 	      // doRun() tries to consume input; could cause node to block
 	      unsigned int nFinished = 
 		nodeFunction->doRun(*source, 
 				    basePtr + nDataConsumed, 
 				    limit);
+	      
+	      TIMER_STOP(user);
+	      TIMER_START(overhead);
 	      
 	      nDataConsumed += nFinished;
 	    
@@ -287,6 +289,8 @@ namespace Mercator  {
 	} 
       while (!dsActive && !this->isBlocked() &&
 	     !(sourceExhausted && nDataPending == 0));
+
+      TIMER_STOP(overhead);
     }
     
   private:

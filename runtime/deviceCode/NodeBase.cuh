@@ -202,12 +202,11 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
     
-      DeviceTimer::DevClockT inputTime  = inputTimer.getTotalTime();
-      DeviceTimer::DevClockT runTime    = runTimer.getTotalTime();
-      DeviceTimer::DevClockT outputTime = outputTimer.getTotalTime();
-    
-      printf("%d,%u,%llu,%llu,%llu\n",
-	     blockIdx.x, nodeId, inputTime, runTime, outputTime);
+      DeviceTimer::DevClockT overheadTime = overheadTimer.getTotalTime();
+      DeviceTimer::DevClockT userTime     = userTimer.getTotalTime();
+      
+      printf("%d,%u,%llu,%llu\n",
+	     blockIdx.x, nodeId, userTime, overheadTime);
     }
   
 #endif
@@ -232,9 +231,8 @@ namespace Mercator  {
 #endif
     
 #ifdef INSTRUMENT_TIME
-    DeviceTimer inputTimer;
-    DeviceTimer runTimer;
-    DeviceTimer outputTimer;
+    DeviceTimer overheadTimer;
+    DeviceTimer userTimer;
 #endif
   
 #ifdef INSTRUMENT_OCC

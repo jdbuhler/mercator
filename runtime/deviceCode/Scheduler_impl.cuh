@@ -22,6 +22,8 @@ namespace Mercator  {
   __device__
   void Scheduler::run()
   {
+    NODE_TIMER_START(scheduler);
+    
     while (true)
       {	
 	COUNT_SCHED_LOOP();
@@ -38,9 +40,15 @@ namespace Mercator  {
 	
 	if (!nextNode) // queue is empty -- terminate
 	  break;
-	
-	nextNode->fire();
+
+	NODE_TIMER_STOP(scheduler);
+
+        nextNode->fire();
+
+        NODE_TIMER_START(scheduler);
       }
+    
+    NODE_TIMER_STOP(scheduler);
   }
 }   // end Mercator namespace
 
