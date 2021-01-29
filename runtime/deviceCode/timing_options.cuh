@@ -30,11 +30,11 @@
 #endif
 
 #ifndef INSTRUMENT_TAIL
-#define OCC_COUNT(n)                        \
-  { if (!this->isFlushing()) { NODE_OCC_COUNT(n); } }
+#define OCC_COUNT(n, w)				\
+  { if (!node->isFlushing()) { NODE_OCC_COUNT(n, w); } }
 #else
-#define OCC_COUNT(n)                        \
-  { NODE_OCC_COUNT(n); }
+#define OCC_COUNT(n, w)				\
+  { NODE_OCC_COUNT(n, w); }
 #endif
 
 #endif

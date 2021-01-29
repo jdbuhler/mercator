@@ -134,7 +134,7 @@ namespace Mercator {
     static
     void printOccupancyCSVHeader()
     {
-      printf("blockIdx,nodeID,maxWidth,totalInputs,totalRuns,totalFullRuns\n");
+      printf("blockIdx,nodeID,totalInputs,totalRuns,totalFullRuns\n");
     }
 #endif
     

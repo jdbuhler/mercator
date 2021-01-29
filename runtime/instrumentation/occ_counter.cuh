@@ -23,23 +23,16 @@ struct OccCounter {
   unsigned long long totalInputs;
   unsigned long long totalRuns;
   unsigned long long totalFullRuns;
-
-  unsigned long long sizePerRun;
   
   __device__
   OccCounter()
     : totalInputs(0), 
       totalRuns(0), 
-      totalFullRuns(0),
-      sizePerRun(0)
+      totalFullRuns(0)
   {}
   
   __device__
-  void setMaxRunSize(unsigned long long isizePerRun)
-  { sizePerRun = isizePerRun; }
-  
-  __device__
-  void add_run(unsigned long long nElements)
+  void add_run(unsigned int nElements, unsigned int vectorWidth)
   {
     if (IS_BOSS())
       {
@@ -47,7 +40,7 @@ struct OccCounter {
 	
 	totalRuns++;
 	
-	totalFullRuns += (nElements == sizePerRun);
+	totalFullRuns += (nElements == vectorWidth);
       }
   }
      
@@ -56,9 +49,9 @@ struct OccCounter {
 #endif
 
 #ifdef INSTRUMENT_OCC
-#define NODE_OCC_COUNT(n) { occCounter.add_run(n); }
+#define NODE_OCC_COUNT(n, w) { node->occCounter.add_run(n, w); }
 #else
-#define NODE_OCC_COUNT(n) {}
+#define NODE_OCC_COUNT(n, w) {}
 #endif
 
 #endif

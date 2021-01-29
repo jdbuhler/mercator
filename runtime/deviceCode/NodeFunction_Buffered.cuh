@@ -150,11 +150,11 @@ namespace Mercator  {
       //
       // Consume next nItems data items
       //
-	
-      NODE_OCC_COUNT(nItems);
-	
+
+      NODE_OCC_COUNT(nItems, maxRunSize);
+      
       __syncthreads(); // BEGIN WRITE output buffer through push()
-	
+      
       if (tid < nItems)
 	{
 	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);

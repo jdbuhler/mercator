@@ -91,7 +91,7 @@ namespace Mercator  {
 	{
 #ifdef INSTRUMENT_OCC
 	  unsigned int vecSize = min(limit - base, THREADS_PER_BLOCK);
-	  NODE_OCC_COUNT(vecSize);
+	  NODE_OCC_COUNT(vecSize, THREADS_PER_BLOCK);
 #endif
 	  
 	  int srcIdx = base + tid;

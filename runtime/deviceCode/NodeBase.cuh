@@ -223,16 +223,13 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      printf("%d,%u,%lluu,%llu,%llu,%llu\n",
+      printf("%d,%u,%llu,%llu,%llu\n",
 	     blockIdx.x, nodeId,
-	     occCounter.sizePerRun,
 	     occCounter.totalInputs,
 	     occCounter.totalRuns,
 	     occCounter.totalFullRuns);
     }
 #endif
-    
-  protected:
     
 #ifdef INSTRUMENT_TIME
     DeviceTimer inputTimer;
@@ -243,6 +240,8 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
     OccCounter occCounter;
 #endif
+    
+  protected:
     
     ///////////////////////////////////////////////////////////////
     // FLUSHING API
@@ -300,17 +299,17 @@ namespace Mercator  {
       
       return (dsNode->flushStatus == flushRegion);
     }
-    
-  protected:
-    
+
     //
-    // @brief true iff the current node is flushing
+    // @brief true iff the node is flushing
     //
     __device__
     bool isFlushing() const
     {
       return (flushStatus <= region);
     }
+    
+  protected:
     
     //
     // @brief propagate our flushing status to a downstream neighbor.

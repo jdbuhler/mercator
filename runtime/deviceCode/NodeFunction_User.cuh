@@ -68,7 +68,7 @@ namespace Mercator  {
       numThreadGroups * threadGroupSize;
   
   protected:
-  
+    
     // maximum number of inputs that can be processed in a single 
     // call to the node's run() function
     static const unsigned int maxRunSize =
@@ -116,9 +116,9 @@ namespace Mercator  {
       // Consume next nItems data items
       //
     
-      NODE_OCC_COUNT(nItems);
-
       assert(nItems > 0);
+      
+      NODE_OCC_COUNT(nItems, maxRunSize);
       
       const typename InputView::EltT myData =
 	(tid < nItems

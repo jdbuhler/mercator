@@ -197,10 +197,11 @@ namespace Mercator {
 	    }				
 	  
 	  // We count an item as finished only when all of its elements
-	  // are enumerated; otherwise, the node might think it is done
-	  // and leave us with a partially enumerated last item.
+	  // are enumerated; otherwise, the node might think it is 
+	  // all done and leave us with a partially enumerated last item.
 	  nFinished++;
-	  NODE_OCC_COUNT(1);		  
+	  
+	  NODE_OCC_COUNT(1, 1);		  
 	}
       
       __syncthreads(); // BEGIN WRITE dataCount, currentCount
