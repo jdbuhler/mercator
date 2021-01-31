@@ -4,7 +4,7 @@
 // streams based on a runtime predicate.
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 reference "cstdint";
@@ -20,8 +20,6 @@ Module Filter : uint32_t ->
 
 // nodes
 
-Node src : Source<uint32_t> ;
-
 Node f : Filter;
 
 Node snkAccept : Sink<uint32_t> ;
@@ -30,7 +28,7 @@ Node snkReject : Sink<uint32_t> ;
 
 // edges
 
-Edge src -> f;
+Source f buffer;
 
 Edge f::accept -> snkAccept; // specifies channel
 

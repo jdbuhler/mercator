@@ -3,7 +3,7 @@
 // Splitting filter test
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <iostream>
@@ -34,14 +34,14 @@ int main()
   
   SplitFilter sfapp;
   
-  sfapp.src.setSource(inputBuffer);
+  sfapp.setSource(inputBuffer);
   sfapp.snkAccept.setSink(outputBufferAccept);
   sfapp.snkReject.setSink(outputBufferReject);
   
   // move data into the input buffer
   inputBuffer.set(inputValues, NVALUES);
   
-  sfapp.run();
+  sfapp.run(NVALUES);
   
   // get data out of the output buffers
   unsigned int outSizeA = outputBufferAccept.size();
