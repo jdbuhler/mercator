@@ -191,10 +191,21 @@ namespace Mercator  {
 	     !dsActive)
 	{
 	  // determine the max # of items we may safely consume this time
-	  unsigned int limit =
-	    (nSignalsConsumed < nSignalsToConsume
-	     ? nCredits 
-	     : nDataToConsume - nDataConsumed);
+	  unsigned int limit;
+	  
+	  if (UseSignals && nSignalsConsumed < nSignalsToConsume)
+	    limit = nCredits;
+	  else
+	    {
+	      limit = nDataToConsume - nDataConsumed;
+	      
+	      if (!this->isFlushing())
+		{
+		  const unsigned int vsize = NodeFnType::inputSizeHint;
+		  
+		  limit = (limit / vsize) * vsize;
+		}
+	    }
 	  
 	  unsigned int nFinished;
 	  if (limit > 0)

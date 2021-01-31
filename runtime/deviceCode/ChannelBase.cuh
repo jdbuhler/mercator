@@ -77,13 +77,22 @@ namespace Mercator  {
     }
     
     //
+    // @brief get total size of the downstream data queue
+    //
+    __device__
+    unsigned int dsSize() const
+    {
+      return dsQueue->getCapacity();
+    }
+    
+    //
     // @brief get free space of the downstream data queue
     //
     __device__
     unsigned int dsCapacity() const
     {
       return dsQueue->getFreeSpace();
-    }
+    }    
     
     //
     // If we've managed to fill the downstream queue, activate its
