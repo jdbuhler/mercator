@@ -43,21 +43,10 @@ namespace Mercator {
     // @param tail external tail pointer
     //
     __device__
-    SourceBase()
-      : size(0),
-	tail(nullptr)
-    {}
-    
-    __device__
-    void setup(size_t nInputs,
-	       size_t *itail)
-    {
-      size = nInputs;
-      reqLimit = max((size_t) 1, size / gridDim.x);
-      
-      tail = itail;
-    }
-    
+    SourceBase(size_t *tail)
+      : tail(tail),
+	size(0)
+    {}    
     
     //
     // @brief get advisory request limit based on input stream size, so
@@ -96,11 +85,22 @@ namespace Mercator {
 			   ? 0 
 			   : size - *base));
     }
+
+    
+  protected:
+    
+    __device__
+    void setStreamSize(size_t isize)
+    {
+      size = isize;
+      reqLimit = max((size_t) 1, size / gridDim.x);
+    }
     
   private:
     
+    size_t* const tail;
+    
     size_t size;
-    size_t *tail;
     size_t reqLimit;
     
     //

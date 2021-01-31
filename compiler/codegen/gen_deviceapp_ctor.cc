@@ -152,7 +152,7 @@ void genNodeConstruction(const string &nodeObj,
   if (node->get_isSource())
     {
       // create the actual source object
-      f.add("Source *sourceObj = new Source(&params->appParams);");
+      f.add("Source *sourceObj = new Source(tailPtr, params);");
       
       // allocate the node object
       string NodeType = "Mercator::Node_Source<" + 
@@ -169,10 +169,6 @@ void genNodeConstruction(const string &nodeObj,
       nextStmt += ", " + to_string(node->get_regionId());
       
       nextStmt += ", sourceObj";
-      
-      nextStmt += ", tailPtr";
-      
-      nextStmt += ", &params->nInputs";
       
       nextStmt += ", " + nodeFunctionObj;
       

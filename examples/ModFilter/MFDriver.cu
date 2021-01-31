@@ -24,13 +24,14 @@ int main()
   
   ModFilter mfapp;
   
+  mfapp.setNInputs(NVALUES);
   mfapp.snk.setSink(outputBufferAccept);
   
   mfapp.f1.getParams()->modulus = 2;
   mfapp.f2.getParams()->modulus = 3;
   mfapp.f3.getParams()->modulus = 5;
   
-  mfapp.run(NVALUES);
+  mfapp.run();
   
   // get data out of the output buffer
   unsigned int outSize = outputBufferAccept.size();

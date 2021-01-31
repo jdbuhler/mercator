@@ -232,6 +232,10 @@ namespace Mercator {
     struct SizeUpdate {
       BufferData<T> *bufferData;
       size_t newSize;
+      
+      SizeUpdate(BufferData<T> *ibufferData, size_t inewSize)
+	: bufferData(ibufferData), newSize(inewSize)
+      {}
     };
     
     BufferData<T> *bufferData;

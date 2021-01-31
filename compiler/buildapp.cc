@@ -619,32 +619,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	    }
 	}
       else if (ss.kind == input::SourceStmt::SourceBuffer)
-	{
-	  app->sourceKind = App::SourceBuffer;
-	  string varName = "__input";
-	  
-	  //
-	  // VALIDATE that variable name is unique for this app, and
-	  // record mapping from name to index in global variable array.
-	  //
-	  if (!app->varNames.insertUnique(varName, vId++))
-	    {
-	      cerr << "ERROR: app variable "
-		   << app->name << "::" << varName
-		   << " is reserved for internal use."
-		   << endl;
-	      abort();
-	    }
-	  
-	  string sourceDataType = 
-	    app->sourceNode->get_moduleType()->get_inputType()->name;
-	  
-	  DataItem *v = new DataItem(varName,
-				     new DataType(sourceDataType + "*"));
-	  app->params.push_back(v);
-	  
-	  app->sourceParam = varName;
-	}
+	app->sourceKind = App::SourceBuffer;
       else // function
 	app->sourceKind = App::SourceFunction;
     }

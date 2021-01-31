@@ -62,17 +62,12 @@ namespace Mercator  {
     Node_Source(Scheduler *scheduler,
 		unsigned int region,
 		Source *isource,
-		size_t *itailPtr,
-		const size_t *inInputsPtr,
 		NodeFnType *inodeFunction)
       : BaseType(scheduler, region, nullptr),
 	source(isource),
-	tailPtr(itailPtr),
-	nInputsPtr(inInputsPtr),
 	nodeFunction(inodeFunction),
 	nDataPending(0),
-	basePtr(0),
-	sourceExhausted(false)
+	basePtr(0)
     {
       nodeFunction->setNode(this);
     }
@@ -121,34 +116,35 @@ namespace Mercator  {
     { 
       if (IS_BOSS())
 	{
-	  source->init();
-	  source->setup(*nInputsPtr, tailPtr);
+	  source->setup();
+	  
+	  sourceExhausted = false; // indicate that we have data to consume
+
+	  //
+	  // Figure out how many items to request each time we
+	  // ask for a chunk of input from the source.
+	  //
+	  
+	  // don't ask for more than the source suggests
+	  numToRequest = source->getRequestLimit();
+	  
+	  // size the request proportional to the size of our smallest
+	  // downstream queue, assuming that the queue will be nearly
+	  // empty when the source node fires.
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    {
+	      numToRequest = min(numToRequest,
+				 (size_t) getChannel(c)->dsSize());
+	    }
+	  
+	  // Round the request size down to a multiple of the node function's
+	  // preferred input width (but don't make it 0!).
+	  const unsigned int vecsize = NodeFnType::inputSizeHint;
+	  if (numToRequest >= vecsize)
+	    numToRequest = (numToRequest / vecsize) * vecsize;
 	}
       
       nodeFunction->init(); 
-      
-      //
-      // Figure out how many items to request each time we
-      // ask for a chunk of input from the source.
-      //
-      
-      // don't ask for more than the source suggests
-      numToRequest = source->getRequestLimit();
-      
-      // size the request proportional to the size of our smallest
-      // downstream queue, assuming that the queue will be nearly
-      // empty when the source node fires.
-      for (unsigned int c = 0; c < numChannels; c++)
-	{
-	  numToRequest = min(numToRequest,
-			     (size_t) getChannel(c)->dsSize());
-	}
-      
-      // Round the request size down to a multiple of the node function's
-      // preferred input width (but don't make it 0!).
-      const unsigned int vecsize = NodeFnType::inputSizeHint;
-      if (numToRequest >= vecsize)
-	numToRequest = (numToRequest / vecsize) * vecsize;
     }
     
     __device__
@@ -198,11 +194,11 @@ namespace Mercator  {
 		  if (nDataPending < numToRequest)
 		    sourceExhausted = true;
 		}
-	    
+	      
 	      // END WRITE nDataPending, basePtr, sourceExhausted
 	      __syncthreads();
 	    }
-	
+	  
 	  // # of items available to consume from queue
 	  unsigned int nDataToConsume = nDataPending;
 	
@@ -298,19 +294,16 @@ namespace Mercator  {
 	} 
       while (!dsActive && !this->isBlocked() &&
 	     !(sourceExhausted && nDataPending == 0));
-
+      
       TIMER_STOP(overhead);
     }
     
   private:
 
     Source* const source;
-    
-    size_t* const tailPtr;
-    const size_t *const nInputsPtr;
     NodeFnType* const nodeFunction;
-    
     size_t numToRequest;
+    
     size_t nDataPending;
     size_t basePtr;
     bool sourceExhausted;

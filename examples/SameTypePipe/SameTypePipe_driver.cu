@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
       
       cout << "SAME-TYPE-PIPE APP LAUNCHING.\n" ;
       // run main function
-      app.run(inBuffer.size());
+      app.run();
       
       cout << "SAME-TYPE-PIPE APP FINISHED.\n" ;
       

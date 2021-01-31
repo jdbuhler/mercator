@@ -24,9 +24,10 @@ int main()
   
   EvenFilter efapp;
   
+  efapp.setNInputs(NVALUES);
   efapp.snk.setSink(outputBufferAccept);
   
-  efapp.run(NVALUES);
+  efapp.run();
   
   // get data out of the output buffer
   unsigned int outSize = outputBufferAccept.size();

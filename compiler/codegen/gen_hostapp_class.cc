@@ -219,7 +219,15 @@ void genHostAppAllParameters(const App *app,
   f.add("struct Params {");
   f.indent();
   
-  f.add("size_t nInputs;");
+  if (app->sourceKind == App::SourceBuffer)
+    {
+      string sourceType = 
+	app->sourceNode->get_moduleType()->get_inputType()->name;
+      
+      f.add("Mercator::BufferData<" + sourceType + "> *sourceBufferData;");
+    }
+  else
+    f.add("size_t nInputs;");
   f.add("");
   
   f.add("AppParams appParams;");
@@ -261,6 +269,9 @@ void genHostAppHeader(const string &hostClassFileName,
   f.add(genUserInclude("version.h"));
   f.add(genUserInclude("hostCode/AppDriverBase.cuh"));
   f.add("");
+  
+  if (app->sourceKind == App::SourceBuffer)
+    f.add(genUserInclude("io/Buffer.cuh"));
   
   f.add(genUserInclude("io/Sink.cuh"));
   f.add("");
@@ -318,11 +329,16 @@ void genHostAppHeader(const string &hostClassFileName,
       
       f.add(genFcnHeader("void", "setSource", 
 			 "const Mercator::Buffer<" + sourceType + "> &buffer"));
-      f.add("{ getParams()->" + app->sourceParam + 
-	    " = buffer.getData()->data; }");
-      f.add("");
+      f.add("{ allParams.sourceBufferData = buffer.getData(); }");
+    }
+  else
+    {
+      f.add(genFcnHeader("void", "setNInputs", "size_t size"));
+      f.add("{ allParams.nInputs = size; }");
     }
   
+  f.add("");
+			 
   // generate each module's host-side class
   for (const ModuleType *mod : app->modules)
     {
@@ -369,13 +385,13 @@ void genHostAppHeader(const string &hostClassFileName,
   
   // run function calls the app driver with the current state of the
   // parameter structure
-  f.add(genFcnHeader("void", "run", "size_t nInputs"));
-  f.add("{ allParams.nInputs = nInputs; driver->run(&allParams); }");
+  f.add(genFcnHeader("void", "run", ""));
+  f.add("{ driver->run(&allParams); }");
   f.add("");
 
   // runAsync function is like run but returns before kernel is complete
-  f.add(genFcnHeader("void", "runAsync", "size_t nInputs"));
-  f.add("{ allParams.nInputs = nInputs; driver->runAsync(&allParams); }");
+  f.add(genFcnHeader("void", "runAsync", ""));
+  f.add("{ driver->runAsync(&allParams); }");
   f.add("");
 
   // join function waits for a kernel launched with runAsync

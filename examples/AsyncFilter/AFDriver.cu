@@ -3,7 +3,7 @@
 // Async Filter test
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include <iostream>
@@ -16,7 +16,6 @@ using namespace std;
 int main()
 {
   const unsigned int NVALUES = 1000000000; // one BEEEELLION values
-  
   srand(0);
   
   unsigned int *inputValues = new unsigned int [NVALUES];
@@ -30,53 +29,59 @@ int main()
   Mercator::Buffer<unsigned int> buf1(NVALUES);
   Mercator::Buffer<unsigned int> buf2(NVALUES);
   
-  AsyncFilter afapp;
+  cudaStream_t streamId;
+  cudaStreamCreate(&streamId);
+  
+  AsyncFilter afapp(streamId);
 
+  cout << "GO!\n";
+  
   // move data into the input buffer
-  buf1.set(inputValues, NVALUES);
+  buf1.setAsync(inputValues, NVALUES, streamId);
+
+  cout << "RUN 1\n"; // read from buf1; write to buf2  
   
-  cout << "RUN 1\n"; // read from buf1; write to buf2
-  
-  afapp.src.setSource(buf1);
+  afapp.setSource(buf1);
   afapp.snk.setSink(buf2);
   afapp.Filter.getParams()->modulus = 2;
   
   afapp.runAsync();
-
+  
   cout << "RUN 2\n"; // read from buf2; write to buf1
   
   // clear out buffer 1 -- the clearing will not occur until all
   // previous calls in the current stream are complete, so this call
   // does not impact the data for the previous run.
-  buf1.clearAsync();
+  buf1.clearAsync(streamId);
   
   // runAsync() takes a snapshot of the app's parameters before
   // returning, so it is safe to change them even if the
   // work started by the previous call to runAsync() is still
   // in progress.
-  afapp.src.setSource(buf2);
+  afapp.setSource(buf2);
   afapp.snk.setSink(buf1);
   afapp.Filter.getParams()->modulus = 3;
   
   afapp.runAsync();
-  
+
   cout << "RUN 3\n"; // read from buf1; write to buf2
   
   // clear out buffer 2
-  buf2.clearAsync();
+  buf2.clearAsync(streamId);
   
-  afapp.src.setSource(buf1);
+  afapp.setSource(buf1);
   afapp.snk.setSink(buf2);
   afapp.Filter.getParams()->modulus = 5;
   
   afapp.runAsync();
-  
-  cout << "JOIN\n"; // pause until all operations in stream are done
 
+  cout << "JOIN\n"; // pause until all operations in stream are done
+  
   afapp.join();
   
   // get data out of the output buffer
   unsigned int outSize = buf2.size();
+  
   buf2.get(outputValues, outSize);
   
   // end MERCATOR usage

@@ -41,7 +41,7 @@ int main()
   // move data into the input buffer
   inputBuffer.set(inputValues, NVALUES);
   
-  sfapp.run(NVALUES);
+  sfapp.run();
   
   // get data out of the output buffers
   unsigned int outSizeA = outputBufferAccept.size();

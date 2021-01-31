@@ -37,10 +37,10 @@ set (CMAKE_CUDA_FLAGS_DEBUG
      "${CMAKE_CUDA_FLAGS_DEBUG} -G -UNDEBUG")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
-     "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
+     "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
 
 set (CMAKE_CUDA_FLAGS_RELEASE
-     "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -DNDEBUG")
+     "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -UNDEBUG")
 
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
 
@@ -67,9 +67,9 @@ add_subdirectory(EvenFilter)
 
 add_subdirectory(ModFilter)
 
-add_subdirectory(SplitFilter)
+add_subdirectory(AsyncFilter)
 
-# add_subdirectory(AsyncFilter)
+add_subdirectory(SplitFilter)
 
 #add_subdirectory(LoopFilter)
 

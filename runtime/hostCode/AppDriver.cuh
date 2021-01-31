@@ -235,7 +235,7 @@ namespace Mercator  {
 		      sizeof(HostParamsT), cudaMemcpyHostToDevice,
 		      stream);
       gpuErrchk( cudaPeekAtLastError() );
-            
+      
       // reset the source's tail pointer
       cudaMemsetAsync(sourceTailPtr, 0, sizeof(size_t), stream);
       gpuErrchk( cudaPeekAtLastError() );
@@ -264,7 +264,8 @@ namespace Mercator  {
       int prevDeviceId = switchDevice(deviceId);
       
       // wait for the ops in the current stream to finish
-      gpuErrchk( cudaStreamSynchronize(stream) );
+      cudaStreamSynchronize(stream);
+      gpuErrchk( cudaPeekAtLastError() );
       
 #ifdef INSTRUMENT_TIME_HOST
       elapsedTime_main += timer.elapsed();

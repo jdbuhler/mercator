@@ -493,24 +493,39 @@ static
 void genDeviceAppSourceClass(const App *app,
 			     Formatter &f)
 {
-  string paramsType = app->name + "::" + "AppParams";
+  string paramsType = app->name + "::" + "Params";
   string sourceType =
     app->sourceNode->get_moduleType()->get_inputType()->name;
 
   f.add("class Source : public Mercator::SourceBase<" + sourceType + "> {");
   f.indent();
   
+  f.add("using BaseType = Mercator::SourceBase<" + sourceType + ">;");
+  f.add("");
+  
   f.add("public:");
   
-  f.add("using EltT = Mercator::SourceBase<" + sourceType + ">::EltT;");
+  f.add("using EltT = BaseType::EltT;");
   
   f.add("__device__");
-  f.add("Source(const " + paramsType + "* appParams)");
-  f.add(" : appParams(appParams) {}");
+  f.add("Source(size_t *tailPtr, const " + paramsType + "* params)");
+  f.add(" : BaseType(tailPtr),");
+  f.add("   params(params)");
+  f.add("{}");
   f.add("");
 
   if (app->sourceKind == App::SourceFunction)
     {
+      f.add("__device__");
+      f.add("void setup()");
+      f.add("{");
+      f.indent();
+      f.add("setStreamSize(params->nInputs);");
+      f.add("init();");
+      f.unindent();
+      f.add("}");
+      f.add("");
+
       // we'll emit these as stubs in the skeleton file
       f.add("__device__");
       f.add("void init();");
@@ -524,9 +539,15 @@ void genDeviceAppSourceClass(const App *app,
   else if (app->sourceKind == App::SourceBuffer)
     {
       f.add("__device__");
-      f.add("void init()");
-      f.add("{ data = getAppParams()->__input; }");
-
+      f.add("void setup()");
+      f.add("{");
+      f.indent();
+      f.add("setStreamSize(params->sourceBufferData->size);");
+      f.add("data = params->sourceBufferData->data;");
+      f.unindent();
+      f.add("}");
+      f.add("");
+      
       f.add("__device__");
       f.add("EltT get(size_t idx) const { return data[idx]; }");
       
@@ -536,8 +557,14 @@ void genDeviceAppSourceClass(const App *app,
   else // default: just return the given idx
     {
       f.add("__device__");
-      f.add("void init() {}");
-
+      f.add("void setup()");
+      f.add("{");
+      f.indent();
+      f.add("setStreamSize(params->nInputs);");
+      f.unindent();
+      f.add("}");
+      f.add("");
+      
       f.add("__device__");
       f.add("EltT get(size_t idx) const { return idx; }");
       
@@ -547,7 +574,7 @@ void genDeviceAppSourceClass(const App *app,
   f.add("");
   
   f.add("private:");
-  f.add("const " + paramsType + "* const appParams;");
+  f.add("const " + paramsType + "* const params;");
   f.add("");
   
   if (app->sourceKind == App::SourceBuffer)
@@ -557,11 +584,15 @@ void genDeviceAppSourceClass(const App *app,
       f.add("const " + sourceType + "* data;");
       f.add("");
     }
+  else if (app->sourceKind == App::SourceFunction)
+    {
+      string appParamsType = app->name + "::" + "AppParams";
+      
+      f.add("__device__");
+      f.add("const " + appParamsType + "* getAppParams() const");
+      f.add("{ return &params->appParams; }");
+    }
   
-  f.add("__device__");
-  f.add("const " + paramsType + "* getAppParams() const");
-  f.add("{ return appParams; }");
-
   f.unindent();
   f.add("};");
   f.add("");
