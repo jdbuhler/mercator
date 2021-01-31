@@ -74,5 +74,3 @@ add_subdirectory(ModFilter)
 #add_subdirectory(AsyncFilter)
 
 #add_subdirectory(Mandelbrot)
-
-add_subdirectory(TaxiApp)
