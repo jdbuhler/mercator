@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <cstring>
 
 #include <cuda.h>
 
@@ -144,24 +145,28 @@ namespace Mercator  {
 			     cudaDevAttrMultiProcessorCount,
 			     dev);
       
-    #ifdef USE_MAX_BLOCKS
+#ifdef USE_MAX_BLOCKS
       nBlocks = nBlocksPerSM_suggested * numSMs;
-    #endif
+#endif
       
-    #ifdef USE_ONE_BLOCKS
+#ifdef USE_ONE_BLOCKS
       nBlocks = 1;
-    #endif
-
-    #ifdef USE_SM_BLOCKS
+#endif
+      
+#ifdef USE_SM_BLOCKS
       nBlocks= numSMs;
-    #endif
-    
-    #ifdef USE_X_BLOCKS 
+#endif
+      
+#ifdef USE_X_BLOCKS 
       nBlocks = USE_X_BLOCKS;
-    #endif
-    
+#endif
+      
+      // allocate pinned memory on host for passing host parameter struct
+      cudaMallocHost(&pinnedHostParams, sizeof(HostParamsT));
+      gpuErrchk( cudaPeekAtLastError() );
+      
       // allocate space on device for passing host parameter struct
-      cudaMalloc(&hostParams, sizeof(HostParamsT));
+      cudaMalloc(&devHostParams, sizeof(HostParamsT));
       gpuErrchk( cudaPeekAtLastError() );
       
       // allocate space on device for source's tail pointer
@@ -186,7 +191,7 @@ namespace Mercator  {
       // internal pointers to our (as-yet uninitialized)
       // shared tail pointer and host parameter struct
       initKernel<<<nBlocks, 1, 0, stream>>>(sourceTailPtr, 
-					    hostParams, 
+					    devHostParams, 
 					    deviceAppObjs);
       
       // synchronize to make sure the initialization was successful
@@ -202,9 +207,10 @@ namespace Mercator  {
     
     
     //
-    // @brief launch a MERCATOR app from the host side
-    //  Will return after kernel is launched, but possibly
-    //  before it is finished.  Use join() to wait for kernel.
+    // @brief launch a MERCATOR app from the host side.
+    // When this function returns, it is safe to start
+    // modifying the app's parameter values for the next
+    // run.  Use join() to wait for the app to finish.
     //
     // @param params host-side parameters for run
     //
@@ -213,30 +219,27 @@ namespace Mercator  {
       // switch to our device
       int prevDeviceId = switchDevice(deviceId);
       
+      //
+      // Schedule setup and kernel execution using all asynchronous
+      // operations.
+      //
       
-      // make a copy of the current parameter data so that the user
-      // can change this structure safely after we return.
-      //this copy lives in pinned memory for non-blocking copies
-      HostParamsT *tmpParams;
-      cudaMallocHost(&tmpParams, sizeof(HostParamsT));
-      memcpy(tmpParams, params, sizeof(HostParamsT));
-    
+      // copy provided host parameters to pinned memory *only* when
+      // we are ready to move them to the device
+      CopyArgs *copyArgs = new CopyArgs(params, pinnedHostParams);
+      cudaLaunchHostFunc(stream, copyToPinnedCallback, copyArgs);
+      gpuErrchk( cudaPeekAtLastError() );
+      
       // copy the current parameter data to the device
-      cudaMemcpyAsync(hostParams, tmpParams, 
+      cudaMemcpyAsync(devHostParams, pinnedHostParams,
 		      sizeof(HostParamsT), cudaMemcpyHostToDevice,
 		      stream);
       gpuErrchk( cudaPeekAtLastError() );
-      
-      // make sure we clean up our copy of the parameters after
-      // cudaMemcpyAsync() is done using it.
-      cudaLaunchHostFunc(stream, freeCallback, tmpParams);
-      gpuErrchk( cudaPeekAtLastError() );
-      
+            
       // reset the source's tail pointer
       cudaMemsetAsync(sourceTailPtr, 0, sizeof(size_t), stream);
       gpuErrchk( cudaPeekAtLastError() );
       
-      gpuErrchk( cudaStreamSynchronize(stream) );
 #ifdef INSTRUMENT_TIME_HOST
       timer.start(stream);
 #endif
@@ -297,8 +300,9 @@ namespace Mercator  {
 #endif
 
       cudaFree(deviceAppObjs);
-      cudaFree(hostParams);
       cudaFree(sourceTailPtr);
+      cudaFree(devHostParams);
+      cudaFreeHost(pinnedHostParams);
       
 #ifdef INSTRUMENT_TIME
       // print clock rate
@@ -364,7 +368,8 @@ namespace Mercator  {
     int deviceId;
     
     DevApp **deviceAppObjs;
-    HostParamsT *hostParams;
+    HostParamsT *pinnedHostParams;
+    HostParamsT *devHostParams;
     int nBlocks;
     
     size_t *sourceTailPtr;
@@ -389,16 +394,36 @@ namespace Mercator  {
       return oldDevice;
     }
     
+    
+    /////////////////////////////////////////////////////////////
+    
+    // argument struct for copyToPinnedCallback(), which can take
+    // only a single argument because CUDA bites.
+    struct CopyArgs {
+      HostParamsT params;
+      HostParamsT *pinnedParams;
+      
+      CopyArgs(const HostParamsT *iparams,
+	       HostParamsT *ipinnedParams)
+      {
+	std::memcpy(&params, iparams, sizeof(HostParamsT));
+	pinnedParams = ipinnedParams;
+      }
+    };
+    
     //
-    // @brief callback to delete temporary copy of params allocated
-    //  in runAsync()
+    // @brief callback to copy user's parameter structure to
+    // pinned memory preparatory to moving it to the device
     //
-    static void freeCallback(void *tmpParams)
+    static void copyToPinnedCallback(void *args)
     {
-      // FIXME: cannot call a CUDA API function from a callback
-      //cudaFreeHost(tmpParams);
+      CopyArgs *copyArgs = (CopyArgs *) args;
+      
+      std::memcpy(copyArgs->pinnedParams,
+		  &copyArgs->params, sizeof(HostParamsT));
+      
+      delete copyArgs;
     }
-
   };
 
 }// end Mercator namespace
