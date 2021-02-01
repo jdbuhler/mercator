@@ -37,10 +37,10 @@ set (CMAKE_CUDA_FLAGS_DEBUG
      "${CMAKE_CUDA_FLAGS_DEBUG} -G -UNDEBUG")
 
 set (CMAKE_CXX_FLAGS_RELEASE 
-     "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG")
+     "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG")
 
 set (CMAKE_CUDA_FLAGS_RELEASE
-     "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -UNDEBUG")
+     "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -DNDEBUG")
 
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
 
