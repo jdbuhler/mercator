@@ -9,32 +9,18 @@
 // Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
-#include <type_traits>
 #include <cassert>
+
+#include "support/devutil.cuh"
 
 namespace Mercator {
   
-  template <typename T, typename Enable = void>
-  class SourceEltBase;
-
-  template <typename T>
-  class SourceEltBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
-  public:
-    using EltT = T;
-  };
-
-  template <typename T>
-  class SourceEltBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
-  public:
-    using EltT = const T&;
-  };
-  
-  // Actual Source class begins here
-  
   template <typename T>  
-  class SourceBase : public SourceEltBase<T> {
+  class SourceBase {
     
   public:
+    
+    using EltT = typename ConstReturnType<T>::EltT;
     
     //
     // @brief constructor 

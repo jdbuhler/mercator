@@ -33,7 +33,7 @@ namespace Mercator  {
 	   unsigned int numChannels,
 	   typename Source,
 	   template<typename View> typename NodeFnKind>
-  class Node_Source : public NodeBaseWithChannels<numChannels> {
+  class Node_Source final : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
     using NodeFnType = NodeFnKind<Source>;

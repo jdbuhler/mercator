@@ -9,31 +9,15 @@
 // Copyright (C) 2020 Washington University in St. Louis; all rights reserved.
 //
 
-#include <type_traits>
 #include <cassert>
 
 #include "QueueBase.cuh"
 
+#include "support/devutil.cuh"
 #include "device_config.cuh"
 
 namespace Mercator  {
 
-    template <typename T, typename Enable = void>
-  class TypedQueueBase;
-
-  template <typename T>
-  class TypedQueueBase<T, std::enable_if_t<std::is_scalar<T>::value> > {
-  public:
-    using EltT = T;
-  };
-
-  template <typename T>
-  class TypedQueueBase<T, std::enable_if_t<!std::is_scalar<T>::value> > {
-  public:
-    using EltT = T&;
-  };
-
-  
   //
   // @class Queue
   // @brief FIFO queue holding items that are in transit from one
@@ -51,11 +35,11 @@ namespace Mercator  {
   // @tparam T Type of data item held in this Queue
   //
   template<typename T>
-  class Queue : public QueueBase, public TypedQueueBase<T> {
+  class Queue : public QueueBase {
 
   public:
 
-    using EltT = typename TypedQueueBase<T>::EltT;
+    using EltT = typename ReturnType<T>::EltT;
     
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS

@@ -42,7 +42,7 @@ namespace Mercator  {
 	    unsigned int numChannels,
 	    bool UseSignals,
 	   template<typename View> typename NodeFnKind>
-  class Node_Queue : public NodeBaseWithChannels<numChannels> {
+  class Node_Queue final : public NodeBaseWithChannels<numChannels> {
     
     using BaseType = NodeBaseWithChannels<numChannels>;
     using NodeFnType = NodeFnKind<Queue<T>>;
