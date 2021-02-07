@@ -128,17 +128,14 @@ namespace Mercator {
 	    {
 	      if (parentBuffer.isFull())
 		{
-		  node->block();
-		  
 		  // initiate DS flushing to clear it out, then
 		  // block.  We'll be rescheduled to execute once
 		  // the buffer is no longer full and we can
 		  // unblock.
 		  
-		  NodeBase *dsNode = node->getDSNode(0);
+		  node->flush(node->getDSNode(0), enumId);
 		  
-		  if (node->initiateFlush(dsNode, enumId))
-		    dsNode->activate();
+		  node->block();
 		}
 	      else
 		{

@@ -43,7 +43,7 @@ An active node becomes inactive when its data and signal queues
 become EMPTY.  
 
    - for the data queue, the definition of EMPTY depends on the node's
-     flushing status. If the node is flushing, EMPTY means that hte
+     flushing status. If the node is flushing, EMPTY means that the
      data queue contains zero items.  If it is not flushing, EMPTY means
      that there is less than the maximum number of items the node can
      process in one run.
@@ -70,8 +70,8 @@ other than its queues.  If so, it terminates its firing without
 processing any further input.  The node must take action before ending
 the firing to ensure that it will eventually be unblocked, and *some*
 code must take responsibility for scheduling the node once it
-unblocks. [Currently, blocking can only happen to enumerate nodes
-due to a full parent buffer.  The buffer itself will call back to
+unblocks. [Currently, blocking can only happen to enumerate nodes due
+to a full parent buffer.  The buffer itself will call back to
 reschedule an unblocked node if it is ready to fire.]
 
 * BEGINNING AND END OF EXECUTION
@@ -95,8 +95,8 @@ Buhler, 2020).
 
 When a signal is pending, a node's firing may terminate without
 consuming all credit available to the node (e.g., due to a downstream
-queue filling.)  In this circumstance, the node's remaining credit
-is stored in the signa at the head of the queue.
+queue filling.)  In this circumstance, the node's remaining credit is
+stored in the signa at the head of the queue.
 
 * HANDLING SIGNALS
 
@@ -114,7 +114,8 @@ pending input, even if the node would not normally be eligible to fire
 due to small amounts of queued data.  A node may enter flushing status
 for multiple reasons, e.g. because the end of input has been reached,
 or because an enumeration node has a full parent buffer and needs to
-force processing of any "open" parents to make room for more.
+force processing of one or more "open" parents downstream to make room
+for more.
 
 In general, flushes are associated with REGIONS, which are connected
 subsets of the application graph. Each region is descended from a
@@ -194,15 +195,16 @@ EMPTY, according to the flushing status.
 We iterate the run loop while neither the data queue or signal queue
 is EMPTY and no successor of the node has become ACTIVE.
 
-The loop first computes nItems, the maximum number of data items that
-may safely be consumed by the next run.  This depends on how many
-items remain and how many credits are associated with the next signal,
-if any.
+The loop first computes limit, the maximum number of data items that
+are available to the next call to the nodeFunction.  This depends on
+how many input items remain and how many credits are associated with
+the next signal, if any.  If no signal or flush is pending, we also
+round the limit down to a multiple of the node function's requested
+width (inputSizeHint).
 
-If nItems is non-zero, the node processes some number X of items <=
-nItems. If there are pending signals, the number of credits is also
-decremented by X.  If the node determines that it is blocked,
-the main loop should terminate at this point.
+If limit is non-zero, the node processes some number X of items <=
+limit. If there are pending signals, the number of credits is also
+decremented by X.
 
 If there are pending signals and the credit count has reached 0,
 the signal handler is called to consume the next signal, and the
@@ -212,6 +214,9 @@ the signal queue.
 Finally, each downstream channel is checked to see if it is full
 and activated if so.
 
+If the node determines that it is blocked, the main loop should
+terminate at this point rather than continuing.
+
 * UPDATES POST-LOOP
 
 The input data and signal queues are updated to release the consumed
@@ -219,7 +224,7 @@ items.  If the signal queue is not empty, any unused credit is stored
 back to the signal at the head of the queue.
 
 If the node's queues are now EMPTY, it is deactivated.  If it has
-just completed a flush, 
+just completed a flush,
 
    - the node's flush status is propagated to its successors,
         which are activated if they propagate

@@ -46,7 +46,7 @@ to these queues.
   (i) read-only [generally const]
 
   (ii) read-write, boss only (marked with 'assert(IS_BOSS())' at the
-      head of the function.
+       head of the function.
 
   (iii) read-write, called with all threads.  These functions are
       responsible for protecting their own writes of global and shared
@@ -68,7 +68,7 @@ multiple threads potentially writing data structures that are
 currently written only by the boss and so would require careful
 analysis to ensure safety.  (Moreover, different channels are
 instantiations of a template class with different data types, so the
-parallel invocations wouldn't necessarily be running the same code.)
+parallel invocations would be running divergent code.)
 
 (3) When a multithreaded function writes global or shared state, the
 function MUST ensure that any such writes are safe with respect to

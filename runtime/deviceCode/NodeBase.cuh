@@ -279,24 +279,6 @@ namespace Mercator  {
     //////////////////////////////////////////////////////////////
 
   public:
-    
-    //
-    // @brief ask a downstream neighboring node to start a new
-    // flush associated with a given region
-    // Returns true iff status actually propagated
-    //
-    // @param dsNode the downstream node to start flushing
-    // @param flushRegion the region ID associated with the flush
-    //
-    __device__
-    static bool initiateFlush(NodeBase *dsNode, unsigned int flushRegion)
-    {
-      assert(IS_BOSS());
-      
-      dsNode->flushStatus = min(dsNode->flushStatus, flushRegion);
-      
-      return (dsNode->flushStatus == flushRegion);
-    }
 
     //
     // @brief true iff the node is flushing
@@ -306,23 +288,38 @@ namespace Mercator  {
     {
       return (flushStatus <= region);
     }
+
+    //
+    // @brief ask a downstream neighboring node to start a new
+    // flush associated with a given region
+    //
+    // @param dsNode the downstream node to start flushing
+    // @param flushRegion the region ID associated with the flush
+    //
+    __device__
+    static void flush(NodeBase *dsNode, unsigned int flushRegion)
+    {
+      assert(IS_BOSS());
+      
+      dsNode->flushStatus = min(dsNode->flushStatus, flushRegion);
+      
+      if (dsNode->flushStatus == flushRegion)
+	dsNode->activate();
+    }
     
   protected:
     
     //
     // @brief propagate our flushing status to a downstream neighbor.
-    // Returns true iff status actually propagated
     //
     // @param dsNode the downstream node that receives the propagation.
     //
     __device__
-    bool propagateFlush(NodeBase *dsNode)
+    void propagateFlush(NodeBase *dsNode)
     {
       assert(IS_BOSS());
       
-      dsNode->flushStatus = min(dsNode->flushStatus, flushStatus);
-      
-      return (dsNode->flushStatus == flushStatus);
+      flush(dsNode, flushStatus);
     }
     
     //

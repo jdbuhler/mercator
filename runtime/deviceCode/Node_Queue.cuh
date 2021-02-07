@@ -293,14 +293,9 @@ namespace Mercator  {
 		  // propagate the flush and activate *their* downstream
 		  // neighbors.
 		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      NodeBase *dsNode = getDSNode(c);
-		      
-		      if (this->propagateFlush(dsNode))
-			dsNode->activate();
-		    }
+		    this->propagateFlush(this->getDSNode(c));
 		  
-		  this->clearFlush();  // disable flushing
+		  this->clearFlush();  // we are done flushing
 		}
 	    }
 	}

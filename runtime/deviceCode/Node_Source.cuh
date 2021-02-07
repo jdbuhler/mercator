@@ -273,13 +273,7 @@ namespace Mercator  {
 		  // they must fire once to propagate flush mode to
 		  // *their* downstream nodes.
 		  for (unsigned int c = 0; c < numChannels; c++)
-		    {
-		      NodeBase *dsNode = getDSNode(c);
-		      
-		      // 0 = global region ID
-		      if (this->initiateFlush(dsNode, 0)) 
-			dsNode->activate();
-		    }
+		    this->flush(getDSNode(c), 0); // 0 = global region ID
 		}
 	    }
 	  
