@@ -10,7 +10,8 @@
 //
 
 #include <cassert>
-#include <cstdio>
+
+#include "NodeBase.cuh"
 
 #include "Queue.cuh"
 
@@ -44,6 +45,7 @@ namespace Mercator  {
       : minFreeSpace(iminFreeSpace),
 	propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
 	numItemsWritten(0),
+	dsNode(nullptr),
 	dsQueue(nullptr),
 	dsSignalQueue(nullptr)
     {}
@@ -56,11 +58,13 @@ namespace Mercator  {
     // @param idsSignalQueue downstream signal queue
     //
     __device__
-    void setDSQueues(QueueBase     *idsQueue,
+    void setDSQueues(NodeBase      *idsNode,
+		     QueueBase     *idsQueue,
 		     Queue<Signal> *idsSignalQueue)
     {
       assert(IS_BOSS());
       
+      dsNode = idsNode;
       dsQueue = idsQueue;
       dsSignalQueue = idsSignalQueue;
     }
@@ -95,22 +99,6 @@ namespace Mercator  {
     }    
     
     //
-    // If we've managed to fill the downstream queue, activate its
-    // target node. Let our caller know if we activated the ds node.
-    //
-    __device__
-    bool checkDSFull() const
-    {
-      return (dsQueue->getFreeSpace() < minFreeSpace);
-    }
-    
-    __device__
-    bool checkDSSigFull() const
-    {
-      return (dsSignalQueue->getFreeSpace() < MAX_SIGNALS_PER_RUN);
-    }
-    
-    //
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
     //
@@ -121,6 +109,10 @@ namespace Mercator  {
     size_t dsReserve(unsigned int nToWrite)
     {
       assert(IS_BOSS());
+      assert(dsSignalQueue->getFreeSpace() >= nToWrite);
+      
+      if (dsQueue->getFreeSpace() - nToWrite < minFreeSpace)
+	dsNode->activate();
       
       numItemsWritten += nToWrite;
       
@@ -139,6 +131,9 @@ namespace Mercator  {
       assert(IS_BOSS());
       assert(dsSignalQueue->getFreeSpace() > 0);
       
+      if (dsSignalQueue->getFreeSpace() - 1 < MAX_SIGNALS_PER_RUN)
+	dsNode->activate();
+      
       unsigned int credit = 
 	(dsSignalQueue->empty()
 	 ? dsQueue->getOccupancy()
@@ -150,6 +145,10 @@ namespace Mercator  {
       numItemsWritten = 0;
     }
     
+    __device__
+    void flush(unsigned int flushStatus)
+    { NodeBase::flush(dsNode, flushStatus); }
+      
   protected:
     
     const unsigned int minFreeSpace;  // min space for queue not to be full
@@ -161,6 +160,7 @@ namespace Mercator  {
     // target (edge) for writing items downstream
     //
     
+    NodeBase *dsNode;
     QueueBase *dsQueue;
     Queue<Signal> *dsSignalQueue;
     

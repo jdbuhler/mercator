@@ -48,7 +48,6 @@ namespace Mercator  {
     using NodeFnType = NodeFnKind<Queue<T>>;
     
     using BaseType::getChannel;
-    using BaseType::getDSNode;
     
   public:
     
@@ -180,15 +179,13 @@ namespace Mercator  {
 				     ? 0
 				     : NodeFnType::inputSizeHint - 1);
       
-      bool dsActive = false;
-      
       //
       // run until input queue satisfies EMPTY condition, or 
       // writing output causes some downstream neighbor to activate.
       //
       while ((nDataToConsume - nDataConsumed > emptyThreshold ||
 	      nSignalsConsumed < nSignalsToConsume) &&
-	     !dsActive)
+	     !this->isDSActive())
 	{
 	  // determine the max # of items we may safely consume this time
 	  unsigned int limit;
@@ -241,22 +238,6 @@ namespace Mercator  {
 		}
 	    }
 	  
-	  //
-	  // Check whether any child needs to be activated
-	  //
-	  for (unsigned int c = 0; c < numChannels; c++)
-	    {
-	      ChannelBase *channel = getChannel(c);
-	      if (channel->checkDSFull() || 
-		  (UseSignals && channel->checkDSSigFull()))
-		{
-		  dsActive = true;
-		  
-		  if (IS_BOSS())
-		    getDSNode(c)->activate();
-		}
-	    }
-	  
 	  // don't keep trying to run the node if it is blocked
 	  if (this->isBlocked())
 	    break;
@@ -293,7 +274,7 @@ namespace Mercator  {
 		  // propagate the flush and activate *their* downstream
 		  // neighbors.
 		  for (unsigned int c = 0; c < numChannels; c++)
-		    this->propagateFlush(this->getDSNode(c));
+		    getChannel(c)->flush(this->getFlushStatus());
 		  
 		  this->clearFlush();  // we are done flushing
 		}

@@ -132,8 +132,7 @@ namespace Mercator {
 		  // block.  We'll be rescheduled to execute once
 		  // the buffer is no longer full and we can
 		  // unblock.
-		  
-		  node->flush(node->getDSNode(0), enumId);
+		  channel->flush(enumId);
 		  
 		  node->block();
 		}

@@ -39,7 +39,6 @@ namespace Mercator  {
     using NodeFnType = NodeFnKind<Source>;
     
     using BaseType::getChannel;
-    using BaseType::getDSNode;
     
 #ifdef INSTRUMENT_OCC
     using BaseType::occCounter;
@@ -178,8 +177,6 @@ namespace Mercator  {
     {
       TIMER_START(overhead);
       
-      bool dsActive = false;
-      
       do 
 	{
 	  if (nDataPending == 0)
@@ -217,7 +214,8 @@ namespace Mercator  {
 	  // run until input queue satisfies EMPTY condition, or 
 	  // writing output causes some downstream neighbor to activate.
 	  //
-	  while (nDataToConsume - nDataConsumed > emptyThreshold && !dsActive)
+	  while (nDataToConsume - nDataConsumed > emptyThreshold &&
+		 !this->isDSActive())
 	    {
 	      // determine the max # of items we may safely consume this time
 	      unsigned int limit = nDataToConsume - nDataConsumed;
@@ -235,21 +233,7 @@ namespace Mercator  {
 	      TIMER_START(overhead);
 	      
 	      nDataConsumed += nFinished;
-	    
-	      //
-	      // Check whether any child needs to be activated
-	      //
-	      for (unsigned int c = 0; c < numChannels; c++)
-		{
-		  if (getChannel(c)->checkDSFull())
-		    {
-		      dsActive = true;
-		    
-		      if (IS_BOSS())
-			getDSNode(c)->activate();
-		    }
-		}
-	    
+	      
 	      // don't keep trying to run the node if it is blocked
 	      if (this->isBlocked())
 		break;
@@ -273,7 +257,7 @@ namespace Mercator  {
 		  // they must fire once to propagate flush mode to
 		  // *their* downstream nodes.
 		  for (unsigned int c = 0; c < numChannels; c++)
-		    this->flush(getDSNode(c), 0); // 0 = global region ID
+		    getChannel(c)->flush(0); // 0 = global region ID
 		}
 	    }
 	  
@@ -283,7 +267,7 @@ namespace Mercator  {
 	  // keep going until we are blocked, either by full output or
 	  // by actual blockage, or we have nothing left to do.
 	} 
-      while (!dsActive && !this->isBlocked() &&
+      while (!this->isDSActive() && !this->isBlocked() &&
 	     !(sourceExhausted && nDataPending == 0));
       
       TIMER_STOP(overhead);

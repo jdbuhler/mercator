@@ -14,9 +14,10 @@
 #include <climits>
 #include <cassert>
 
-#include "Scheduler.cuh"
+#include "Queue.cuh"
+#include "Signal.cuh"
 
-#include "ChannelBase.cuh"
+#include "Scheduler.cuh"
 
 #include "options.cuh"
 
@@ -145,6 +146,12 @@ namespace Mercator  {
 	}
     }
     
+    //
+    // @brief does this node have any active downstream neighbors?
+    //
+    __device__
+    bool isDSActive() const
+    { return nDSActive > 0; }
     
     //
     // @brief is ths node currently blocked?
@@ -310,17 +317,11 @@ namespace Mercator  {
   protected:
     
     //
-    // @brief propagate our flushing status to a downstream neighbor.
-    //
-    // @param dsNode the downstream node that receives the propagation.
+    // @brief get our current flush status
     //
     __device__
-    void propagateFlush(NodeBase *dsNode)
-    {
-      assert(IS_BOSS());
-      
-      flush(dsNode, flushStatus);
-    }
+    unsigned int getFlushStatus() const
+    { return flushStatus; }
     
     //
     // @brief clear our flushing status

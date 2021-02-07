@@ -13,6 +13,8 @@
 
 #include "NodeBase.cuh"
 
+#include "ChannelBase.cuh"
+
 #include "device_config.cuh"
 
 #include "options.cuh"
@@ -45,10 +47,7 @@ namespace Mercator  {
     {
       // init channels array
       for (unsigned int c = 0; c < numChannels; ++c)
-	{
-	  channels[c] = nullptr;
-	  dsNodes[c] = nullptr;
-	}
+	channels[c] = nullptr;
     }
     
     //
@@ -80,9 +79,7 @@ namespace Mercator  {
       assert(IS_BOSS());
       assert(channelIdx < numChannels);
       
-      channels[channelIdx]->setDSQueues(queue, signalQueue);
-      
-      dsNodes[channelIdx] = dsNode;
+      channels[channelIdx]->setDSQueues(dsNode, queue, signalQueue);
     }
     
     
@@ -104,18 +101,6 @@ namespace Mercator  {
   public:
     
     //
-    // @brief inspector for the dsNodes array (for subclasses)
-    // @param c index of downstream node to get
-    //
-    __device__
-    NodeBase *getDSNode(unsigned int c) const
-    {
-      assert(c < numChannels);
-      return dsNodes[c];
-    }
-    
-    
-    //
     // @brief inspector for the channels array (for subclasses)
     // @param c index of channel to get
     //
@@ -129,7 +114,6 @@ namespace Mercator  {
   private:
     
     ChannelBase *channels[numChannels]; // node's output channels
-    NodeBase    *dsNodes[numChannels];  // node's downstream neighbors
     
   };  // end NodeBaseWithChannels class
 }  // end Mercator namespace
