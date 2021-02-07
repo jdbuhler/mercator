@@ -41,33 +41,17 @@ namespace Mercator  {
     // @param minFreeSpace minimum space required for ds queue to be non-full
     //
     __device__
-    ChannelBase(unsigned int iminFreeSpace, bool isAgg)
+    ChannelBase(unsigned int iminFreeSpace, bool isAgg,
+		NodeBase *dsNode,
+		QueueBase *dsQueue, 
+		Queue<Signal> *dsSignalQueue)
       : minFreeSpace(iminFreeSpace),
 	propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
 	numItemsWritten(0),
-	dsNode(nullptr),
-	dsQueue(nullptr),
-	dsSignalQueue(nullptr)
+	dsNode(dsNode),
+	dsQueue(dsQueue),
+	dsSignalQueue(dsSignalQueue)
     {}
-    
-    //
-    // @brief Set the downstream target of the edge for
-    // this channel.
-    //
-    // @param idsQueue downstream data queue
-    // @param idsSignalQueue downstream signal queue
-    //
-    __device__
-    void setDSQueues(NodeBase      *idsNode,
-		     QueueBase     *idsQueue,
-		     Queue<Signal> *idsSignalQueue)
-    {
-      assert(IS_BOSS());
-      
-      dsNode = idsNode;
-      dsQueue = idsQueue;
-      dsSignalQueue = idsSignalQueue;
-    }
     
     ///////////////////////////////////////////////////////
     
@@ -160,9 +144,9 @@ namespace Mercator  {
     // target (edge) for writing items downstream
     //
     
-    NodeBase *dsNode;
-    QueueBase *dsQueue;
-    Queue<Signal> *dsSignalQueue;
+    NodeBase* const dsNode;
+    QueueBase* const dsQueue;
+    Queue<Signal>* const dsSignalQueue;
     
   }; // end ChannelBase class
 }  // end Mercator namespace

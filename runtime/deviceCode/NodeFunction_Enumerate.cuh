@@ -160,13 +160,13 @@ namespace Mercator {
       unsigned int nEltsToWrite = 
 	min(myDataCount - myCurrentCount, channel->dsCapacity());
       
-      __syncthreads(); // BEGIN WRITE basePtr, ds queue tail
+      __syncthreads(); // BEGIN WRITE basePtr, ds queue, dsActive status
       
       __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = channel->dsReserve(nEltsToWrite);
       
-      __syncthreads(); // END WRITE basePtr, ds queue tail
+      __syncthreads(); // END WRITE basePtr, ds queue, dsActive status
       
       for (unsigned int base = 0; 
 	   base < nEltsToWrite; 

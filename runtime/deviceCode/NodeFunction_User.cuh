@@ -185,13 +185,13 @@ namespace Mercator  {
       
       Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
     
-      __syncthreads(); // BEGIN WRITE basePtr, ds queue
+      __syncthreads(); // BEGIN WRITE basePtr, ds queue, node dsActive status
     
       __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = channel->dsReserve(totalToWrite);
     
-      __syncthreads(); // END WRITE basePtr, ds queue
+      __syncthreads(); // END WRITE basePtr, ds queue, node dsActive status
     
       if (pred)
 	channel->dsWrite(basePtr, dsOffset, item);

@@ -36,8 +36,11 @@ namespace Mercator  {
     // @param minFreeSpace minimum space required for ds queue to be non-full
     //
     __device__
-    Channel(unsigned int minFreeSpace, bool isAgg)
-      : ChannelBase(minFreeSpace, isAgg)
+    Channel(unsigned int minFreeSpace, bool isAgg,
+	    NodeBase *dsNode,
+	    QueueBase *dsQueue, 
+	    Queue<Signal> *dsSignalQueue)
+      : ChannelBase(minFreeSpace, isAgg, dsNode, dsQueue, dsSignalQueue)
     {}
     
     ///////////////////////////////////////////////////////

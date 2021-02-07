@@ -18,72 +18,25 @@ using namespace std;
 
 
 //
-// @brief generate statements that initialize the channels of
-//   a node
-//
-// @param mod module type of node whose channels are being generated
-// @param nodeObj name of node object to receive channels
-// @param nodeFunctionObj name of node function object to receive 
-//     channel buffers, if appropriate
-// @param f Formatter to receive generated code
-static
-void genNodeChannelInitStmts(const ModuleType *mod,
-			     const string modType,
-			     const string &nodeObj,
-			     const string &nodeFcnObj,
-			     Formatter &f)
-{
-  // create output channels
-  int nChannels = mod->get_nChannels();
-
-  // init output channels
-  for (int j=0; j < nChannels; ++j)
-    {
-      const Channel *channel = mod->get_channel(j);
-      
-      unsigned int spaceRequired;
-      if (mod->isUser())
-	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
-      else // enumerate can keep going until channel fills
-	spaceRequired = 1; 
-      
-      f.add(nodeObj + "->initChannel<"
-	    + channel->type->name + ">("
-	    + modType + "::Out::" + channel->name + ", "
-		+ to_string(spaceRequired)
-	    + (channel->isAggregate ? ", true);" : ");"));
-      
-      if (mod->isUser() && !mod->get_useAllThreads())
-	{
-	  // channel is buffered -- create its buffer object
-	  f.add(nodeFcnObj + "->initChannelBuffer<"
-		+ channel->type->name + ">("
-		+ modType + "::Out::" + channel->name + ", "
-		+ to_string(channel->maxOutputs)
-		+ ");");
-	}
-    }
-}
-
-//
 // @brief generate statements to construct an individual module object inside
 //   the app's constructor
 //
-// @param moduleObj name of module object being built
-// @param mod module type being built
+// @param nodeObj name of node object being built
+// @param node representation of node object
 // @param app application being codegen'd
 // @param f Formatter to receive generated code
 //
 static
 void genNodeConstruction(const string &nodeObj,
 			 const Node *node,
-			 const ModuleType *mod,
 			 const App *app,
 			 Formatter &f)
 {
+  const ModuleType *mod = node->get_moduleType();
+
   string hostModuleType = "Host::" + mod->get_name();
   string deviceModuleKind = mod->get_name();
-  string deviceModuleType  = deviceModuleKind +
+  string deviceModuleType = deviceModuleKind +
     "<" + (node->get_isSource()
 	   ? "Source" 
 	   : "Mercator::Queue<" + mod->get_inputType()->name + ">")
@@ -210,9 +163,66 @@ void genNodeConstruction(const string &nodeObj,
   
   // verify that allocation succeeded	
   f.add("assert(" + nodeObj + " != nullptr);");
+}
+
+
+//
+// @brief generate statements that initialize the channels of
+//   a node
+//
+// @param nodeObj name of node object to receive channels
+// @param node the actual node representation
+// @param f Formatter to receive generated code
+static
+void genNodeChannelInitStmts(const string &nodeObj,
+			     const Node *node,
+			     Formatter &f)
+{
+  const ModuleType *mod = node->get_moduleType();
+  string nodeFcnObj = nodeObj + "Fcn";
   
-  // allocate the channels for the node
-  genNodeChannelInitStmts(mod, deviceModuleType, nodeObj, nodeFunctionObj, f);
+  // create output channels and associate them with the node
+  for (unsigned int j = 0; j < mod->get_nChannels(); ++j)
+    {
+      const Channel *channel = mod->get_channel(j);
+      const Node *dsNode = node->get_dsEdge(j)->dsNode;
+      string dsNodeObj = "d" + dsNode->get_name();
+	  
+      unsigned int spaceRequired;
+      if (mod->isUser())
+	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
+      else // enumerate can keep going until channel fills
+	spaceRequired = 1; 
+      
+      string ChannelType = "Mercator::Channel<" + channel->type->name + ">";
+      
+      f.add("{");
+      f.indent();
+      
+      f.add(ChannelType + "*channel = new " + ChannelType + "("
+	    + to_string(spaceRequired) + ", "
+	    + (channel->isAggregate ? "true, " : "false, ")
+	    + dsNodeObj + ", "
+	    + dsNodeObj + "->getQueue(), "
+	    + dsNodeObj + "->getSignalQueue());");
+      
+      f.add("assert(channel != nullptr);");
+      
+      f.add(nodeObj + "->setChannel(" + to_string(j) + ", channel);");
+      
+      if (mod->isUser() && !mod->get_useAllThreads())
+	{
+	  // channel is buffered -- create its buffer object
+	  f.add(nodeFcnObj + "->initChannelBuffer<"
+		+ channel->type->name + ">("
+		+ to_string(j) + ", "
+		+ to_string(channel->maxOutputs)
+		+ ");");
+	}
+      
+      f.unindent();
+      f.add("}");
+    }
 }
 
 
@@ -242,12 +252,20 @@ void genDeviceAppConstructor(const App *app,
   
   for (const Node *node : app->nodes)
     {
-      if (!node->get_moduleType()->isSource()) // source was not built
-	{
-	  string nodeObj = "d" + node->get_name();
-	  genNodeConstruction(nodeObj, node, node->get_moduleType(), app, f);
-	  f.add("");
-	}
+      string nodeObj = "d" + node->get_name();
+      genNodeConstruction(nodeObj, node, app, f);
+      f.add("");
+    }
+  
+  f.add("// construct the output channels for each node");
+  
+  for (const Node *node : app->nodes)
+    {
+      string nodeObj = "d" + node->get_name();
+      genNodeChannelInitStmts(nodeObj,
+			      node,
+			      f);
+      f.add("");
     }
   
   // create an array of all nodes to initialize the scheduler 
@@ -256,11 +274,8 @@ void genDeviceAppConstructor(const App *app,
 
   for (const Node *node : app->nodes)
     {
-      if (!node->get_moduleType()->isSource()) // source was not built
-	{
-	  string nodeObj = "d" + node->get_name();
-	  nextStmt += nodeObj + ", ";
-	}
+      string nodeObj = "d" + node->get_name();
+      nextStmt += nodeObj + ", ";
     }
   nextStmt += "};";
   f.add(nextStmt);

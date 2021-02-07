@@ -117,7 +117,7 @@ Data structures that are ``boss-only'' in the runtime include:
  - the worklist and its top pointer in the scheduler
  - the entire state of the parent buffer (but *NOT* the parent index
    in each NodeFunction)
- - the scheduling state of each node (active, nDSActive, ...) *except*
-   for the blocking flag, which is read by all threads.
+ - some scheduling state of each node (active, flushStatus), but *not*
+   nDSActive or the blocking flag, which are read by all threads.
  - the numItemsWritten counter in channels, used to set credit for
    outgoing signals.

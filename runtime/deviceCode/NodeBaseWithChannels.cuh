@@ -64,25 +64,6 @@ namespace Mercator  {
 	}
     }
 
-    
-  protected:
-    
-    //
-    // @brief associate a downstream edge with a channel
-    //
-    __device__
-    void setDSEdge(unsigned int channelIdx,
-		   NodeBase *dsNode,
-		   QueueBase *queue,
-		   Queue<Signal> *signalQueue)
-    {
-      assert(IS_BOSS());
-      assert(channelIdx < numChannels);
-      
-      channels[channelIdx]->setDSQueues(dsNode, queue, signalQueue);
-    }
-    
-    
     //
     // @brief set a channel entry for this node
     // (called from node constructors)

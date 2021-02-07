@@ -193,7 +193,9 @@ EMPTY, according to the flushing status.
 * MAIN LOOP
 
 We iterate the run loop while neither the data queue or signal queue
-is EMPTY and no successor of the node has become ACTIVE.
+is EMPTY and no successor of the node has become ACTIVE.  (The latter
+condition changes in response to downstream writes by the node's
+function.)
 
 The loop first computes limit, the maximum number of data items that
 are available to the next call to the nodeFunction.  This depends on
@@ -211,9 +213,6 @@ the signal handler is called to consume the next signal, and the
 credit is updated to reflect the following signal (if any) in
 the signal queue.
 
-Finally, each downstream channel is checked to see if it is full
-and activated if so.
-
 If the node determines that it is blocked, the main loop should
 terminate at this point rather than continuing.
 
@@ -227,5 +226,6 @@ If the node's queues are now EMPTY, it is deactivated.  If it has
 just completed a flush,
 
    - the node's flush status is propagated to its successors,
-        which are activated if they propagate
+       which may cause them to activate
+        
    - the node's flush status is cleared

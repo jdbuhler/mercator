@@ -601,7 +601,7 @@ App *buildApp(const input::AppSpec *appSpec)
 
       node->set_isSource(true);
       app->sourceNode = node;
-
+      
       if (ss.kind == input::SourceStmt::SourceIdx)
 	{
 	  app->sourceKind = App::SourceIdx;

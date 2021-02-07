@@ -14,9 +14,6 @@
 #include <climits>
 #include <cassert>
 
-#include "Queue.cuh"
-#include "Signal.cuh"
-
 #include "Scheduler.cuh"
 
 #include "options.cuh"
@@ -54,16 +51,6 @@ namespace Mercator  {
     
     __device__
     virtual ~NodeBase() {}
-
-    //
-    // @brief associate a downstream edge with a channel
-    //
-    __device__
-    virtual 
-    void setDSEdge(unsigned int channelIdx,
-		   NodeBase *dsNode,
-		   QueueBase *queue,
-		   Queue<Signal> *signalQueue) = 0;
     
     /////////////////////////////////////////////////////////
     
@@ -107,7 +94,7 @@ namespace Mercator  {
     // queues, e.g., waiting for space to free up in an internal
     // buffer due to the activity of downstream nodes.
     ///////////////////////////////////////////////////////////
-        
+    
     //
     // @brief set node to be active for scheduling purposes.
     // If this makes node fireable, schedule it for execution.
@@ -160,7 +147,6 @@ namespace Mercator  {
     bool isBlocked() const
     { return blocked; }
     
-    
     //
     // @brief set this node to blocking status
     //
@@ -172,7 +158,6 @@ namespace Mercator  {
       blocked = true;
     }
     
-
     //
     // @brief remove the block on this node and force it to
     // reschedule.  Because it blocked while active (and hence had
@@ -246,7 +231,6 @@ namespace Mercator  {
     OccCounter occCounter;
 #endif
     
-  protected:
     
     ///////////////////////////////////////////////////////////////
     // FLUSHING API
@@ -295,7 +279,7 @@ namespace Mercator  {
     {
       return (flushStatus <= region);
     }
-
+    
     //
     // @brief ask a downstream neighboring node to start a new
     // flush associated with a given region

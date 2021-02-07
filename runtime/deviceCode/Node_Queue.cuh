@@ -14,9 +14,8 @@
 
 #include "NodeBaseWithChannels.cuh"
 
-#include "ChannelBase.cuh"
-
 #include "Queue.cuh"
+
 #include "Signal.cuh"
 
 #include "ParentBuffer.cuh"
@@ -73,7 +72,6 @@ namespace Mercator  {
         signalQueue(UseSignals ? queueSize : 0), // could be smaller?
 	nodeFunction(inodeFunction)
     {
-      usNode->setDSEdge(usChannel, this, &queue, &signalQueue);
       nodeFunction->setNode(this);
     }
 
@@ -90,36 +88,17 @@ namespace Mercator  {
     void cleanup() { nodeFunction->cleanup(); }
     
     //
-    // @brief Create and initialize an output channel.
+    // @brief return node's input data queue
     //
-    // @param c index of channel to initialize
-    // @param minFreeSpace minimum free space before channel's
-    // downstream queue is considered full
-    //
-    template<typename DST>
     __device__
-    void initChannel(unsigned int c, 
-		     unsigned int minFreeSpace,
-		     bool isAgg = false)
-    {
-      assert(c < numChannels);
-      assert(minFreeSpace > 0);
-      
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      setChannel(c, new Channel<DST>(minFreeSpace, isAgg));
-      
-      // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
+    QueueBase *getQueue() { return &queue; }
 
-	  crash();
-	}
-    }
-
+    //
+    // @brief return node's input signal queue
+    //
+    __device__
+    Queue<Signal> *getSignalQueue() { return &signalQueue; }
+    
     /////////////////////////////////////////////////////////
     
     //

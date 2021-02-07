@@ -117,18 +117,19 @@ namespace Mercator  {
       
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
-      // BEGIN WRITE dsBase, ds queue, nextSlot
+      // BEGIN WRITE basePtr, ds queue, node dsActive status, nextSlot
       __syncthreads(); 
 
       // clear nextSlot for this thread group, since we're done with it
       if (tid < numThreadGroups)
 	nextSlot[tid] = 0;
       
-      __shared__ size_t dsBase;
+      __shared__ size_t basePtr;
       if (IS_BOSS())
-	dsBase = channel->dsReserve(totalToWrite);
+	basePtr = channel->dsReserve(totalToWrite);
       
-      // END WRITE dsBase, ds queue, nextSlot
+      // END WRITE basePtr, ds queue, node dsActive status, nextSlot
+      
       __syncthreads(); 
       
       // for each thread group, copy all generated outputs downstream
@@ -139,7 +140,7 @@ namespace Mercator  {
               unsigned int srcOffset = tid * outputsPerInput + j;
               unsigned int dstIdx = dsOffset + j;
               const T &myData = data[srcOffset];
-	      channel->dsWrite(dsBase, dstIdx, myData);
+	      channel->dsWrite(basePtr, dstIdx, myData);
 	    }
 	}
     }

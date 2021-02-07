@@ -226,7 +226,6 @@ class ModuleType {
 public:
   // flags describing special module properties
   enum {
-    F_isSource            = 0x01,
     F_isSink              = 0x02,
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
@@ -305,10 +304,9 @@ public:
     channels[cId] = c;
   }
   
-  bool isSource()            const { return flags & F_isSource; }
   bool isSink()              const { return flags & F_isSink; }
   bool isEnumerate()         const { return flags & F_isEnumerate; }
-  bool isUser()              const { return (flags & (F_isSource | F_isSink | F_isEnumerate)) == 0; }
+  bool isUser()              const { return (flags & (F_isSink | F_isEnumerate)) == 0; }
   bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
   void makeFormerlyEnumerate()

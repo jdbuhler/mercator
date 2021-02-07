@@ -52,10 +52,9 @@ namespace Mercator  {
     //
     __device__
       Queue(unsigned int capacity)
-	: QueueBase(capacity)
+	: QueueBase(capacity),
+	  data(new T[dataSize])
     {
-      data = new T [dataSize];
-      
       // ensure allocation succeeded
       if (data == nullptr)
 	{
@@ -165,7 +164,7 @@ namespace Mercator  {
     
   private:
     
-    T* data;               // actual queue space
+    T *const data;  // actual queue space
   };  // end class Queue
 
 }   // end Mercator namespace

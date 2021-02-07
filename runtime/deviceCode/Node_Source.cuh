@@ -13,8 +13,6 @@
 
 #include "NodeBaseWithChannels.cuh"
 
-#include "Channel.cuh"
-
 #include "timing_options.cuh"
 
 namespace Mercator  {
@@ -77,36 +75,6 @@ namespace Mercator  {
       delete nodeFunction;
       delete source;
     }    
-    
-    //
-    // @brief Create and initialize an output channel.
-    //
-    // @param c index of channel to initialize
-    // @param minFreeSpace minimum free space before channel's
-    // downstream queue is considered full
-    //
-    template<typename DST>
-    __device__
-    void initChannel(unsigned int c, 
-		     unsigned int minFreeSpace)
-    {
-      assert(c < numChannels);
-      assert(minFreeSpace > 0);
-      
-      // init the output channel -- should only happen once!
-      assert(getChannel(c) == nullptr);
-      
-      setChannel(c, new Channel<DST>(minFreeSpace, false));
-      
-      // make sure alloc succeeded
-      if (getChannel(c) == nullptr)
-	{
-	  printf("ERROR: failed to allocate channel object [block %d]\n",
-		 blockIdx.x);
-	  
-	  crash();
-	}
-    }
     
     /////////////////////////////////////////////////////////////////
     
