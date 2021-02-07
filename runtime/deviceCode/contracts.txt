@@ -67,11 +67,6 @@ RefcountedArena *getParentArena() const;
 unsigned int getParentIdx() const;
 void setParentIdx(unsigned int idx);
 
-// callback invoked by node when it finishes a flush operation.  Currently
-// used only by NodeEnumerate to force downstream nodes in the same enumeration
-// region to finish using their active parent.
-void flushCompleted();
-
 // called by the node once at the begining and end of processing inputs
 // from new parent object, for nodes in an enumeration region
 void begin();

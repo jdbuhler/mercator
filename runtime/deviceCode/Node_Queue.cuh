@@ -262,7 +262,7 @@ namespace Mercator  {
 	    break;
 	}
       
-      // BEGIN WRITE queue ptrs, credit, state changes in flushComplete()
+      // BEGIN WRITE queue ptrs, credit
       __syncthreads(); 
       
       if (IS_BOSS())
@@ -300,13 +300,12 @@ namespace Mercator  {
 			dsNode->activate();
 		    }
 		  
-		  nodeFunction->flushComplete();
 		  this->clearFlush();  // disable flushing
 		}
 	    }
 	}
       
-      // END WRITE queue ptrs, credit, state changes in flushComplete()
+      // END WRITE queue ptrs, credit
       // [suppressed because we are assumed to sync before next firing]
       // __syncthreads();
       

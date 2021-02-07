@@ -255,8 +255,7 @@ namespace Mercator  {
 		break;
 	    }
 	  
-	  // BEGIN WRITE nDataPending, basePtr, state changes
-	  // in flushComplete()
+	  // BEGIN WRITE nDataPending, basePtr
 	  __syncthreads(); 
 	  
 	  if (IS_BOSS())
@@ -281,12 +280,10 @@ namespace Mercator  {
 		      if (this->initiateFlush(dsNode, 0)) 
 			dsNode->activate();
 		    }
-		  
-		  nodeFunction->flushComplete();
 		}
 	    }
 	  
-	  // END WRITE nDataPending, basePtr, state changes in flushComplete()
+	  // END WRITE nDataPending, basePtr
 	  __syncthreads();
 	
 	  // keep going until we are blocked, either by full output or

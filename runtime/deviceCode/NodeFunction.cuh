@@ -97,14 +97,6 @@ namespace Mercator  {
     __device__
     void end() {}
     
-    //
-    // @brief callback from fire() when node empties its queues
-    // after completing a flush operation.
-    // (may be overriden statically in subclasses)
-    //
-    __device__
-    void flushComplete() {}
-    
   protected:
 
     NodeType *node;

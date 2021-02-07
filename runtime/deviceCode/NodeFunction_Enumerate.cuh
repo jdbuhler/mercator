@@ -211,30 +211,23 @@ namespace Mercator {
 	  // save any partial parent state
 	  dataCount    = myDataCount;
 	  currentCount = myCurrentCount;
+
+	  // if we consumed all available input and our node is
+	  // flushing, send an extra signal so that downstream nodes
+	  // can also finish their open parents.
+	  if (nFinished == limit && node->isFlushing())
+	    {
+
+	      Signal s_new(Signal::Enum);	
+	      s_new.parentIdx = RefCountedArena::NONE;
+	      
+	      node->getChannel(0)->pushSignal(s_new);
+	    }
 	}
       
       __syncthreads(); // END WRITE dataCount, currentCount
       
       return nFinished;
-    }
-    
-    
-    //
-    // @brief if we have emptied our inputs in response to a flush,
-    // signal our downstream neighbors so that, when they are flushing,
-    // they can finish off any open parent they may have.
-    //
-    __device__
-    void flushComplete()
-    {
-      assert(IS_BOSS());
-      
-      // push a signal to force downstream nodes to finish off
-      // previous parent
-      Signal s_new(Signal::Enum);	
-      s_new.parentIdx = RefCountedArena::NONE;
-      
-      node->getChannel(0)->pushSignal(s_new);
     }
     
   private:
