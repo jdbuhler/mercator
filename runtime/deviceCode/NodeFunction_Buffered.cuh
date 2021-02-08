@@ -143,38 +143,44 @@ namespace Mercator  {
 		       size_t start,
 		       unsigned int limit)
     {
+      DerivedNodeFnType* const nf = static_cast<DerivedNodeFnType *>(this);
+      
       unsigned int tid = threadIdx.x;
-	
-      unsigned int nItems = min(limit, maxRunSize);
-	
-      //
-      // Consume next nItems data items
-      //
-
-      NODE_OCC_COUNT(nItems, maxRunSize);
+      unsigned int nFinished = 0;
       
-      __syncthreads(); // BEGIN WRITE output buffer through push()
-      
-      if (tid < nItems)
+      do
 	{
-	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
-	    
-	  const typename InputView::EltT myData = 
-	    view.get(start + tid);
-	  nf->run(myData);
+	  unsigned int nItems = min(limit - nFinished, maxRunSize);
+	  
+	  //
+	  // Consume next nItems data items
+	  //
+	  
+	  __syncthreads(); // BEGIN WRITE output buffer through push()
+	  
+	  if (tid < nItems)
+	    {
+	      const typename InputView::EltT myData = 
+		view.get(start + nFinished + tid);
+	      nf->run(myData);
+	    }
+	  
+	  __syncthreads(); // END WRITE output buffer through push()
+      
+	  //
+	  // have each ChannelBuffer complete a push to the corresponding
+	  // channel (which we can pass as an argument).
+	  //
+	  
+	  for (unsigned int c = 0; c < numChannels; c++)
+	    channelBuffers[c]->finishWrite(node->getChannel(c));
+
+	  nFinished += nItems;
+	  NODE_OCC_COUNT(nItems, maxRunSize);
 	}
-	
-      __syncthreads(); // END WRITE output buffer through push()
-	
-      //
-      // have each ChannelBuffer complete a push to the corresponding
-      // channel (which we can pass as an argument).
-      //
-	
-      for (unsigned int c = 0; c < numChannels; c++)
-	channelBuffers[c]->finishWrite(node->getChannel(c));
-	
-      return nItems;
+      while (nFinished < limit && !node->isDSActive());
+      
+      return nFinished;
     }
       
   protected:

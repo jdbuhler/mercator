@@ -103,15 +103,16 @@ namespace Mercator {
 		       size_t start,
 		       unsigned int limit)
     {
-      unsigned int tid = threadIdx.x;
-      
+      DerivedNodeFnType* const nf = static_cast<DerivedNodeFnType *>(this);
+	      
       using Channel = Channel<unsigned int>;
       Channel* const channel = static_cast<Channel*>(node->getChannel(0));
-      
-      // recover state of partially emitted parent, if any
+
+      // recover state of last partially emitted parent, if any
       unsigned int myDataCount    = dataCount;
       unsigned int myCurrentCount = currentCount;
-      
+
+      unsigned int tid = threadIdx.x;
       unsigned int nFinished = 0;
       
       do
@@ -152,7 +153,6 @@ namespace Mercator {
 	      if (node->isBlocked())
 		break;
 	      
-	      DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
 	      myDataCount = nf->findCount(item);
 	      myCurrentCount = 0;
 	    }
