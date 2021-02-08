@@ -106,99 +106,106 @@ namespace Mercator {
       unsigned int tid = threadIdx.x;
       
       using Channel = Channel<unsigned int>;
-      Channel *channel = static_cast<Channel*>(node->getChannel(0));
-      
-      unsigned int nFinished = 0;
+      Channel* const channel = static_cast<Channel*>(node->getChannel(0));
       
       // recover state of partially emitted parent, if any
       unsigned int myDataCount    = dataCount;
       unsigned int myCurrentCount = currentCount;
       
-      // begin a new parent if it's time.  IF we cannot (due to
-      // full parent buffer), indicate that we've read nothing
-      if (myCurrentCount == myDataCount)
+      unsigned int nFinished = 0;
+      
+      do
 	{
-	  const typename InputView::EltT item = view.get(start);
-	  
-	  // BEGIN WRITE blocking status, 
-	  // ds signal queue ptr in startItem()
-	  __syncthreads();
-	  
-	  if (IS_BOSS())
+	  // begin a new parent if it's time.  IF we cannot (due to
+	  // full parent buffer), indicate that we've read nothing
+	  if (myCurrentCount == myDataCount)
 	    {
-	      if (parentBuffer.isFull())
+	      const typename InputView::EltT item =
+		view.get(start + nFinished);
+	      
+	      // BEGIN WRITE blocking status, 
+	      // ds signal queue ptr in startItem()
+	      __syncthreads();
+	    
+	      if (IS_BOSS())
 		{
-		  // initiate DS flushing to clear it out, then
-		  // block.  We'll be rescheduled to execute once
-		  // the buffer is no longer full and we can
-		  // unblock.
-		  channel->flush(enumId);
-		  
-		  node->block();
+		  if (parentBuffer.isFull())
+		    {
+		      // initiate DS flushing to clear it out, then
+		      // block.  We'll be rescheduled to execute once
+		      // the buffer is no longer full and we can
+		      // unblock.
+		      channel->flush(enumId);
+		    
+		      node->block();
+		    }
+		  else
+		    {
+		      activeParent = startItem(item);
+		    }
 		}
-	      else
+	    
+	      // END WRITE blocking status,
+	      // ds signal queue ptr in startItem()
+	      __syncthreads();
+	      
+	      if (node->isBlocked())
+		break;
+	      
+	      DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
+	      myDataCount = nf->findCount(item);
+	      myCurrentCount = 0;
+	    }
+	
+	  // push as many elements as we can from the current
+	  // item to the DS node
+	
+	  unsigned int nEltsToWrite = 
+	    min(myDataCount - myCurrentCount, channel->dsCapacity());
+	
+	  __syncthreads(); // BEGIN WRITE basePtr, ds queue, dsActive status
+	
+	  __shared__ size_t basePtr;
+	  if (IS_BOSS())
+	    basePtr = channel->dsReserve(nEltsToWrite);
+	
+	  __syncthreads(); // END WRITE basePtr, ds queue, dsActive status
+	
+	  for (unsigned int base = 0; 
+	       base < nEltsToWrite; 
+	       base += THREADS_PER_BLOCK)
+	    {
+	      unsigned int srcIdx = base + tid;
+	    
+	      if (srcIdx < nEltsToWrite)
 		{
-		  activeParent = startItem(item);
+		  unsigned int v = myCurrentCount + srcIdx;
+		  channel->dsWrite(basePtr, srcIdx, v);
 		}
 	    }
-	  
-	  // END WRITE blocking status,
-	  // ds signal queue ptr in startItem()
-	  __syncthreads();
-	  
-	  if (node->isBlocked())
-	    return 0;
-	  
-	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
-	  myDataCount = nf->findCount(item);
-	  myCurrentCount = 0;
-	}
       
-      // push as many elements as we can from the current
-      // item to the DS node
-      
-      unsigned int nEltsToWrite = 
-	min(myDataCount - myCurrentCount, channel->dsCapacity());
-      
-      __syncthreads(); // BEGIN WRITE basePtr, ds queue, dsActive status
-      
-      __shared__ size_t basePtr;
-      if (IS_BOSS())
-	basePtr = channel->dsReserve(nEltsToWrite);
-      
-      __syncthreads(); // END WRITE basePtr, ds queue, dsActive status
-      
-      for (unsigned int base = 0; 
-	   base < nEltsToWrite; 
-	   base += THREADS_PER_BLOCK)
-	{
-	  unsigned int srcIdx = base + tid;
-	  
-	  if (srcIdx < nEltsToWrite)
+	  myCurrentCount += nEltsToWrite;
+	
+	  if (myCurrentCount == myDataCount)
 	    {
-	      unsigned int v = myCurrentCount + srcIdx;
-	      channel->dsWrite(basePtr, srcIdx, v);
+	      if (IS_BOSS())
+		{
+		  // finished with this parent item -- drop reference to it
+		  parentBuffer.unref(activeParent);
+		  activeParent = RefCountedArena::NONE;
+		}				
+	    
+	      // We count an item as finished only when all of its elements
+	      // are enumerated; otherwise, the node might think it is 
+	      // all done and leave us with a partially enumerated last item.
+	      nFinished++;
+	    
+	      NODE_OCC_COUNT(1, 1);		  
 	    }
+	  else
+	    break; // had to stop without finishing item -- ds queue is full
 	}
-      
-      myCurrentCount += nEltsToWrite;
-      
-      if (myCurrentCount == myDataCount)
-	{
-	  if (IS_BOSS())
-	    {
-	      // finished with this parent item -- drop reference to it
-	      parentBuffer.unref(activeParent);
-	      activeParent = RefCountedArena::NONE;
-	    }				
-	  
-	  // We count an item as finished only when all of its elements
-	  // are enumerated; otherwise, the node might think it is 
-	  // all done and leave us with a partially enumerated last item.
-	  nFinished++;
-	  
-	  NODE_OCC_COUNT(1, 1);		  
-	}
+      while (nFinished < limit);
       
       __syncthreads(); // BEGIN WRITE dataCount, currentCount
       
@@ -217,7 +224,7 @@ namespace Mercator {
 	      Signal s_new(Signal::Enum);	
 	      s_new.parentIdx = RefCountedArena::NONE;
 	      
-	      node->getChannel(0)->pushSignal(s_new);
+	      channel->pushSignal(s_new);
 	    }
 	}
       

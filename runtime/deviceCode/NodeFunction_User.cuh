@@ -109,26 +109,33 @@ namespace Mercator  {
 		       unsigned int limit)
     {
       unsigned int tid = threadIdx.x;
+      unsigned int nUsed = 0;
+      
+      do
+	{
+	  unsigned int nItems = min(limit - nUsed, maxRunSize);
+	  
+	  //
+	  // Consume next nItems data items
+	  //
+	  
+	  assert(nItems > 0);
+	  
+	  NODE_OCC_COUNT(nItems, maxRunSize);
+	  
+	  const typename InputView::EltT myData =
+	    (tid < nItems
+	     ? view.get(start + nUsed + tid)
+	     : view.get(start)); // don't create null ref -- assumes nItems > 0
+	  
+	  DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
+	  nf->run(myData, nItems);
 
-      unsigned int nItems = min(limit, maxRunSize);
-    
-      //
-      // Consume next nItems data items
-      //
-    
-      assert(nItems > 0);
+	  nUsed += nItems;
+	}
+      while (nUsed < limit && !node->isDSActive());
       
-      NODE_OCC_COUNT(nItems, maxRunSize);
-      
-      const typename InputView::EltT myData =
-	(tid < nItems
-	 ? view.get(start + tid)
-	 : view.get(start)); // don't create null ref -- assumes nItems > 0
-      
-      DerivedNodeFnType *nf = static_cast<DerivedNodeFnType *>(this);
-      nf->run(myData, nItems);
-      
-      return nItems;
+      return nUsed;
     }
     
   protected:
