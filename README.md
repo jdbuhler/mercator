@@ -2,7 +2,7 @@
 
 ## A framework to implement irregular streaming applications on NVIDIA GPUs
 
-Copyright (C) 2018 Washington University in St. Louis.  All rights
+Copyright (C) 2021 Washington University in St. Louis.  All rights
 reserved.
 
 MERCATOR is licensed under the Apache License, Version 2.0 (the
@@ -21,8 +21,25 @@ limitations under the License.
 Development of MERCATOR has been sponsored by NSF CISE awards
 CNS-1500173 and CNS-1763503.
 
-When using MERCATOR, please cite the following publication:
+When using MERCATOR, please cite the following publications:
+
+[The full system]
 
 S. V. Cole and J. Buhler, "MERCATOR: A GPGPU Framework for Irregular
-Streaming Applications," _2017 International Conference on High
-Performance Computing & Simulation (HPCS)_, Genoa, 2017, pp. 727-736.
+Streaming Applications," 2017 Conference on High Performance Computing
+& Simulation (HPCS)_, Genoa, 2017, pp. 727-736.
+
+
+[The node scheduling algorithm]
+
+T. Plano and J. Buhler. "Scheduling irregular dataflow pipelines on
+SIMD architectures." 6th Wkshp. on Programming Models for SIMD/Vector
+Processing, 1-9, San Diego, CA, Feb 2020.
+ 
+ 
+[The signaling mechanism and region-based state extensions[
+
+S. Timcheck and J. Buhler. "Streaming computations with region-based
+state on SIMD architectures." 13th Int'l Wkshp. on Programmability and
+Architectures for Heterogeneous Multicores, 1, Bologna, Italy, Jan
+2020.
