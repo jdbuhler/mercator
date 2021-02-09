@@ -3,68 +3,97 @@
 \usepackage{syntax}
 \usepackage{multicol}
 \usepackage{hyperref}
+\usepackage{comment}
 
 \newcommand{\sizet}{size\textunderscore{}t}
 
-\title{MERCATOR Reference Manual, v0.9}
+\title{MERCATOR Reference Manual, v0.9.8}
 
 \begin{document}
 
 \maketitle
 
-Copyright (C) 2018 Washington University in St. Louis.  All rights
+\noindent
+Copyright (C) 2021 Washington University in St. Louis.  All rights
 reserved.
+\vspace{0.1in}
 
+\noindent
 MERCATOR is licensed under the Apache License, Version 2.0 (the
 "License"); you may not use this software except in compliance with
 the License.  You may obtain a copy of the License at
 
   \url{http://www.apache.org/licenses/LICENSE-2.0}
 	
+\noindent
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+\vspace{0.1in}
 
-
+\noindent
 Development of MERCATOR has been sponsored by NSF CISE awards
 CNS-1500173 and CNS-1763503.
+\vspace{0.1in}
 
-When using MERCATOR, please cite the following publication:
+\noindent
+When using MERCATOR, please cite the following publications:
+\begin{enumerate}
 
-S. V. Cole and J. Buhler, "MERCATOR: A GPGPU Framework for Irregular
-Streaming Applications," \textit{2017 International Conference on High
-  Performance Computing \& Simulation (HPCS)}, Genoa, 2017,
-pp. 727-736.
+\item
+S. V. Cole and J. Buhler, ``MERCATOR: A GPGPU Framework for Irregular
+Streaming Applications,'' \textit{2017 International Conference on
+  High Performance Computing \& Simulation (HPCS)} 727-736, Genoa,
+Italy, 2017.
+\\
+(This is the principal citation for MERCATOR.)
+
+\item
+T. Plano and J. Buhler. ``Scheduling irregular dataflow pipelines on
+SIMD architectures.'' \textit{6th Wkshp. on Programming Models for SIMD/Vector
+Processing} 1-9, San Diego, CA, 2020.
+\\
+(This paper describes the scheduling algorithm used by the runtime.)
+
+%\item
+%S. Timcheck and J. Buhler. ``Streaming computations with region-based
+%state on SIMD architectures.'' \textit{13th Int'l Wkshp. on
+%  Programmability and Architectures for Heterogeneous Multicores} 1,
+%Bologna, Italy, 2020.
+
+\end{enumerate}
 
 \newpage
 
 \section{Overview and Key Concepts}
+
+This page accidentally left blank.
+\newpage
 
 \section{Building MERCATOR}
 
 Build requirements for MERCATOR include:
 \begin{itemize}
 
-\item CUDA 9.0 or higher
+\item CUDA 11.1 or higher
 
-\item The CUB (CUDA Unbound) library, 1.8.0 or higher
-
-\item LLVM/Clang libraries v5 or higher (for type-checking)
+\item LLVM/Clang libraries v11 or higher (for type-checking)
 
 \item GNU Flex 2.5.37 or higher (older versions might work)
 
-\item GNU Bison 3.0.4 or higher (older versions might work)
+\item GNU Bison 3.7 or higher
 
-\item CMake 3.8 or higher
+\item CMake 3.18 or higher
 
 \end{itemize}
-MERCATOR applications will run on devices with CUDA architecture 3.0
-(Kepler) or higher.
+MERCATOR applications are known to run on devices with CUDA
+architecture 5.2 or higher.  C++14 support is required from the
+compiler chain.
 
-Assume the MERCATOR sources have been unpacked into directory \texttt{source}.
-To build and install MERCATOR, do the following:
+Assume the MERCATOR sources have been unpacked into directory
+\texttt{source}.  To build and install MERCATOR, do the following:
 \begin{enumerate}
 
 \item If needed, edit the user-configurable paths near the top of the file
@@ -99,8 +128,8 @@ To build and install MERCATOR, do the following:
 
 You may wish to build the MERCATOR examples in the source tree as
 well.  The procedure to do this is similar to that used to build
-MERCATOR itself.  You can build using an installed version of
-MERCATOR, or a version that was compiled but not yet installed.
+MERCATOR itself.  You can build using either an installed version of
+MERCATOR or a version that was compiled but not yet installed.
 \begin{enumerate}
 
 \item If needed, edit the user-configurable paths near the top of the
@@ -117,7 +146,7 @@ MERCATOR, or a version that was compiled but not yet installed.
 
    \item \texttt{MERCATOR_BUILD_DIR} --
       if \texttt{BUILDING_IN_TREE} is true, path to the build directory
-      for the noet-yet-installed MERCATOR
+      for the not-yet-installed MERCATOR
 
    \item \texttt{CUB_ROOT_DIR} -- path to the local installation of CUB
  \end{itemize}
@@ -138,6 +167,8 @@ MERCATOR, or a version that was compiled but not yet installed.
 \end{quote}
 
 \end{enumerate}
+
+\newpage
 
 \section{Compiling a MERCATOR App}
 
@@ -171,48 +202,33 @@ produces outputs for each app specified in each file.  If the file
 specifies an app named, say, \texttt{App}, then:
 \begin{itemize}
 
-\item If the \texttt{-K} flag is passed to the compiler, it emits a
-  skeleton file \texttt{App.cu.skl}, which contains stubs of the app's
-  device-side methods to be filled in by the user.
+\item If the option \texttt{-K <filename>} is passed to the compiler,
+  it emits a skeleton file \texttt{<filename>}, which contains stubs
+  of the app's device-side methods to be filled in by the user.
 
 \item If the \texttt{-K} flag is not passed, then the compiler emits
-
+  the following:
 \begin{itemize}
 
 \item a host-side header \texttt{App.cuh}, which should be included
   by any host-side code that instantiates or references the app
   (in particular, the host-side driver);
 
-\item an initialization source file \texttt{App_init.cu}, which should
-  be compiled together with the driver.  All device-side code
-  generated by the MERCATOR compiler and runtime will be instantiated
-  in this file.
+\item a host-side initialization source file \texttt{App_init.cu};
 
-\item A device-side header \texttt{App_dev.cuh}, which is already
-  included by the other generated files and need not be included
-  anywhere else.
+\item a device-side header \texttt{App_dev.cuh}, which is already
+  included by the skeleton code.
 
 \end{itemize}
 
 \end{itemize}
-
-The user should fill in the methods in the skeleton file and rename it
-to a CUDA file, say \texttt{App.cu}, which should be compiled together
-with the initialization source file and the user's driver code.  Note
-that \emph{compiling a spec file overwrites any previous outputs from
-  that file with no warning}, so a skeleton file should not be left
-with its original name after being edited.
-
-An app's device-side code is split between its (filled-in) skeleton
-file and the initialization source file.  These two files can either
-be compiled separately by nvcc with the \texttt{-dc} option or
-included by reference (along with any other device code used by the
-app) in a single compilation unit to avoid the runtime overhead
-incurred by separate compilation.
-
-Compilation of both the device code and code that includes the
-host-side header must be able to find the MERCATOR runtime.  Be sure
-to add the runtime directory of your MERCATOR installation to the
+The CMake build system for Mercator automatically compiles the
+host-side initialization code and device-side skeleton code into a
+library that is linked against the host-side driver.
+ 
+Compilation of both the device-side code and host-code that includes
+the host-side header must be able to find the MERCATOR runtime.  Be
+sure to add the runtime directory of your MERCATOR installation to the
 compiler's include path.  No special libraries are needed beyond those
 required to build CUDA applications.
 
@@ -236,15 +252,17 @@ The following options are recognized by the MERCATOR compiler:
    add the specified path to the include path for finding files
    mentioned by reference statements in a spec file.  By default,
    MERCATOR checks the system include path of the local LLVM
-   installation, the CUDA incude path, and the directory where the
+   installation, the CUDA include path, and the directory where the
    spec file is located.
 
-\item \texttt{-K} \\
-   for each app, emit a skeleton file for the user to fill in
-    (default: emit runtime support code for each app)
+\item \texttt{-K \textit{filename}} \\ 
+  emit a skeleton file named \textit{filename} with methods for
+  the user to fill in (default: emit runtime support code for each app)
 
 \item \texttt{-o \textit{path}} \\
    write output files to the specified path (defaults to current directory).
+
+% NOT SHOWN: -q option
 
 \item \texttt{-t \textit{\#}} \\
   set the number of threads per block for each generated application
@@ -286,15 +304,12 @@ applications.  These recipes can be included in your CMake build
 system by including the file \texttt{mercator-rules.txt} in the
 top-level MERCATOR install directory.
 
-To use the MERCATOR recipes, you must define two variables in your
-\texttt{CMakeLists.txt} file:
-\begin{itemize}
- \item \texttt{MERCATOR_ROOT_DIR} -- path to the MERCATOR installation
-
-  \item \texttt{CUB_ROOT_DIR} -- path to the local installation of CUB
-\end{itemize}
-In addition, MERCATOR applications are built using CMake 3.8+'s CUDA
-support, so you may wish to set the various CUDA configuration options.
+To use the MERCATOR recipes, you must define the variable
+\texttt{MERCATOR_ROOT_DIR} in your \texttt{CMakeLists.txt} file to
+point to the the local Mercator installation.  You can control the
+compiler flags for your application using the standard CMake support
+for CUDA, and you can set the MERCATOR_FLAGS variable to specify
+flags to pass to the Mercator spec file compiler.
 
 the \texttt{mercator-rules.txt} file defines two CMake functions:
 \begin{itemize}
@@ -328,6 +343,8 @@ the executable, and that it is linked against the apps' libraries.
 
 \end{itemize}
 
+\newpage
+
 \section{MERCATOR App Specification File Format}
 
 This section describes the format of MERCATOR app specifications.
@@ -358,9 +375,11 @@ identifiers.
  \item \texttt{aggregate}
  \item \texttt{allthreads}
  \item \texttt{application}
+ \item \texttt{buffer}
  \item \texttt{edge}
  \item \texttt{enumerate}
  \item \texttt{from}
+ \item \texttt{function}
  \item \texttt{ilimit}
  \item \texttt{mapping}
  \item \texttt{module}
@@ -371,6 +390,7 @@ identifiers.
  \item \texttt{reference}
  \item \texttt{source}
  \item \texttt{sink}
+ \item \texttt{threadwidth}
  \item \texttt{void}
 \end{itemize}
 \end{multicols}
@@ -425,11 +445,12 @@ specification, use a \textit{reference statement}:
 \begin{quote}
 \texttt{reference "<filename>" ;}
 \end{quote}
-\texttt{<filename>} is the name of a file that will be read by Clang before
-attempting to resolve any typenames in the specification.  CUDA files
-are parsed in host mode, not device mode.  Any number of reference
-statements may be used; the contents of all referenced files will be
-parsed in a single translation unit and used for type checking.
+\texttt{<filename>} is the name of a file that will be read by Clang
+before attempting to resolve any typenames in the specification.  CUDA
+files are parsed in host mode, not device mode.  Any number of
+reference statements may be used; the contents of all referenced files
+will be parsed in a single translation unit and used for type
+checking.
 
 Referenced files may be specified by absolute or relative pathnames.
 Relative pathnames are assumed to be relative to either the current
@@ -482,10 +503,6 @@ for each input.
 Output channel names must be unique within one module type but may be
 duplicated across module types.
 
-% NB: the lottery scheduler, which we don't use right now, is limited
-% to apps with <= THREADS_PER_BLOCK module types.  The maxOcc
-% scheduler does not have that limitation.  If we ever want to use the
-% lottery scheduler, we can do a bit of work to remove the limit.
 
 \subsubsection{Node Statement}
 
@@ -499,34 +516,89 @@ syntax for node statements:
 <node-name> ::= <identifier>
 
 <node-type> ::= <identifier>
-\alt `source' `<' <typename> `>'
 \alt `sink'   `<' <typename> `>'
 
 \end{grammar}
 
-A node's type is either the name of a module (specified in a
-module statement) or a \emph{source type} or \emph{sink type}, which
-respectively receive an external data stream or emit a data stream
-from the application.  Source and sink node types are parameterized by
-their data types, which can be any valid typename.
+A node's type is either the name of a module (specified in a module
+statement) or a \emph{sink type}, which emits a data stream from the
+application.  Sink node types are parameterized by their data types,
+which can be any valid typename.
 
-A node whose type is a module assumes the input data type and output
-channel list of the module.  A node whose type is a source type has no
-inputs (since it receives input from an external source) and has
-single output channel named \texttt{out} with the specified data type.
-A node whose type is a sink type has the specified input data type and
-no output channels (since data sent to it leaves the application).
+A node assumes the input data type and output channel list of its
+module.  A node whose type is a sink type has the data type of the
+sink as its input type and no output channels (since data sent to it
+leaves the application).
 
 Note that node and module names are in the same namespace. Hence, the
 same name may not be used for both a module and a node within one
 application.
 
-\textit{Limitation}: the number of distinct nodes of a given module
-type may not exceed 32 (the GPU warp size).
+\subsubsection{Source Statement}
 
-% This is a difficult limit to remove.  If needed in the future, we
-% can silently split the instances of a module into groups and
-% instantiate them as separately scheduled module objects.
+Exactly one node of an application must be designated the \emph{source
+  node}.  This node receives data from an external input stream. 
+
+The following grammar describes the syntax for source statements:
+\begin{grammar}
+
+<source-stmt> ::= `source' <node-name> [ `buffer' | `function' ] `;'
+
+<node-name> ::= <identifier>
+
+\end{grammar}
+The source statement names the application's source node and
+specifies the type of source from which it receives data.  There are
+three possible source types:
+
+\begin{itemize}
+
+\item If no qualifier is specified after the node name, the input
+  stream is assumed to be a list of contiguous integer values of type
+  \texttt{size_t}, which range from 0 to some maximum specified by the
+  host at runtime.  The node's module must have input type
+  \texttt{size_t}, or the application will fail to type-check.
+
+\item If the qualifier \texttt{buffer} is specified, the input stream
+  is assumed to be a GPU global memory buffer whose type matches the
+  input type of the node's module.  See the next section for
+  information about the host-side interface for creating and
+  manipulating buffers.
+  
+\item If the qualifier \texttt{function} is specified, the input
+  stream is assumed to be generated by a user-supplied function.  In
+  this case, the following function stubs are emitted in the skeleton
+  file as methods of the app's class and must be filled in by the
+  user:
+  
+  \begin{itemize}
+    \item \texttt{EltT get(size_t idx) const} \\ 
+      Given an integer value, return a value of a type matching the input
+      type of the source node. If this type is \texttt{T}, then
+      \texttt{get()} returns either type \texttt{T} (if \texttt{T} is
+      \emph{scalar}, i.e., an integer, floating-point, boolean, or pointer
+      type) or \texttt{T\&} (if \texttt{T} is not scalar.)
+      
+      The \texttt{get} function is passed integers between 0 and some
+      maximum value specified by the host at run-time.  It is called
+      multithreaded, so different threads may receive different
+      integers and may produce different values.  There is no
+      guarantee which value(s) will be passed to any call, so
+      \texttt{get()} must be able to map an integer statelessly to the
+      corresponding input value for the source node.
+      
+    \item \texttt{void init()} \\
+      Called once at the start of a Mercator app's execution, before
+      any calls to \texttt{get()}.
+
+    \item \texttt{void cleanup()} \\
+      Called once at the end of a Mercator app's execution, after
+      any calls to \texttt{get()}.
+      
+  \end{itemize}
+\end{itemize}
+All three of these functions have access to application-level
+parameters using the interface described below.
 
 \subsubsection{Edge Statement}
 
@@ -565,15 +637,20 @@ graphs have the following properties:
 
 \item Every node must be reachable from the source.
 
-\item No node may have two distinct incoming edges, unless one of them
-  is part of a directed cycle involving that node.
+\item No node may have two distinct incoming edges; hence,
+  applications have tree-structured topologies.
 
-\item No node may be part of more than one directed cycle.
+%  unless one of them
+%  is part of a directed cycle involving that node.
 
-\item Every output channel that is part of a directed cycle must
-  produce no more than one output per input received by its node.
+%\item No node may be part of more than one directed cycle.
+
+%\item Every output channel that is part of a directed cycle must
+%  produce no more than one output per input received by its node.
 
 \end{enumerate}
+
+\begin{comment}
 
 The last three properties permit simple directed cycles in an
 application graph but forbid more complex cycle structures and
@@ -590,6 +667,7 @@ former case, the module type is not emitted as part of the generated
 application; in the latter, outputs sent to the channel will be
 silently discarded. The MERCATOR compiler will generate warnings in
 such cases.
+
 
 \paragraph*{Rationale for Topological Restrictions}
 Edges in MERCATOR application graphs are implemented by finite,
@@ -609,6 +687,8 @@ output per input ensures that one item entering a cycle at a node $v$
 cannot result in two or more items appearing on the back edge into
 $v$.  If such amplification of inputs were permitted, it could again
 lead to deadlock with fixed-sized queues.
+
+\end{comment}
 
 \subsubsection{Additional Properties of Modules}
 
@@ -633,6 +713,8 @@ a module consumes scarce resources such as GPU shared memory.  It
 may be necessary to limit the number of inputs processed to avoid
 exhausting such resources.
 
+\begin{comment}
+
 \paragraph*{Mapping Statement}
 A \emph{mapping statement} changes the mapping of input items to
 threads for a particular module's \texttt{run()} function.  It is
@@ -640,8 +722,7 @@ possible to specify that multiple GPU threads should cooperatively
 process an input item, or that multiple input items should be
 processed sequentially by each thread.
 
-the mapping statement has the form
-
+The mapping statement has the form
 \begin{quote}
 \texttt{mapping <module-name> <nelts> :~<nthreads> ;}
 \end{quote}
@@ -662,6 +743,8 @@ are not part of a full group will not receive inputs.
 
 By default, each active thread in a call to \texttt{run()} receives
 one input; that is, the default mapping is ``\texttt{1:1}''.
+
+\end{comment}
 
 \paragraph*{AllThreads Statement}
 An \emph{allthreads statement} affects the behavior of a module's
@@ -684,14 +767,16 @@ call to \texttt{__syncthreads()}, are not safe unless every thread in
 the block eventually reaches the synchronization point.  In such
 cases, an allthreads statement instructs MERCATOR to call
 \texttt{run()} with all threads active, regardless of the number of
-inputs to be processed.  The user must then manually check whether
-each thread has received inputs by inspecting the thread's
-\texttt{nodeIdx} argument.
+inputs to be processed.  Running with all threads also eliminates
+certain run-time overheads and so allows a Mercator app to run faster.
 
-\textit{NB}: the allthreads statement is a temporary accommodation
-that will become obsolete once MERCATOR is adapted to use CUDA 9's
-cooperative thread groups facility, which permits safe synchronization
-of sub-block-sized sets of threads.
+For modules designated to run with all threads, \texttt{run()} takes
+an extra argument, which is the number of threads (starting from 0)
+that actually have inputs.  For such modules, the \texttt{push()}
+function called to emit output from \texttt{run()} \textbf{must be
+  called with all threads} and takes an extra per-thread predicate
+argument to indicate whether the thread is passing it a valid output
+value.
 
 \subsubsection{Application, Module, and Node Parameters}
 
@@ -702,7 +787,7 @@ before each run of a MERCATOR application but are unchanging and
 read-only from the GPU during application's execution.
 
 There are three kinds of parameters that can be defined for a
-MERCATOR application.   \emph{App-wide} parameters are shared by
+MERCATOR application.  \emph{App-wide} parameters are shared by
 all modules in an application.  \emph{Module-wide} parameters are
 shared by all nodes of a given module type.  Finally, \emph{Node}
 parameters are defined for all nodes of a module type but may have
@@ -738,9 +823,9 @@ statement} of the following form:
 \end{grammar}
 
 Other than using a different keyword, the main difference between
-parameter and node parameter statements is that the latter must be
-scoped to a particular module.  Each node of the module type will have
-a separate copy of the named parameter whose value can be set
+parameter and node parameter statements is that the latter \emph{must}
+be scoped to a particular module.  Each node of the module type will
+have a separate copy of the named parameter whose value can be set
 independently from the host.
 
 \subsubsection{Node State}
@@ -766,20 +851,22 @@ State variables make sense only if they can be updated in a
 sequentially consistent fashion. If a state variable were shared
 across multiple nodes, there would be no way to guarantee the order
 in which different nodes update the variable, since the order in
-which modules are executed varies dynamically at runtime.  Hence,
+which nodes are executed varies dynamically at runtime.  Hence,
 MERCATOR does not define per-module or per-application state.
 
-In contrast, for acyclic applications running within a single GPU
-block, there is a consistent notion of ``stream order.''  Edges do not
-reorder their inputs, and items earlier in a node's input queue are
-always assigned to lower-numbered threads within a single call to
+In contrast, for applications running within a single GPU block, there
+is a consistent notion of ``stream order.''  Edges do not reorder
+their inputs, and items earlier in a node's input queue are always
+assigned to lower-numbered threads within a single call to
 \texttt{run()}.  Hence, a single node always processes its inputs in
 stream order, and it can therefore maintain a state variable's value
-to reflect the state after processing some prefix of the stream.
-In practice, a MERCATOR application divides its input stream across
-GPU blocks in an unpredictable fashion, so stream order is meaningful
-only with respect to a single aggregate (to be implemented soon),
-whose elements are guaranteed to be processed within a single block.
+to reflect the state after processing some prefix of the stream.  In
+practice, a MERCATOR application divides its input stream across GPU
+blocks in an unpredictable fashion, so stream order is meaningful only
+with respect to a single \emph{aggregate}, whose elements are
+guaranteed to be processed within a single GPU block.
+
+\begin{comment}
 
 Moreover, for applications with cycles, MERCATOR does not guarantee
 that items that enter a cycle first will exit the cycle first, since
@@ -790,6 +877,10 @@ one long-lived item would prevent any later items from being
 processed.  A somewhat performance-preserving solution would be to
 reorder items into stream order as they exit the cycle, using a
 reorder buffer.
+
+\end{comment}
+
+\newpage
 
 \section{Host-Side App Interface}
 
@@ -806,11 +897,10 @@ application MyApp;
 
 ModuleType Foo : int -> out<int> ;
 
-Node src : Source<int> ;
 Node foo : Foo ;
 Node snk : Sink<int> ;
 
-Edge src -> foo;
+Source foo buffer;
 Edge foo -> snk;
 
 Param y : float;
@@ -836,7 +926,7 @@ int myFunction()
   myApp.getParams()->y = 2.0;
   myApp.Foo.getParams()->x = 3;
 
-  myApp.src.setSource(ib);
+  myApp.setSource(ib);
   myApp.snk.setSink(ob);
 
   // generate some input data
@@ -875,7 +965,7 @@ versions.  Patch level changes are intended to be source-compatible.
 
 \subsection{Instantiating a MERCATOR app}
 
-To instantiate a MERCATOR app, the user should do two things: include
+To instantiate a MERCATOR app, the user must do two things: include
 the generated header file that defines the host-side app interface,
 and declare an object of the app's type.  The host-side app interface
 is defined in the CUDA header file with the same name as the app
@@ -912,14 +1002,13 @@ of an app may be changed at any time by calling the method
 \texttt{bindToStream(cudaStream_t stream)}
 \end{quote}
 This call will block until all pending operations on the app's
-previous stream are complete, then switch to thee new stream.
+previous stream are complete, then switch to the new stream.
 
 \subsection{Querying App Properties}
 
 Presently, the only property of an app that can be queried from the
 host is the number of GPU blocks that it will use to execute.  This
-property can be accessed by the following function: two optional
-arguments:
+property can be accessed by the following function:
 \begin{quote}
 \texttt{int getNBlocks() const}
 \end{quote}
@@ -940,15 +1029,15 @@ provides type-safe interfaces for parameter setting.
 
 For each module and each node declared in the application, an object
 with the same name as the module/node is defined as a public member of
-the application's class.  Other than source and sink nodes, each
-object provides a method \texttt{getParams()} that returns a pointer
-to a writable \emph{parameter structure}, which contains an
-appropriately typed member for each parameter associated with the
-module/node.  Module-level parameters are accessed through the object
-with the same name as the module, while node-level parameters are
-accessed through the object with the same name as the node.  App-level
-parameters are accessed using the \texttt{getParams()} method of the
-entire app object.
+the application's class.  Other than sink nodes, each object provides
+a method \texttt{getParams()} that returns a pointer to a writable
+\emph{parameter structure}, which contains an appropriately typed
+member for each parameter associated with the module/node.
+Module-level parameters are accessed through the object with the same
+name as the module, while node-level parameters are accessed through
+the object with the same name as the node.  App-level parameters are
+accessed using the \texttt{getParams()} method of the entire app
+object.
 
 \textit{Note}: the type of the parameter structure returned from
 \texttt{getParams()} is different for every app, module, and node
@@ -956,17 +1045,44 @@ object.  If the user wishes to store this pointer locally (e.g.\ to
 set several parameters of a module all at once), a variable of type
 \texttt{auto} should be be used to hold the pointer.
 
-Source and sink nodes have a special interface, described below,
-through which the user can supply input to and receive output from the
-application.
-
 \subsection{Input and Output}
 
 Data is exchanged between the host and a MERCATOR application using
-typed objects, which may be heap- or stack-allocated.  There are two
-kinds of objects used for data exchange: \textit{buffers} and
-\textit{ranges}.
+typed objects.  There are three ways to specify input to an
+application: as a range of consecutive integers, as a \textit{buffer},
+or as a user-defined device-side function.  Output is always sent to a
+buffer.
 
+\subsubsection{Specifying Inputs and Outputs}
+
+The \texttt{Source} statement in an app's specification indicates
+which type of input it takes, as described in the previous section.
+\begin{itemize}
+
+\item If the source is the default (a range of integers starting at 0)
+  or is defined by a device-side function (which takes values from
+  such a range as its argument), the app needs to know the number of
+  input values to process.  This quantity is specified by calling
+  \texttt{app.setNInputs(<N>)}, where \texttt{<N>} is a value of
+  type \texttt{size_t}.
+
+\item If the source is a buffer, it is specified by calling
+  \texttt{app.setSource(<B>)}, where \texttt{<B>} is a Buffer object
+  whose type matches that of the source node's input.
+
+\end{itemize}
+
+An app may have one or more sink nodes of various types.  Each sink
+node \texttt{node} may be associated with a buffer by calling
+\texttt{node.setSink(<B>)}, where \texttt{<B>} is a Buffer object
+whose type matches that of the sink node's input.  Note that sinks are
+set at the node level, while the source is set at the app level
+because only one source may exist per app.
+ 
+Any associations set for an application's source and sinks, like
+changes to its parameters, take effect next time the application is
+run.
+ 
 \subsubsection{Buffers}
 
 A MERCATOR buffer, which has type \texttt{Buffer<T>}, is a handle for a
@@ -1005,7 +1121,7 @@ Buffers support the following basic methods:
   Reset the buffer's size to 0.
 
 \end{itemize}
-The lasxt four operations are \emph{synchronous} -- they do not return
+The last four operations are \emph{synchronous} -- they do not return
 control to the calling host thread until all prior operations on the
 device are complete. Buffers also support asynchronous variants of these
 operations, all of which take a CUDA stream as an optional argument:
@@ -1024,101 +1140,36 @@ All these functions are executed asynchronously with respect to the
 host.  They do not synchronize the device, but each operations will
 execute \emph{only} after all previous operations in the same stream
 have completed.  Additionally, if the host pointer for
-\texttt{getAsync} or \texttt{setAsync} points to page-locked memory,
-then these operations may overlap with operations in another stream.
+\texttt{getAsync} or \texttt{setAsync} points to page-locked memory
+allocated with \texttt{cudaMallocHost()}, then these operations may
+overlap with operations in another stream.
 
-\textit{Warning}: buffers are always allocated on the current GPU device.
-It is an error to use a buffer allocated on one device as input or output
-to an app bound to a different device.  In such cases, use the \texttt{copy}
-function to copy the buffer's data to the correct device first.
-
-\subsubsection{Ranges}
-
-A MERCATOR range, which has type \texttt{Range<S>}, describes a range
-of equally-spaced numerical values using only constant space.
-\texttt{S} must be an \textit{arithmetic type}, that is, a numerical
-type supporting addition, subtraction, multiplication, and division.
-It is an error to instantiate a range with a non-arithmetic type.
-
-A range's constructor has the following interface:
-\begin{quote}
-\texttt{Range<S>(S start, S end, S step, bool includeEndpoint = false)}
-\end{quote}
-which includes every point in the specified interval that can be 
-obtained by adding \textit{step} to start 0 or more times.
-If \texttt{includeEndpoint} is false, the interval in question is
-the half-open interval $[\textit{start}, \textit{end})$; if true,
-it is the closed interval $[\textit{start}, \textit{end}]$.
-For instance,
-\begin{itemize}
-\item \texttt{Range<int>(1, 100, 2)} specifies all the odd non-negative
-      integers less than 100.
-
-\item \texttt{Range<int>(1, 101, 2)} specifies the same range as
-      the previous statement.
-
-\item \texttt{Range<int>(1, 101, 2, true)} specifies the range of
-      the previous statement \emph{plus} the point ``101''.
-
-\item \texttt{Range<float>(0.0, 1.0, 0.01)} specifies all the values
-      in $[0.0, 1.0)$ that are multiples of 0.01.
-\end{itemize}
-
-The number of elements in a range may be obtained by calling the
-method
-\begin{quote}
-\texttt{size_t Range<S>() const}
-\end{quote}
+\textit{Warning}: buffers are always allocated on the current GPU
+device.  It is an error to use a buffer allocated on one device as
+input or output to an app bound to a different device.  In such cases,
+use the \texttt{copy} function to copy the buffer's data to the
+correct device first.
  
-\subsubsection{Associating Objects With Source and Sinks}
-
-The source node of a MERCATOR application can be associated with a
-buffer or range object.  To associate one of these objects with a
-source node, pass the object to the node's \texttt{setSource} method:
-\begin{itemize}
-
-\item \texttt{void setSource(const Buffer<T> \&buffer)} \\
-  Associate a buffer with the source node.
-
-\item \texttt{void setSource(const Range<T> \&range)} \\
-  Associate a range with the source node.
-
-\end{itemize}
-
-A sink node can only be associated with a buffer, using the 
-\texttt{setSink} method:
-\begin{itemize}
-
-\item \texttt{void setSink(Buffer<T> \&buffer)} \\
-  Associate a buffer with the sink node.
-
-\end{itemize}
-Any associations set for an application's source and sinks, like
-changes to its parameters, take effect next time the application is
-run.
-
 \subsection{Running an Application}
 
 Once all parameters of a MERCATOR application, including its source
-and sink data, have been set, the app may be executed on the device by
-calling the one of application object's \textit{run methods}.
+and sink associations, have been set, the app may be executed on the
+device by calling one of application object's \textit{run methods}.
 
-When an application runs, all values associated with its source object
-(all items in a buffer, or or all elements in a range) are passed to
-the application as its input stream. The source object is \emph{not
-  modified} and may be reused in subsequent runs.  Any results from
-the application's execution are \emph{appended} to the end of the
+When an application runs, all values associated with its source are
+passed to the application as its input stream. Source buffers are
+\emph{not modified} and may be reused in subsequent runs.  Any results
+from the application's execution are \emph{appended} to the end of the
 buffers designated as its sinks, which must have sufficient space to
 receive them.  Existing data in the sinks' buffers is not overwritten.
 
 MERCATOR will use all available processors of the active device to
 execute an application.  \emph{The order of outputs from a sink is not
-  guaranteed to match that of the corresponding inputs}, even for
-acyclic applications, because multiple GPU blocks asynchronously
-process different segments of the input stream and may write their
-results to the common output sink out of order.  A future version of
-MERCATOR will provide global ordering guarantees for the output
-stream.
+  guaranteed to match that of the corresponding inputs} because
+multiple GPU blocks asynchronously process different segments of the
+input stream and may write their results to the common output sink out
+of order.  A future version of MERCATOR will provide global ordering
+guarantees for the output stream.
 
 \subsubsection{Synchronous vs.\ Asynchronous Runs}
 
@@ -1144,28 +1195,29 @@ App runs and calls to get, set, copy, or clear buffers are executed
 sequentially within a single CUDA stream.  In particular, the
 asynchronous versions of these operations will execute sequentially in
 the order that they are called, and there is no need to synchronize
-the device between calls.  For example, one may safely say
+the device between calls.  For example, if an app is associated
+with stream \texttt{str}, one may safely say
 \begin{verbatim}
-app.sourceNode.setSource(buffer);
-buffer.setAsync(hostPointer1, n1);
+app.setSource(buffer);
+buffer.setAsync(hostPointer1, n1, str);
 app.runAsync();
-buffer.setAsync(hostPointer2, n2);
+buffer.setAsync(hostPointer2, n2, str);
 app.runAsync();
 join();
 \end{verbatim}
 The buffer will not be overwritten with the contents of
 \texttt{hostPointer2} until after the first run is complete.
 
-It is safe to modify the parameters of an app, including associating
-different objects with source and sink nodes using \texttt{setSource}
-and \texttt{setSink}, after calling \texttt{runAsync()} but before
-calling \texttt{join()}.  Any such changes will take effect with the
-next call to \texttt{run()} or \texttt{runAsync()}.  For example,
-one may safely say
+It is safe to modify the parameters of an app, including changing the
+input and output specifications using \texttt{setNInputs},
+\texttt{setSource}, and \texttt{setSink}, after calling
+\texttt{runAsync()} but before calling \texttt{join()}.  Any such
+changes will take effect with the next call to \texttt{run()} or
+\texttt{runAsync()}.  For example, one may safely say
 \begin{verbatim}
-app.sourceNode.setSource(buffer1);
+app.setSource(buffer1);
 app.runAsync();
-app.sourceNode.setSource(buffer2);
+app.setSource(buffer2);
 app.runAsync();
 join();
 \end{verbatim}
@@ -1176,14 +1228,14 @@ The principal hazard in asynchronous execution is that the host should
 not read or write data that is actively being updated by or
 transferred to or from the device.  In particular, once
 \texttt{getAsync()} is called on a buffer, the destination data is not
-guaranteed to be in its final state until the next \texttt{join()} (or
-other synchronous operation).  Similarly, once \texttt{setAsync()} or
-\texttt{clearAsync()} is called on a buffer, or a \texttt{runAsync()}
-call is issued that uses the buffer as an output sink, the size of the
-buffer as seen by the host is not guaranteed to be accurate until the
-next \texttt{join()} call.  Moreover, the source data given to a
-\texttt{setAsync()} call should not be modified by the host until
-after the next \texttt{join()}.
+guaranteed to be in its final state until after the next
+\texttt{join()} (or other stream-synchronizing operation).  Similarly,
+once \texttt{setAsync()} or \texttt{clearAsync()} is called on a
+buffer, or a \texttt{runAsync()} call is issued that uses the buffer
+as an output sink, the size of the buffer as seen by the host is not
+guaranteed to be accurate until after the next \texttt{join()}.
+Moreover, the source data given to a \texttt{setAsync()} call should
+not be modified by the host until after the next \texttt{join()}.
 
 \paragraph*{Limits to Concurrency}
 
@@ -1193,11 +1245,12 @@ operation completes and effectively synchronize the device, since they
 execute in the default stream.  To avoid these behaviors, use the
 asynchronous versions of the operations.
   
-Constructing or destroying a MERCATOR app or a buffer or range object
-allocates/frees CUDA device memory, which has the effect of
-synchronizing the device.  For best performance, complete all
-allocations before any runs of the app, and destroy them after all
-runs have finished.
+Constructing or destroying a MERCATOR app or a buffer object
+allocates/frees CUDA device memory and page-locked host memory, which
+has the effect of synchronizing the device.  (The same is true of any
+call to the CUDA runtime that allocates or frees memory.) For best
+performance, create the app and complete all allocations before any
+runs of the app, and destroy them after all runs have finished.
 
 It is not possible to use the same instance of an app to launch
 multiple runs on different streams at once, since switching an app to
@@ -1205,6 +1258,7 @@ a new stream first synchronizes the old stream.  If it is desired to
 run the app in different streams concurrently, a separate instance
 should be created for each stream.
 
+\newpage
 
 \section{Device-Side App Interface}
 
@@ -1220,43 +1274,25 @@ The most important functions supplied by the user are the \textit{run
   functions} for each module in an application.  The signature of a
 run function is as follows:
 \begin{quote}
-\texttt{void Module::run(const T \&item, InstTagT nodeIdx)}
+\texttt{void <Module>::run(const T \&item)}
 \end{quote}
-where \texttt{T} is the module's input type.
+where \texttt{<Module>} is the module type and \texttt{T} is the
+module's input type.  The module type may be a somewhat complex
+template instantiation, but this type is not relevant to the
+application developer -- it's enough to recognize the name of the
+module in it.
 
 Each time the run function is called, each active thread is given an
 item to process.  The number of items, and hence the number of active
-threads, may vary from call to call.  If the module's thread group
-size is set to $k > 1$ by a mapping statement, then each consecutive
-group of $k$ active threads starting with thread 0 will receive the
-same input.
-
-Because multiple nodes may be declared with the same module type, one
-call to a module's run function may concurrently process items
-destined for different nodes of its type.  Which node received the
-input is specified by the \textit{node index argument}
-\texttt{nodeIdx}, which is a small integer.  Each item's node index
-allows the thread(s) responsible for processing it to select the
-parameters, state, and output edges appropriate to its node.
-
-While it is rarely necessary to explicitly test which node an item is
-associated with, the mapping from nodes to node indices can be
-accessed within a module's functions through an enumerated type in a
-namespace \texttt{Node}.  For example, if a module has nodes named
-\texttt{A}, \texttt{B}, and \texttt{C}, then the values
-\texttt{Node::A}, \texttt{Node::B}, and \texttt{Node::C} specify the
-node indices for inputs associated with these nodes.
+threads, may vary from call to call.
 
 If a module is declared to run with all threads active (via an
-allthreads statement), threads that do not receive an input item will
-have their node index argument set to the special value
-\texttt{NULLTAG}, and their items will be in an undefined state.  For
-such modules, the user should check the node index to ensure that
-threads with invalid items do not try to process them.
-
-% Should we rename NULLTAG to something that does not reference the word
-% ``tag'', such as NO_IDX?  Then we'd also need to change InstTagT to 
-% something else, like NodeIdxT.
+allthreads statement), the run function's prototype becomes
+\begin{quote}
+\texttt{void <Module>::run(const T \&item, unsigned int nInputs)}
+\end{quote}
+where \texttt{nInputs} is the number of threads (starting with thread
+index 0) that have valid inputs.
 
 \subsubsection{Emitting Output from a Module}
 
@@ -1264,25 +1300,26 @@ To produce output from a module on one of its channels, call its
 \textit{push function} from inside the run function.  the signature
 of the push function is as follows:
 \begin{quote}
-\texttt{void push(const DST \&item, InstTagT nodeIdx, unsigned int channelIdx = 0)}
+\texttt{void push(const DST \&item, unsigned int channelIdx = 0)}
 \end{quote}
 where \texttt{DST} is the channel's output type (which may differ from
-the input type of the module).  The node index passed to the push function
-when emitting an output item should be the same as that of the input
-item that produced it.  Channels are indexed using an enumerated type
-in a namespace \texttt{Out} within each module.  For example, if a
-module has channels named \texttt{acc} and \texttt{rej}, the
-corresponding channel indices are \texttt{Out::acc} and
-\texttt{Out::rej}.  If no channel index is specified, the first
-output channel specified for the module in the specification file
-will be used; this default is particularly convenient for modules
-with a single output channel.
+the input type of the module). Channels are indexed using an
+enumerated type in a namespace \texttt{Out} defined within each
+module.  For example, if a module has channels named \texttt{acc} and
+\texttt{rej}, the corresponding channel indices are \texttt{Out::acc}
+and \texttt{Out::rej}.  If no channel index is specified, the first
+output channel specified for the module in the specification file will
+be used; this default is particularly convenient for modules with a
+single output channel.
 
-The push function can be called simultaneously by every active thread
-in the run function, or by selected threads based on some predicate.
-If the thread group size is greater than 1, only those threads whose
-index is 0 modulo the group size will have their items output; other
-threads' arguments will be ignored.
+For modules \emph{not} declared to be ``allthreads,'' the push function
+may be called with any subset of threads.  For allthreads modules,
+however, it must be called with \emph{all} threads, and its prototype
+becomes
+\begin{quote}
+\texttt{void push(const DST \&item, bool pred, unsigned int channelIdx = 0)}
+\end{quote}
+where \texttt{pred} is set true if the thread has an item to push.
 
 \emph{It is essential that a module not push more outputs per thread
   onto a channel than the maximum number given in the channel's
@@ -1304,35 +1341,15 @@ App-wide parameters are accessible via a function
 parameter structure identical to that used on the host (except that it
 is read-only).  Module-wide \emph{and} per-node parameters are both
 accessed by a function \texttt{getParams} which returns a pointer to a
-structure containing both kinds of parameters.  Per-module parameters
-are again accessed via this structure exactly as on the host.  However,
-each per-node parameter is now presented as an \emph{array} of values
-indexed by node identifier.
-
-the intended usage idiom of per-node parameters is as follows.
-Because each thread may be processing an item from a distinct node,
-each thread should use its node index argument to select the correct
-member of the per-node parameter's array.  For example, if a module
-has a per-node parameter \texttt{x} of type \texttt{int}, a run
-function would access this parameter in each thread as
-\texttt{getParams()->x[nodeIdx]}.
+structure containing both kinds of parameters.  All are accessed
+exactly as on the host.
 
 Mutable per-node state variables of a module are accessed via the
 function \texttt{getState}, which returns a pointer to a state
-structure.  As for per-node parameters, each per-node state variable
-is presented as an array indexed by node identifier.  Because multiple
-threads in one call to a run function may be processing items for the
-same node, the user must take care when writing to a state variable
-that concurrent reads and writes are correctly arbitrated, e.g.\ by
-using atomic updates or by ensuring that only one thread per node does
-the writing.
-
-% We don't offer decent facilities for users to do collective
-% operations segmented by tag right now.  They must either ``roll
-% their own'' segmented reductions or use atomics.  This somewhat
-% limits the utility of per-node state.  We need to design 
-% facilities for this purpose.  Meanwhile, it's probably best to
-% have stateful modules have only one instance for simplicity.
+structure with typed members as declared in the app's specification.
+The user should take care that concurrent reads and writes to state
+variables are correctly arbitrated, e.g.\ by using atomic updates or
+by ensuring that only one thread per node does the writing.
 
 \subsubsection{Utility Functions}
 
@@ -1341,9 +1358,6 @@ The following utility functions are available within a module's
 
 \begin{itemize}
 
-\item \texttt{unsigned int getNumInstances() const} \\
-      Get the number of nodes of this module type.
-
 \item \texttt{unsigned int getNumActiveThreads() const} \\
       Get the \emph{maximum} number of threads with which the run
       function could ever be called.  The actual number of active
@@ -1351,11 +1365,11 @@ The following utility functions are available within a module's
       value will be equal to the number of threads per block unless
       a lower input limit was specified for the module.
 
-\item \texttt{unsigned int getThreadGroupSize() const} \\
-      Get the number of threads in each thread group.
+%\item \texttt{unsigned int getThreadGroupSize() const} \\
+%      Get the number of threads in each thread group.
 
-\item \texttt{bool isThreadGroupLeader() const} \\
-      True iff a thread is the first thread in its group.
+%\item \texttt{bool isThreadGroupLeader() const} \\
+%      True iff a thread is the first thread in its group.
 
 \end{itemize}
 
@@ -1371,12 +1385,12 @@ function. These functions are intended to permit initialization and
 finalization of the module's mutable per-node state.
 
 The \texttt{init} and \texttt{cleanup} functions are always called
-with all threads in the block active.  The utility functions
-described in the previous section are all available within these
-functions as well.
+with all threads in the block active.  The utility functions described
+in the previous section, as well as \texttt{getParams},
+\texttt{getAppParams}, and \texttt{getState}, are available within
+these functions as well.
 
-\emph{Note}: calling the module's push function from \texttt{init} or
-\texttt{cleanup} is not permitted and may result in undefined
-behavior.
+\emph{Note}: calling push from \texttt{init} or \texttt{cleanup} is
+not permitted and may result in undefined behavior.
 
 \end{document}
