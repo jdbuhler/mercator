@@ -63,22 +63,22 @@ function(add_mercator_app)
    endforeach()
 
    set(COMBINED_CUFILE ${CMAKE_CURRENT_BINARY_DIR}/${appname}_dev_combined.cu)
-
+   
    add_custom_command(OUTPUT ${COMBINED_CUFILE}
 	COMMAND echo -e ${includes} > ${COMBINED_CUFILE}
 	DEPENDS ${userfiles} ${GENERATED_CUFILES}
 	IMPLICIT_DEPENDS c++ ${ADD_MERCATOR_SOURCES} ${GENERATED_CUFILES}
         VERBATIM
     )
-
+    
    # turn the combined object into a library
    add_library(${appname} ${COMBINED_CUFILE})
-
+   
    target_include_directories(${appname}
 			      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
-
+			      	      PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
+			      
   target_compile_features(${appname} PUBLIC cxx_std_14 cuda_std_14)
 
 endfunction(add_mercator_app)
