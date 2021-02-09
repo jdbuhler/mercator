@@ -63,14 +63,16 @@ namespace Mercator  {
     __device__
     Node_Queue(Scheduler *scheduler, 
 	       unsigned int region,
+	       bool isTerminalNode,
 	       NodeBase *usNode,
 	       unsigned int usChannel,
 	       unsigned int queueSize,
 	       NodeFnType *inodeFunction)
       : BaseType(scheduler, region, usNode),
-	queue(queueSize),
+        queue(queueSize),
         signalQueue(UseSignals ? queueSize : 0), // could be smaller?
-	nodeFunction(inodeFunction)
+        isTerminalNode(isTerminalNode),
+        nodeFunction(inodeFunction)
     {
       nodeFunction->setNode(this);
     }
@@ -82,7 +84,8 @@ namespace Mercator  {
     }
     
     __device__
-    void init() { nodeFunction->init(); }
+    void init() 
+    { nodeFunction->init(); }
     
     __device__
     void cleanup() { nodeFunction->cleanup(); }
@@ -209,10 +212,7 @@ namespace Mercator  {
 		  nCredits -= nFinished;
 		  
 		  if (nCredits == 0)
-		    {
-		      nCredits = this->handleSignal(nSignalsConsumed);
-		      nSignalsConsumed++;
-		    }
+		    nCredits = this->handleSignal(nSignalsConsumed++);
 		}
 	    }
 	}
@@ -271,6 +271,8 @@ namespace Mercator  {
     Queue<T> queue;                     // node's input queue
     Queue<Signal> signalQueue;          // node's input signal queue
     
+    const bool isTerminalNode;
+    
     NodeFnType* const nodeFunction;
     
     ////////////////////////////////////////////////////////////////////
@@ -309,8 +311,7 @@ namespace Mercator  {
 	  
 	default:
 	  if (IS_BOSS())
-	    printf("ERROR: unhandled signal type %d detected\n", s.tag);
-	  assert(false);
+	    assert(false);
 	}
       
       // return credit from next signal if there is one
@@ -328,25 +329,31 @@ namespace Mercator  {
     __device__
     void handleEnum(const Signal &s)
     {
-      unsigned int pIdx = nodeFunction->getParentIdx();
+      unsigned int oldPIdx = nodeFunction->getParentIdx();
       
       // is old parent valid?
-      if (pIdx != RefCountedArena::NONE)
-	nodeFunction->end();
+      if (oldPIdx != RefCountedArena::NONE)
+	{
+	  nodeFunction->end();
+	  
+	  if (isTerminalNode)
+	    {
+	      RefCountedArena *parentArena = nodeFunction->getParentArena();
+	      
+	      if (IS_BOSS())
+		parentArena->unref(oldPIdx);
+	    }
+	}
       
       __syncthreads(); // BEGIN WRITE parentIdx, ds signal queue
       
+      unsigned int newPIdx = s.parentIdx;
+      
       if (IS_BOSS())
 	{
-	  RefCountedArena *parentArena = nodeFunction->getParentArena();
-	  
-	  parentArena->unref(pIdx);
-	  
 	  // set the parent object for this node (specified
 	  // as an index into its parent arena)
-	  
-	  pIdx = s.parentIdx;
-	  nodeFunction->setParentIdx(pIdx);
+	  nodeFunction->setParentIdx(newPIdx);
 	  
 	  // ref from signal transfers to node; no change in count
 	  
@@ -357,17 +364,13 @@ namespace Mercator  {
 	      
 	      // propagate the signal unless we are at region frontier
 	      if (!channel->isAggregate())
-		{
-		  // add reference for newly created signal
-		  parentArena->ref(pIdx); 
-		  channel->pushSignal(s);
-		}
+		channel->pushSignal(s);
 	    }
 	}
       
       __syncthreads(); // END WRITE parentIdx, ds signal queue
       
-      if (pIdx != RefCountedArena::NONE) // is new parent valid?
+      if (newPIdx != RefCountedArena::NONE) // is new parent valid?
 	nodeFunction->begin();
     }
   };  // end Node_Queue class

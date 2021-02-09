@@ -1,3 +1,11 @@
+//
+// @file Signal.cuh
+// @brief signals for Mercator
+//
+// MERCATOR
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
+//
+
 #ifndef __SIGNAL_CUH
 #define __SIGNAL_CUH
 
@@ -12,10 +20,10 @@ namespace Mercator {
   
   struct Signal {
     
-    enum SignalTag {Invalid, Enum};
+    enum SignalTag {Enum, Invalid};
     
     SignalTag tag;   
-    int credit;
+    unsigned int credit;
     
     // fields for Enum
     unsigned int parentIdx;
@@ -23,12 +31,12 @@ namespace Mercator {
     __device__
     Signal()
       : tag(Invalid)
-    { }
+    {}
     
     __device__ 
     Signal(SignalTag itag) 
       : tag(itag), credit(0)
-    { }
+    {}
   };
   
   // max # of signals produced by a node consuming a vector of data

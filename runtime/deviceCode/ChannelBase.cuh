@@ -115,13 +115,17 @@ namespace Mercator  {
       assert(IS_BOSS());
       assert(dsSignalQueue->getFreeSpace() > 0);
       
-      if (dsSignalQueue->getFreeSpace() - 1 < MAX_SIGNALS_PER_RUN)
-	dsNode->activate();
+      unsigned int credit;
       
-      unsigned int credit = 
-	(dsSignalQueue->empty()
-	 ? dsQueue->getOccupancy()
-	 : numItemsWritten);
+      if (dsSignalQueue->empty())
+	credit = dsQueue->getOccupancy();
+      else
+	{
+	  if (dsSignalQueue->getFreeSpace() <= MAX_SIGNALS_PER_RUN)
+	    dsNode->activate();
+	  
+	  credit = numItemsWritten;
+	}
       
       Signal &sNew = dsSignalQueue->enqueue(s);
       sNew.credit = credit;
@@ -129,17 +133,18 @@ namespace Mercator  {
       numItemsWritten = 0;
     }
     
+    //
+    // @brief pass a flush request to our downstream node
+    //
     __device__
-    void flush(unsigned int flushStatus)
+    void flush(unsigned int flushStatus) const
     { NodeBase::flush(dsNode, flushStatus); }
       
   protected:
     
     const unsigned int minFreeSpace;  // min space for queue not to be full
     const unsigned int propFlags;     // Signal propagation flags
-    
-    unsigned int numItemsWritten;     // # items produced since last signal
-    
+  
     //
     // target (edge) for writing items downstream
     //
@@ -147,6 +152,8 @@ namespace Mercator  {
     NodeBase* const dsNode;
     QueueBase* const dsQueue;
     Queue<Signal>* const dsSignalQueue;
+    
+    unsigned int numItemsWritten;     // # items produced since last signal
     
   }; // end ChannelBase class
 }  // end Mercator namespace

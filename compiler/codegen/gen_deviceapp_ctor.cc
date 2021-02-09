@@ -65,9 +65,9 @@ void genNodeConstruction(const string &nodeObj,
       // already exists because we construct nodes in
       // topological order
       
-	    Node *enumNode = app->regionHeads[node->get_regionId()];
-	    string enumNodeFcnObj = "d"  + enumNode->get_name() + "Fcn";
-	    arenaObj = enumNodeFcnObj + "->getArena()";
+      Node *enumNode = app->regionHeads[node->get_regionId()];
+      string enumNodeFcnObj = "d"  + enumNode->get_name() + "Fcn";
+      arenaObj = enumNodeFcnObj + "->getArena()";
     }
   else
     arenaObj = "nullptr";
@@ -75,7 +75,10 @@ void genNodeConstruction(const string &nodeObj,
   arglist.push_back(arenaObj);
   
   if (mod->isEnumerate())
-    arglist.push_back(to_string(node->get_enumerateId()));
+    {
+      arglist.push_back(to_string(node->get_enumerateId()));
+      arglist.push_back(to_string(node->get_nTerminalNodes()));
+    }
   
   if (mod->hasNodeParams())
     arglist.push_back("&" + hostNodeParamObj);
@@ -146,6 +149,8 @@ void genNodeConstruction(const string &nodeObj,
       nextStmt += "&scheduler";
       
       nextStmt += ", " + to_string(node->get_regionId());
+      
+      nextStmt += ", " + to_string(node->isTerminalNode());
       
       const Edge *usEdge = node->get_usEdge();
       nextStmt += ", d" + usEdge->usNode->get_name();

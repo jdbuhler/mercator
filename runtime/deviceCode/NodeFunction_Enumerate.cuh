@@ -49,13 +49,14 @@ namespace Mercator {
     
     __device__
     NodeFunction_Enumerate(RefCountedArena *parentArena,
-			   unsigned int ienumId)
+			   unsigned int enumId,
+			   unsigned int nTerminalNodes)
       : BaseType(parentArena),
-	enumId(ienumId),
+	enumId(enumId),
+	nTerminalNodes(nTerminalNodes),
 	parentBuffer(128), // FIXME: what size should it be?
         dataCount(0),
-        currentCount(0),
-	activeParent(RefCountedArena::NONE)
+        currentCount(0)
     {}
     
     // override basic NodeFunction::SetNode to ensure that we
@@ -107,7 +108,7 @@ namespace Mercator {
 	      
       using Channel = Channel<unsigned int>;
       Channel* const channel = static_cast<Channel*>(node->getChannel(0));
-
+      
       // recover state of last partially emitted parent, if any
       unsigned int myDataCount    = dataCount;
       unsigned int myCurrentCount = currentCount;
@@ -124,30 +125,35 @@ namespace Mercator {
 	      const typename InputView::EltT item =
 		view.get(start + nFinished);
 	      
-	      // BEGIN WRITE blocking status, 
-	      // ds signal queue ptr in startItem()
+	      // BEGIN WRITE blocking status, ds signal queue
 	      __syncthreads();
 	    
 	      if (IS_BOSS())
 		{
 		  if (parentBuffer.isFull())
 		    {
-		      // initiate DS flushing to clear it out, then
-		      // block.  We'll be rescheduled to execute once
-		      // the buffer is no longer full and we can
-		      // unblock.
+		      // initiate DS flushing to ensure that downstream
+		      // clears out some space, then block.  We'll be 
+		      // rescheduled to execute once the buffer is no 
+		      // longer full and we can unblock.
 		      channel->flush(enumId);
-		    
 		      node->block();
 		    }
 		  else
 		    {
-		      activeParent = startItem(item);
+		      // save new item to the parent buffer
+		      unsigned int pIdx = 
+			parentBuffer.alloc(item, nTerminalNodes);
+      
+		      // send new Enum signal downstream
+		      Signal s(Signal::Enum);	
+		      s.parentIdx = pIdx;
+		      
+		      channel->pushSignal(s);
 		    }
 		}
-	    
-	      // END WRITE blocking status,
-	      // ds signal queue ptr in startItem()
+	      
+	      // END WRITE blocking status, ds signal queue
 	      __syncthreads();
 	      
 	      if (node->isBlocked())
@@ -156,7 +162,7 @@ namespace Mercator {
 	      myDataCount = nf->findCount(item);
 	      myCurrentCount = 0;
 	    }
-	
+	  
 	  // push as many elements as we can from the current
 	  // item to the DS node
 	
@@ -183,18 +189,11 @@ namespace Mercator {
 		  channel->dsWrite(basePtr, srcIdx, v);
 		}
 	    }
-      
+	  
 	  myCurrentCount += nEltsToWrite;
-	
+	  
 	  if (myCurrentCount == myDataCount)
 	    {
-	      if (IS_BOSS())
-		{
-		  // finished with this parent item -- drop reference to it
-		  parentBuffer.unref(activeParent);
-		  activeParent = RefCountedArena::NONE;
-		}				
-	    
 	      // We count an item as finished only when all of its elements
 	      // are enumerated; otherwise, the node might think it is 
 	      // all done and leave us with a partially enumerated last item.
@@ -214,7 +213,7 @@ namespace Mercator {
 	  // save any partial parent state
 	  dataCount    = myDataCount;
 	  currentCount = myCurrentCount;
-
+	  
 	  // if we consumed all available input and our node is
 	  // flushing, send an extra signal so that downstream nodes
 	  // can also finish their open parents.
@@ -238,6 +237,9 @@ namespace Mercator {
     // ID of node's enumeration region (used for flushing)
     const unsigned int enumId;
     
+    // # of terminal nodes for region -- used for parent refcount
+    const unsigned int nTerminalNodes;
+    
     // Where parent objects of the enumerate node are stored.  Size is
     // set to the same as data queue currently
     ParentBuffer<T> parentBuffer;
@@ -247,36 +249,6 @@ namespace Mercator {
     
     // number of items so far in currently enumerating object
     unsigned int currentCount;
-    
-    // the active parent object for enumeration
-    unsigned int activeParent;
-        
-    //
-    // @brief begin enumeration of a new parent object. Add the object
-    // to the parent buffer, store its index in the buffer in the
-    // node's state, and pass the index downstream as a signal to the
-    // rest of the region.
-    //
-    // @param item new parent object
-    // @return index of new item in parent buffer
-    //
-    __device__
-    unsigned int startItem(const T &item)
-    {
-      assert(IS_BOSS());
-      
-      // new parent object already has refcount == 1
-      unsigned int pIdx = parentBuffer.alloc(item);
-      
-      // Create new Enum signal to send downstream
-      Signal s_new(Signal::Enum);	
-      s_new.parentIdx = pIdx;
-      parentBuffer.ref(pIdx); // for use in signal
-      
-      node->getChannel(0)->pushSignal(s_new);
-      
-      return pIdx;
-    }
   };
   
 }  // end Mercator namespace

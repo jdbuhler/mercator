@@ -160,6 +160,9 @@ public:
   unsigned int get_enumerateId() const
   { return enumerateId; }
   
+  unsigned int get_nTerminalNodes() const
+  { return nTerminalNodes; }
+  
   unsigned int get_queueSize() const
   { return queueSize; }
   
@@ -177,9 +180,14 @@ public:
   
   void set_enumerateId(int e) { enumerateId = e; }
   
+  void set_nTerminalNodes(int n) { nTerminalNodes = n; }
+  
   void set_isSource(bool v) { isSource = v; }
 
   void set_enumerator(Node *n) { enumerator = n; }
+  
+  bool isTerminalNode() const { return _isTerminalNode; };
+  void setTerminalNode() { _isTerminalNode = true; }
   
   void print() const;
   
@@ -193,7 +201,10 @@ private:
 
   unsigned int regionId;
   unsigned int enumerateId;
+  unsigned int nTerminalNodes;
+  
   bool isSource;
+  bool _isTerminalNode;
   
   unsigned int queueSize;
 
@@ -384,7 +395,11 @@ struct App {
   
   std::vector<DataItem *> params;
   
-  std::vector<Node *> regionHeads; // maps regions to their head nodes
+  // maps regions to their head nodes
+  std::vector<Node *> regionHeads;
+
+  // maps regions to # of terminal nodes for each
+  std::vector<unsigned int> regionNTerminalNodes; 
   
   SymbolTable moduleNames;  // maps module name -> idx in modules
   

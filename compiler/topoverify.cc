@@ -84,6 +84,7 @@ void TopologyVerifier::verifyTopology(App *app)
   
   // region 0's head is the source node
   app->regionHeads.push_back(app->sourceNode);
+  app->regionNTerminalNodes.push_back(0);
   
   nextRegionId = 1;          // ID of first non-global region
   
@@ -209,9 +210,10 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  
 	  node->enumerateId = nextRegionId++;
 	  app->regionHeads.push_back(node);
+	  app->regionNTerminalNodes.push_back(0);
 	  
-	  parentRegion.push_back(regionId); // remember parent of new region
-	  regionId = node->enumerateId;     // set new region for children
+	  parentRegion.push_back(regionId);  // remember parent of new region
+	  regionId = node->enumerateId; // set new region for children
 	  
 #if 0
 	  cout << "FOUND ENUMERATE:" << endl
@@ -222,6 +224,7 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	}
       
       Node *head = nullptr;
+      bool isTerminalNode = true;
       for (unsigned int j = 0; j < mod->get_nChannels(); j++)
 	{
 	  Edge *e = node->dsEdges[j];
@@ -230,16 +233,22 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
 	  
+	  unsigned int dsRegionId;
 	  if (e->usChannel->isAggregate) 
 	    {
 	      // we are passing out of current region; revert to its parent
-	      regionId = parentRegion[regionId];
+	      dsRegionId = parentRegion[regionId];
+	    }
+	  else
+	    {
+	      dsRegionId = regionId;
+	      isTerminalNode = false;
 	    }
 	  
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
 				    multiplier * nextAmpFactor,
-				    regionId,
+				    dsRegionId,
 				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)
@@ -256,8 +265,17 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	    }
 	}
       
-      node->dfsStatus = Node::Finished;
+      if (isTerminalNode)
+	{
+	  node->setTerminalNode();
+	  app->regionNTerminalNodes[regionId]++;
+	}
       
+      node->dfsStatus = Node::Finished;
+
+      if (node->moduleType->isEnumerate())
+	node->set_nTerminalNodes(app->regionNTerminalNodes[node->enumerateId]);
+				
       return head;
     }
 }

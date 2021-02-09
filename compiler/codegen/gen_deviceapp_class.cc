@@ -170,6 +170,9 @@ void genDeviceModuleConstructor(const App *app,
     {
       args.push_back({"unsigned int", "enumId"});
       baseArgs.push_back("enumId");
+      
+      args.push_back({"unsigned int", "nTerminalNodes"});
+      baseArgs.push_back("nTerminalNodes");
     }
   
   // modules with per-node parameters have a node parameter accessor

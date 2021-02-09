@@ -30,8 +30,8 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////
 
     __device__
-    RefCountedArena(unsigned int isize)
-      : size(isize),
+    RefCountedArena(unsigned int size)
+      : size(size),
 	freeList(new unsigned int [size]),
 	refCounts(new unsigned int [size]),
 	blockingNode(nullptr)
@@ -64,7 +64,7 @@ namespace Mercator  {
     // @brief allocate a free entry in the buffer and return its
     // index.  The entry starts with a reference count of 1.
     __device__
-    unsigned int alloc()
+    unsigned int alloc(unsigned int initialRefCount)
     {
       assert(IS_BOSS());
       
@@ -72,21 +72,9 @@ namespace Mercator  {
       
       unsigned int idx = freeList[--freeListSize];
       
-      refCounts[idx] = 1;
+      refCounts[idx] = initialRefCount;
       
       return idx;
-    }
-
-    // @brief increment the reference count of entry idx by 1.
-    __device__
-    void ref(unsigned int idx)
-    {
-      assert(IS_BOSS());
-      
-      assert(idx < size || idx == NONE);
-      
-      if (idx != NONE)
-	++refCounts[idx];
     }
     
     // @brief decrement the reference count of entry idx by 1. Free it
@@ -96,24 +84,28 @@ namespace Mercator  {
     {
       assert(IS_BOSS());
       
-      assert(idx < size || idx == NONE);
-      
-      if (idx != NONE)
-	{
-	  assert(refCounts[idx] > 0);
+      assert(idx != NONE && idx < size);
+      assert(refCounts[idx] > 0);
 	  
-	  if (--refCounts[idx] == 0)
-	    {
-	      freeList[freeListSize++] = idx;
-	      if (freeListSize == 1)  // buffer was full, now is not
-		blockingNode->unblock();	  
-	    }
+      if (--refCounts[idx] == 0)
+	{
+	  freeList[freeListSize++] = idx;
+	  
+	  // unblock our node if we've cleared a significant amount of
+	  // space -- we could do this even if only a single slot
+	  // opens in the freelist, but a little hysteresis here
+	  // should prevent frequent "flapping" between nearly blocked
+	  // and unblocked status.
+	  if (freeListSize > size/2 &&
+	      blockingNode->isBlocked())
+	    blockingNode->unblock();	  
 	}
     }
     
   private:
     
     const unsigned int size;       // number of allocated entries
+    
     unsigned int* const freeList;  // array listing all free entries
     unsigned int* const refCounts; // reference counts for allocated entries
     
@@ -154,11 +146,11 @@ namespace Mercator  {
     // allocated entry.
     //
     __device__
-    unsigned int alloc(const T &v)
+    unsigned int alloc(const T &v, unsigned int initialRefCount = 1)
     {
       assert(IS_BOSS());
       
-      unsigned int idx = RefCountedArena::alloc();
+      unsigned int idx = RefCountedArena::alloc(initialRefCount);
       data[idx] = v;
       return idx;
     }
