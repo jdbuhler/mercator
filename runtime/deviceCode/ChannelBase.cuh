@@ -93,7 +93,7 @@ namespace Mercator  {
     size_t dsReserve(unsigned int nToWrite)
     {
       assert(IS_BOSS());
-      assert(dsSignalQueue->getFreeSpace() >= nToWrite);
+      assert(dsQueue->getFreeSpace() >= nToWrite);
       
       if (dsQueue->getFreeSpace() - nToWrite < minFreeSpace)
 	dsNode->activate();

@@ -61,10 +61,10 @@ namespace Mercator  {
 		Source *isource,
 		NodeFnType *inodeFunction)
       : BaseType(scheduler, region, nullptr),
-	source(isource),
+        source(isource),
 	nodeFunction(inodeFunction),
 	nDataPending(0),
-	basePtr(0)
+        basePtr(0)
     {
       nodeFunction->setNode(this);
     }
@@ -145,13 +145,16 @@ namespace Mercator  {
     {
       TIMER_START(overhead);
       
+      unsigned int nDataToConsume = nDataPending;
+      unsigned int nDataConsumed  = 0;
+      
       do 
 	{
-	  if (nDataPending == 0)
+	  if (nDataToConsume == 0) // we need a new input block
 	    {
 	      // BEGIN WRITE nDataPending, basePtr, sourceExhausted
-	      __syncthreads();      
-	    
+	      __syncthreads();   
+	      
 	      if (IS_BOSS())
 		{
 		  // ask the source buffer for as many inputs as we want
@@ -162,81 +165,57 @@ namespace Mercator  {
 	      
 	      // END WRITE nDataPending, basePtr, sourceExhausted
 	      __syncthreads();
+	      
+	      nDataToConsume = nDataPending;
+	      nDataConsumed = 0;
 	    }
 	  
-	  // # of items available to consume from queue
-	  unsigned int nDataToConsume = nDataPending;
-	
-	  // # of items already consumed from queue
-	  unsigned int nDataConsumed = 0;
-	
-	  // threshold for declaring data queue "empty" for scheduling
-	  // To actually use the input hint from the nodeFunction, we
-	  // need to be able to stop with nDataToConsume > 0 and ask for
-	  // another input block to get the # of elts over the input hint 
-	  // size.  This will require an InputView that can fuse two
-	  // source ranges.
-	  const unsigned int emptyThreshold = 0;
-	
-	  //
-	  // run until input queue satisfies EMPTY condition, or 
-	  // writing output causes some downstream neighbor to activate.
-	  //
-	  while (nDataToConsume - nDataConsumed > emptyThreshold &&
-		 !this->isDSActive())
-	    {
-	      // determine the max # of items we may safely consume this time
-	      unsigned int limit = nDataToConsume - nDataConsumed;
-	      
+	  if (nDataToConsume > 0)
+	    { 
 	      TIMER_STOP(overhead);
 	      TIMER_START(user);
 	      
-	      // doRun() tries to consume input; could cause node to block
-	      unsigned int nFinished = 
-		nodeFunction->doRun(*source, 
-				    basePtr + nDataConsumed, 
-				    limit);
+	      nDataConsumed =
+		nodeFunction->doRun(*source, basePtr, nDataToConsume);
 	      
 	      TIMER_STOP(user);
 	      TIMER_START(overhead);
 	      
-	      nDataConsumed += nFinished;
-	      
-	      // don't keep trying to run the node if it is blocked
-	      if (this->isBlocked())
-		break;
+	      nDataToConsume -= nDataConsumed;
 	    }
 	  
-	  // BEGIN WRITE nDataPending, basePtr
-	  __syncthreads(); 
-	  
-	  if (IS_BOSS())
-	    {
-	      nDataPending -= nDataConsumed;
-	      basePtr      += nDataConsumed;
-	      
-	      if (sourceExhausted && nDataPending == 0)
-		{
-		  this->deactivate();
-		  
-		  // no more inputs to read -- force downstream nodes
-		  // into flushing mode and activate them (if not
-		  // already active).  Even if they have no input,
-		  // they must fire once to propagate flush mode to
-		  // *their* downstream nodes.
-		  for (unsigned int c = 0; c < numChannels; c++)
-		    getChannel(c)->flush(0); // 0 = global region ID
-		}
-	    }
-	  
-	  // END WRITE nDataPending, basePtr
-	  __syncthreads();
-	
-	  // keep going until we are blocked, either by full output or
-	  // by actual blockage, or we have nothing left to do.
+	  // keep going until the source is out of data or we are
+	  // prevented from consuming more input
 	} 
-      while (!this->isDSActive() && !this->isBlocked() &&
-	     !(sourceExhausted && nDataPending == 0));
+      while (!sourceExhausted && !this->isDSActive() && !this->isBlocked());
+      
+      // BEGIN WRITE nDataPending, basePtr
+      __syncthreads(); 
+      
+      if (IS_BOSS())
+	{
+	  // record any partial input chunk remaining
+	  // for the next time we are fired
+	  nDataPending -= nDataConsumed;
+	  basePtr      += nDataConsumed;
+	  
+	  if (sourceExhausted && nDataPending == 0)
+	    {
+	      this->deactivate();
+	      
+	      // no more inputs to read -- force downstream nodes
+	      // into flushing mode and activate them (if not
+	      // already active).  Even if they have no input,
+	      // they must fire once to propagate flush mode to
+	      // *their* downstream nodes.
+	      for (unsigned int c = 0; c < numChannels; c++)
+		getChannel(c)->flush(0); // 0 = global region ID
+	    }
+	}
+      
+      // END WRITE nDataPending, basePtr 
+      // (elided due to sync in scheduler)
+      // __syncthreads();
       
       TIMER_STOP(overhead);
     }

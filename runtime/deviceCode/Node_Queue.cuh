@@ -160,11 +160,10 @@ namespace Mercator  {
       
       //
       // run until input queue satisfies EMPTY condition, or 
-      // writing output causes some downstream neighbor to activate.
+      // the node cannot continue due to resource exhaustion
+      // (dsActive or internally blocked)
       //
-      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
-	      nSignalsConsumed < nSignalsToConsume) &&
-	     !this->isDSActive())
+      do
 	{
 	  // determine the max # of items we may safely consume this time
 	  unsigned int limit;
@@ -209,18 +208,18 @@ namespace Mercator  {
 		{
 		  nCredits -= nFinished;
 		  
-		  if (nCredits == 0 && !this->isBlocked())
+		  if (nCredits == 0)
 		    {
 		      nCredits = this->handleSignal(nSignalsConsumed);
 		      nSignalsConsumed++;
 		    }
 		}
 	    }
-	  
-	  // don't keep trying to run the node if it is blocked
-	  if (this->isBlocked())
-	    break;
 	}
+      while ((nDataToConsume - nDataConsumed > emptyThreshold ||
+	      nSignalsConsumed < nSignalsToConsume) &&
+	     !this->isDSActive() && !this->isBlocked());
+      
       
       // BEGIN WRITE queue ptrs, credit
       __syncthreads(); 
