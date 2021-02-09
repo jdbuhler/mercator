@@ -35,9 +35,9 @@ namespace Mercator  {
     
     __device__
     NodeFunction(RefCountedArena *iparentArena)
-      : node(nullptr),
-	parentArena(iparentArena),
-	parentIdx(RefCountedArena::NONE)
+      : parentArena(iparentArena),
+	parentIdx(RefCountedArena::NONE),
+	node(nullptr)
     {}
     
     //
@@ -95,15 +95,15 @@ namespace Mercator  {
     void begin() {}
     
     __device__
+  
     void end() {}
     
   protected:
-
-    NodeType *node;
     
     RefCountedArena* const parentArena;
-
     unsigned int parentIdx;
+    
+    NodeType *node;
   };
 }  // end Mercator namespace
 

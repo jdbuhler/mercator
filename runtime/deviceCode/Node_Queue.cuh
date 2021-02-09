@@ -340,15 +340,15 @@ namespace Mercator  {
 	{
 	  RefCountedArena *parentArena = nodeFunction->getParentArena();
 	  
-	  parentArena->unref(pIdx); // remove this node's reference
+	  parentArena->unref(pIdx);
 	  
 	  // set the parent object for this node (specified
 	  // as an index into its parent arena)
-
+	  
 	  pIdx = s.parentIdx;
 	  nodeFunction->setParentIdx(pIdx);
 	  
-	  parentArena->ref(pIdx);
+	  // ref from signal transfers to node; no change in count
 	  
 	  //Reserve space downstream for the new signal
 	  for (unsigned int c = 0; c < numChannels; ++c)
@@ -363,8 +363,6 @@ namespace Mercator  {
 		  channel->pushSignal(s);
 		}
 	    }
-	  
-	  parentArena->unref(pIdx); // signal is destroyed
 	}
       
       __syncthreads(); // END WRITE parentIdx, ds signal queue
