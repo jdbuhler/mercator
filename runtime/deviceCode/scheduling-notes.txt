@@ -106,7 +106,6 @@ Signal.cuh) and dispatches it to a corresponding handler function
 defined in the Node.  Handlers are *virtual* functions, so that any
 subclass of a Node is able to override the generic handler.
 
-
 ** FLUSHING BEHAVIOR
 
 Flushing is used to ensure that a node will not wait to consume its

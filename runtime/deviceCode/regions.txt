@@ -1,0 +1,57 @@
+NOTES ON REGION-BASED STATE IMPLEMENTATION
+
+Mercator apps can perform enumeration and aggregation, as described in
+(Timcheck and Buhler, 2020).  To support this formalism, Mercator
+defines *enumeration regions* within an application's tree of nodes.
+
+The head of an enumeration region is a node whose function is of type
+NodeFunction_Enumerate.  This head node is responsible for taking
+in parent objects and enumerating their contents to the downstream
+node.  The region consists of every node reachable from the enumerating
+node (not including the enumerating node itself) via edges that are
+not *aggregating*.  A node N is said to be *terminal* for its region if
+it has no non-aggregating outgoing edges, since no node downstream of N
+is included in its region.
+
+The enumerating node for a region maintains a *parent buffer* that
+holds all parent objects whose contents are currently "live" inside
+the region.  Each newly enumerated parent object is allocated a space
+in the buffer and given a *reference count* equal to the number of
+terminal nodes for the region.  When a terminal node finishes working
+with a parent object, it decrements this reference count.  Only once
+all terminal nodes have finished can the parent object safely be
+removed from the buffer.  The Mercator compiler computes whether each
+node is terminal and counts the number of terminal nodes per region
+and provides this information to the app at construction time.
+
+Note that for now, a source node cannot be terminal, as it cannot be
+inside an enumeration region. Every sink node is terminal for its
+region by definition because it has no downstream edges; however, sink
+nodes in region 0 (the entire app, not an enumeration region) don't
+use their terminal status for anything.
+
+Because the parent buffer has a fixed, finite size, it may become full
+if too many parent objects are active in the region simultaneously. If
+the parent buffer becomes full, it blocks the enumerating node from
+further execution and sends a flush to the nodes in its region, asking
+them to complete work on queued data associated with all but the most
+recently enumerated parent object. Once a flush empties some space in
+the parent buffer, the enumerating node is unblocked and, if eligible,
+is once again scheduled for firing.
+
+Parent objects are communicated to nodes in a region using Enum
+signals, which are synchronized with the data stream via the general
+signaling credit protocol.  An Enum signal indicates that subsequent
+data comes from a new parent object and specifies the index of that
+object in the parent buffer.  All nodes in the region use this signal
+to set their current parent object index.  (The parent arena itself is
+provided to each node in the region at construction time.)
+
+When the enumerating node receives a flush, it must both finish any
+pending items and send a final null Enum signal, indicating that the
+last pending parent has been completed.  This signal allows all
+downstream nodes in the region to complete any pending aggregation
+operations on the last parent.  (Note that we do NOT send a null Enum
+signal when the enumerating node chooses to flush due to a full parent
+buffer; it's sufficient to clear all but the last active parent to
+free up enough space to continue.)

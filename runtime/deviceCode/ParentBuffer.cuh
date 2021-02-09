@@ -146,7 +146,7 @@ namespace Mercator  {
     // allocated entry.
     //
     __device__
-    unsigned int alloc(const T &v, unsigned int initialRefCount = 1)
+    unsigned int alloc(const T &v, unsigned int initialRefCount)
     {
       assert(IS_BOSS());
       

@@ -46,7 +46,11 @@ namespace Mercator {
     ///////////////////////////////////////////////////////
     // INIT/CLEANUP KERNEL FUNCIIONS
     ///////////////////////////////////////////////////////
-    
+
+    // @param parentArena parent object arena for region *containing* us
+    // @param enumId identifier for region of which we are the head
+    // @param nTerminalNodes number of terminal nodes in the region for
+    //        which we are the head
     __device__
     NodeFunction_Enumerate(RefCountedArena *parentArena,
 			   unsigned int enumId,
