@@ -1,0 +1,31 @@
+//
+// SYNTHGAIN.MTR
+// Synthetic application allowing the user to define data movement behavior.
+//
+// MERCATOR
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+//
+
+Application SynthGain;
+
+// nodes
+
+Module type1 : size_t -> {unsigned int}:16;
+AllThreads type1;
+
+//
+// By default, the filter module produces either 0 or 1 outputs
+// for each input on each output channel. This module has a
+// single, unnamed output channel.
+
+Node t1 : type1;
+Node snk : Sink<{unsigned int}> ;
+
+Source t1;
+
+// edges
+Edge t1 -> snk;
+
+
+NodeParam type1::avgGain : float;
+
