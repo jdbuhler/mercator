@@ -118,7 +118,7 @@ namespace Mercator  {
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
       
       // BEGIN WRITE basePtr, ds queue, node dsActive status, nextSlot
-      __syncthreads(); 
+      // __syncthreads();  // elided due to sync in exclusiveSum()
 
       // clear nextSlot for this thread group, since we're done with it
       if (tid < numThreadGroups)
@@ -129,7 +129,6 @@ namespace Mercator  {
 	basePtr = channel->dsReserve(totalToWrite);
       
       // END WRITE basePtr, ds queue, node dsActive status, nextSlot
-      
       __syncthreads(); 
       
       // for each thread group, copy all generated outputs downstream

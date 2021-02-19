@@ -164,7 +164,7 @@ namespace Mercator  {
     __device__
     bool isThreadGroupLeader() const
     { return (threadIdx.x % threadGroupSize == 0); }
-  
+    
     //
     // @brief Write an output item to the indicated channel.
     //
@@ -177,27 +177,28 @@ namespace Mercator  {
     __device__
     void push(const DST &item, bool pred, unsigned int channelIdx = 0) const
     {
+      using Channel = Channel<DST>;
+      
+      Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
+      
       //
       // assign offsets in the output queue to threads that want to write
       // a value, and compute the total number of values to write
       //
       BlockScan<unsigned int, THREADS_PER_BLOCK> scanner;
       unsigned int totalToWrite;
-    
-      unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
-    
-      using Channel = Channel<DST>;
       
-      Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
-    
-      __syncthreads(); // BEGIN WRITE basePtr, ds queue, node dsActive status
-    
+      unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
+      
+      // BEGIN WRITE basePtr, ds queue, node dsActive status
+      // __syncthreads();   // elided due to sync inside exclusiveSum()
+      
       __shared__ size_t basePtr;
       if (IS_BOSS())
 	basePtr = channel->dsReserve(totalToWrite);
-    
+      
       __syncthreads(); // END WRITE basePtr, ds queue, node dsActive status
-    
+      
       if (pred)
 	channel->dsWrite(basePtr, dsOffset, item);
     }
