@@ -1,4 +1,4 @@
-#include "SameTypePipe_1to1map_AT_dev.cuh"
+#include "SameTypePipe_1to1map_dev.cuh"
 
 #include <curand_kernel.h>
 
@@ -6,7 +6,7 @@
 
 __MDECL__
 void 
-SameTypePipe_1to1map_AT_dev::
+SameTypePipe_1to1map_dev::
 A<InputView>::init()
 {
   const int threadWidth = getNumActiveThreads();
@@ -30,7 +30,7 @@ A<InputView>::init()
 
 __MDECL__
 void 
-SameTypePipe_1to1map_AT_dev::
+SameTypePipe_1to1map_dev::
 A<InputView>::run(const PipeEltT& inputItem, unsigned int nInputs)
 { 
   unsigned int tid = threadIdx.x;
@@ -82,7 +82,7 @@ A<InputView>::run(const PipeEltT& inputItem, unsigned int nInputs)
 
 __MDECL__
 void
-SameTypePipe_1to1map_AT_dev::
+SameTypePipe_1to1map_dev::
 A<InputView>::cleanup()
 {
   if (threadIdx.x == 0)

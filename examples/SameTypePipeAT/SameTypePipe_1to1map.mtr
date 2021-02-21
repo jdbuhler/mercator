@@ -1,5 +1,5 @@
 //
-// SAMETYPEPIPE_1TO1MAP_AT
+// SAMETYPEPIPE_1TO1MAP
 // A linear filter pipeline of nodes of common type, which
 // also does some work in every node to keep the GPU busy.
 //
@@ -7,7 +7,7 @@
 reference "curand_kernel.h";
 reference "PipeEltT.cuh";
 
-Application SameTypePipe_1to1map_AT;
+Application SameTypePipe_1to1map;
 
 //
 // MODULE TYPES

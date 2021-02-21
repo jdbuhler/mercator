@@ -12,8 +12,8 @@
 #include "validate.cuh"
 
 #if defined(MAPPING_1TO1)
-#include "SameTypePipe_1to1map_AT.cuh"
-#define APP_TYPE SameTypePipe_1to1map_AT
+#include "SameTypePipe_1to1map.cuh"
+#define APP_TYPE SameTypePipe_1to1map
 #elif defined(MAPPING_1TO2)
 #include "SameTypePipe_1to2map.cuh"
 #define APP_TYPE SameTypePipe_1to2map

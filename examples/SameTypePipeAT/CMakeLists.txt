@@ -9,9 +9,9 @@ project(SameTypePipe
 
 add_mercator_app(TARGET SameTypePipe_1to1map_AT
 		 SPECFILE SameTypePipe_1to1map.mtr
+                 APPNAME SameTypePipe_1to1map
 		 SOURCES SameTypePipe_1to1map.cu)
 
 add_mercator_executable(TARGET SameTypePipeAT
 			APPS SameTypePipe_1to1map_AT
 			SOURCES SameTypePipe_driver.cu validate.cu)
-

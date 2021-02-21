@@ -9,6 +9,10 @@ cmake_minimum_required(VERSION 3.8)
 
 set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
 
+define_property(TARGET PROPERTY appname
+                BRIEF_DOCS "name of Mercator app" 
+                FULL_DOCS "name of the Mercator app to be used in compilation")
+
 # add_mercator_app()
 # Construct a MERCATOR application from sources
 #
@@ -28,13 +32,17 @@ set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
 #     a library lib${appname}.a associated with the given target name
 #
 function(add_mercator_app)
-   set(oneValueArgs TARGET SPECFILE)
+   set(oneValueArgs TARGET SPECFILE APPNAME)
    set(multiValueArgs SOURCES)
    cmake_parse_arguments(PARSE_ARGV 0 ADD_MERCATOR "" 
    		         "${oneValueArgs}" 
 			 "${multiValueArgs}")
 
-   set(appname ${ADD_MERCATOR_TARGET})
+   if(DEFINED ADD_MERCATOR_APPNAME)
+     set(appname ${ADD_MERCATOR_APPNAME})
+   else()
+     set(appname ${ADD_MERCATOR_TARGET})
+   endif()
 
    # names of generated files depend on the app name
    set(GENERATED_CUFILES ${CMAKE_CURRENT_BINARY_DIR}/${appname}_init.cu)
@@ -72,14 +80,17 @@ function(add_mercator_app)
     )
     
    # turn the combined object into a library
-   add_library(${appname} ${COMBINED_CUFILE})
+   add_library(${ADD_MERCATOR_TARGET} ${COMBINED_CUFILE})
    
-   target_include_directories(${appname}
+   target_include_directories(${ADD_MERCATOR_TARGET}
 			      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
 			      	      PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
 			      
   target_compile_features(${appname} PUBLIC cxx_std_14 cuda_std_14)
+
+  # remember the name of the app
+  set_property(TARGET ${ADD_MERCATOR_TARGET} PROPERTY appname ${appname})
 
 endfunction(add_mercator_app)
 
@@ -103,7 +114,8 @@ function(add_mercator_executable)
   			"${oneValueArgs}" 
 			"${multiValueArgs}")
 
-  foreach(appname ${ADD_MERCATOR_EXE_APPS})
+  foreach(app ${ADD_MERCATOR_EXE_APPS})
+     get_property(appname TARGET ${app} PROPERTY appname) 
      list(APPEND alldeps ${CMAKE_CURRENT_BINARY_DIR}/${appname}.cuh)
   endforeach()
 
@@ -111,7 +123,7 @@ function(add_mercator_executable)
 
   add_executable(${ADD_MERCATOR_EXE_TARGET} ${alldeps})
 
-  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_11)
+  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_14)
 
   target_include_directories(${ADD_MERCATOR_EXE_TARGET}
 			     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
