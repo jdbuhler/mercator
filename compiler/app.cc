@@ -93,7 +93,7 @@ ModuleType::ModuleType(const string &iname,
     nChannels(inChannels),
     flags(iflags),
     inputLimit(iinputLimit),
-    nElements(1), nThreads(1)
+    nElements(1)
 {
   channels = new Channel * [nChannels];
   for (unsigned int j = 0; j < nChannels; j++)
@@ -161,10 +161,7 @@ void Channel::print() const
 {
   cout << name << " : ";
   type->print();
-  cout << " [" << maxOutputs;
-  if (isVariable)
-    cout << '?';
-  cout << ']';
+  cout << " [" << maxOutputs << ']';
 }
 
 void Node::print() const
@@ -220,7 +217,6 @@ void ModuleType::print() const
   cout << "      FLAGS: " << flags << endl;
   cout << "     ILIMIT: " << inputLimit << endl;
   cout << "  NELEMENTS: " << nElements << endl;
-  cout << "   NTHREADS: " << nThreads << endl;
   
   if (moduleParams.size() > 0)
     {

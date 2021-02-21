@@ -13,7 +13,6 @@ Application ModFilter;
 //
 
 Module Filter : {unsigned int} -> accept<{unsigned int}> ;
-AllThreads Filter;
 
 //
 // this time, build a chain of three filters

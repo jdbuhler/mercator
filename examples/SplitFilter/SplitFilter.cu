@@ -27,9 +27,12 @@ uint32_t munge(uint32_t key)
 //
 __MDECL__
 void SplitFilter_dev::Filter<InputView>::
-run(uint32_t const & inputItem)
+run(uint32_t const & inputItem, unsigned int nInputs)
 {
-  uint32_t v = munge(inputItem);
+  uint32_t v;
   
-  push(v, (v % 2 == 0 ? Out::accept : Out::reject));
+  if (threadIdx.x < nInputs)
+    v = munge(inputItem);
+  
+  push(v, (threadIdx.x < nInputs), (v % 2 == 0 ? Out::accept : Out::reject));
 }

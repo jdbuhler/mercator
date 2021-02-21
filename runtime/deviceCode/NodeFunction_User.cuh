@@ -43,7 +43,6 @@ namespace Mercator  {
 	   unsigned int numChannels,
 	   typename InputView,
 	   unsigned int THREADS_PER_BLOCK,
-	   unsigned int threadGroupSize,
 	   unsigned int maxActiveThreads,
 	   template <typename View> typename DerivedNodeFnKind>
   class NodeFunction_User : public NodeFunction<numChannels> {
@@ -58,22 +57,13 @@ namespace Mercator  {
       (maxActiveThreads > THREADS_PER_BLOCK 
        ? THREADS_PER_BLOCK 
        : maxActiveThreads);
-  
-    // number of thread groups (no partial groups allowed!)
-    static const unsigned int numThreadGroups = 
-      deviceMaxActiveThreads / threadGroupSize;
-  
-    // max # of active threads assumes we only run full groups
-    static const unsigned int numActiveThreads =
-      numThreadGroups * threadGroupSize;
-  
+    
   protected:
     
     // maximum number of inputs that can be processed in a single 
     // call to the node's run() function
-    static const unsigned int maxRunSize =
-      numThreadGroups;
-  
+    static const unsigned int maxRunSize = deviceMaxActiveThreads;
+    
   public:
   
     ///////////////////////////////////////////////////////
@@ -149,22 +139,8 @@ namespace Mercator  {
     //
     __device__
     unsigned int getNumActiveThreads() const
-    { return numActiveThreads; }
+    { return deviceMaxActiveThreads; }
   
-    //
-    // @brief get the size of a thread group
-    //
-    __device__
-    unsigned int getThreadGroupSize() const
-    { return threadGroupSize; }
-  
-    //
-    // @brief return true iff we are the 0th thread in our group
-    //
-    __device__
-    bool isThreadGroupLeader() const
-    { return (threadIdx.x % threadGroupSize == 0); }
-    
     //
     // @brief Write an output item to the indicated channel.
     //

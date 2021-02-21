@@ -11,7 +11,6 @@ Application EvenFilter;
 // nodes
 
 Module filter : size_t -> {unsigned int};
-AllThreads filter;
 
 //
 // By default, the filter module produces either 0 or 1 outputs

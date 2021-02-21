@@ -13,7 +13,7 @@
 
 #include <cub/cub.cuh>
 
-namespace Mercator  {
+namespace Mercator {
   
   template <typename T, unsigned int TPB>
   __device__
@@ -48,7 +48,7 @@ namespace Mercator  {
     using Scanner =
       cub::BlockScan<T, TPB,
 		     cub::BLOCK_SCAN_WARP_SCANS>;
-    
+		     
   public:
     
     //

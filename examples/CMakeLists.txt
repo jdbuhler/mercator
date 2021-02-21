@@ -61,8 +61,6 @@ endif()
 
 add_subdirectory(SameTypePipe)
 
-add_subdirectory(SameTypePipeAT)
-
 add_subdirectory(EvenFilter)
 
 add_subdirectory(ModFilter)

@@ -65,7 +65,6 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 "->"     return yy::mercator_parser::make_GOESTO(loc);
 ">"      return yy::mercator_parser::make_GT(loc);
 "<"      return yy::mercator_parser::make_LT(loc);
-"!"      return yy::mercator_parser::make_BANG(loc);
 "::"     return yy::mercator_parser::make_SCOPE(loc);
 ";"      return yy::mercator_parser::make_SEMICOLON(loc);
 "*"      return yy::mercator_parser::make_STAR(loc);
@@ -75,7 +74,6 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 %}
 
 (?i:"aggregate")   return yy::mercator_parser::make_AGGREGATE(loc);
-(?i:"allthreads")  return yy::mercator_parser::make_ALLTHREADS(loc);
 (?i:"application") return yy::mercator_parser::make_APPLICATION(loc);
 (?i:"buffer")      return yy::mercator_parser::make_BUFFER(loc);
 (?i:"edge")        return yy::mercator_parser::make_EDGE(loc);
@@ -83,7 +81,6 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"from")        return yy::mercator_parser::make_FROM(loc); 
 (?i:"function")    return yy::mercator_parser::make_FUNCTION(loc); 
 (?i:"ilimit")      return yy::mercator_parser::make_ILIMIT(loc); 
-(?i:"mapping")     return yy::mercator_parser::make_MAPPING(loc);
 (?i:"module")      return yy::mercator_parser::make_MODULE(loc);
 (?i:"node")        return yy::mercator_parser::make_NODE(loc);
 (?i:"nodeparam")   return yy::mercator_parser::make_NODEPARAM(loc);

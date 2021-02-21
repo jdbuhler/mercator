@@ -42,18 +42,15 @@ namespace input {
     std::string name; // channel names
     DataType *type;   // type of values emitted on channel
     unsigned int maxOutputs;   // max outputs per input
-    bool isVariable;  // is outputs/input fixed or variable?
     bool isAggregate;
     
     ChannelSpec(const std::string &name,
 		DataType *type,
 		unsigned int maxOutputs,
-		bool isVariable,
 		bool isAggregate)
       : name(name),
 	type(type),
 	maxOutputs(maxOutputs),
-	isVariable(isVariable),
 	isAggregate(isAggregate)
     {}
     
@@ -155,41 +152,6 @@ namespace input {
 	limit(limit)
     {}
   };
-  
-  
-  //
-  // Statement specifying that a module should
-  // run with all threads, regardless of how many
-  // inputs it has.
-  //
-  
-  struct AllThreadsStmt {
-    std::string module;
-    
-    AllThreadsStmt(const std::string &module)
-      : module(module)
-    {}
-  };
-  
-  
-  //
-  // Statement specifying a mapping other than
-  // one thread/item for a module.
-  //
-  
-  struct MappingStmt {
-    std::string module;
-    unsigned int nmap;
-    bool isSIMD; // true if mapping is 1:nmap rather than nmap:1
-    
-    MappingStmt(const std::string &module,
-		unsigned int nmap, bool isSIMD = false)
-      : module(module),
-	nmap(nmap),
-	isSIMD(isSIMD)
-    {}
-  };
-  
   
   //
   // module type of a node.  May be either a string referencing a
@@ -339,10 +301,6 @@ namespace input {
     std::vector<SourceStmt>  sources;
     
     std::vector<ILimitStmt>  ilimits;
-    
-    std::vector<AllThreadsStmt> allthreads;
-    
-    std::vector<MappingStmt> mappings;
     
     std::vector<DataStmt *>  vars;
     

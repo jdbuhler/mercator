@@ -29,10 +29,12 @@ unsigned int munge(unsigned int key)
 //
 __MDECL__
 void AsyncFilter_dev::
-Filter<InputView>::run(unsigned int const & inputItem)
+Filter<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 {
-  unsigned int v = munge(inputItem);
+  unsigned int v;
   
-  if (v % getModuleParams()->modulus == 0)
-    push(v);
+  if (threadIdx.x < nInputs)
+    v = munge(inputItem);
+  
+  push(v, threadIdx.x < nInputs && v % getModuleParams()->modulus == 0);
 }

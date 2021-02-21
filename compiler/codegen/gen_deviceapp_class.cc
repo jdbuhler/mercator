@@ -33,21 +33,10 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
   string inputType = mod->get_inputType()->name;
   
   string runFcnParams;
-  if(mod->get_nElements() > 1)
-    {
-      runFcnParams = 
-	"const " + inputType + "* inputItems";
-    }
-  else
-    {
-      runFcnParams = 
-	inputType + " const & inputItem";
-    }
   
-  if (mod->get_useAllThreads())
-    {
-      runFcnParams += ", unsigned int nInputs";
-    }
+  runFcnParams = inputType + " const & inputItem";
+  
+  runFcnParams += ", unsigned int nInputs";
   
   return runFcnParams;
 }
@@ -88,10 +77,7 @@ string genDeviceModuleBaseType(const ModuleType *mod)
     {
       string moduleTypeVariant;
       
-      if (!mod->get_useAllThreads()) //runWithAllThreads
-	moduleTypeVariant = "NodeFunction_Buffered";
-      else
-	moduleTypeVariant = "NodeFunction_User";
+      moduleTypeVariant = "NodeFunction_User";
       
       baseType =
 	moduleTypeVariant
@@ -99,7 +85,6 @@ string genDeviceModuleBaseType(const ModuleType *mod)
 	+ ", " + to_string(mod->get_nChannels())
 	+ ", InputView"
 	", THREADS_PER_BLOCK"
-	", " + to_string(mod->get_nThreads())
 	+ ", " + to_string(mod->get_inputLimit())
 	+ ", " + mod->get_name() // for CRTP
 	+ ">";
@@ -315,8 +300,6 @@ void genDeviceModuleClass(const App *app,
     {
       // generate reflectors for user code to learn about this module
       f.add("using Mercator::" + baseType + "::getNumActiveThreads;");
-      f.add("using Mercator::" + baseType + "::getThreadGroupSize;");
-      f.add("using Mercator::" + baseType + "::isThreadGroupLeader;");
       f.add("using Mercator::" + baseType + "::push;");
       
       f.add("");
@@ -628,7 +611,6 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   {
     // include only the module type specializations needed by the app
     bool needsUser      = false;
-    bool needsBuffered  = false;
     bool needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
@@ -637,17 +619,12 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  continue;
 	else if (mod->isEnumerate())
 	  needsEnumerate = true;
-	else if (!mod->get_useAllThreads())
-	  needsBuffered = true;
 	else
 	  needsUser = true;
       }
     
     if (needsUser)
       f.add(genUserInclude("deviceCode/NodeFunction_User.cuh"));
-    
-    if (needsBuffered)
-      f.add(genUserInclude("deviceCode/NodeFunction_Buffered.cuh"));
     
     if (needsEnumerate)
       f.add(genUserInclude("deviceCode/NodeFunction_Enumerate.cuh"));

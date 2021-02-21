@@ -108,20 +108,17 @@ struct Channel {
 
   DataType *type;              // output type of channel
   unsigned int  maxOutputs;    // max outputs/input on channel
-  bool isVariable;             // is outputs/input fixed or variable?
   bool isAggregate;            // is the channel used for aggregates?
   
   Channel(const std::string &iname,
 	  unsigned int iid,
 	  DataType *itype,
 	  unsigned int imaxOutputs,
-	  bool iisVariable,
           bool iisAggregate)
     : name(iname),
       id(iid),
       type(itype),
       maxOutputs(imaxOutputs),
-      isVariable(iisVariable),
       isAggregate(iisAggregate)
   {}
   
@@ -240,7 +237,6 @@ public:
     F_isSink              = 0x02,
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
-    F_useAllThreads       = 0x10,
   };
   
   ModuleType(const std::string &iname,
@@ -274,12 +270,6 @@ public:
   unsigned int get_nElements() const
   { return nElements; }
   
-  unsigned int get_nThreads() const
-  { return nThreads; }
-  
-  bool get_useAllThreads() const
-  { return (flags & F_useAllThreads); }
-  
   Channel *get_channel(unsigned int cId) const
   { 
     assert(cId < nChannels && channels[cId] != nullptr);
@@ -302,12 +292,6 @@ public:
 
   void set_nElements(unsigned int ni)
   { nElements = ni; }
-  
-  void set_nThreads(unsigned int nt)
-  { nThreads = nt; }
-  
-  void set_useAllThreads()
-  { flags |= F_useAllThreads; }
   
   void set_channel(unsigned int cId, Channel *c)
   {
@@ -367,10 +351,8 @@ private:
   unsigned int flags;      // flags for special module properties
   
   unsigned int inputLimit; // max threads per firing
-
-  // for non-1:1 mappings (at most one of these is not 1)
-  unsigned int nElements;  // items allocated to each thread
-  unsigned int nThreads;   // threads per item
+  
+  unsigned int nElements;  // items consumed by each thread
 };  
 
 
@@ -382,7 +364,7 @@ struct App {
   enum SourceKind { SourceIdx, SourceBuffer, SourceFunction };
   
   std::string name;
-
+  
   unsigned int threadWidth;
   
   Node *sourceNode;

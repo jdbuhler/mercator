@@ -104,7 +104,6 @@ App *buildApp(const input::AppSpec *appSpec)
 	  Channel *channel = new Channel(cs->name, cId,
 					 new DataType(cs->type),
 					 cs->maxOutputs,
-					 cs->isVariable,
 					 cs->isAggregate);
 	  
 	  module->set_channel(cId++, channel);
@@ -133,7 +132,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	  Channel *channel = new Channel("__out", 0,
 					 new DataType("unsigned int", 
 						      mts->inputType->name),
-					 1, true, false);
+					 1, false);
 	  
 	  enumModule->set_channel(0, channel);
 	  enumModule->channelNames.insertUnique("__out", 0);
@@ -156,25 +155,6 @@ App *buildApp(const input::AppSpec *appSpec)
 	app->modules.push_back(module);
     }
   
-  for (const input::AllThreadsStmt is : appSpec->allthreads)
-    {
-      //
-      // VALIDATE that allthreads stmt refers to an extant module
-      //
-      int mId = app->moduleNames.find(is.module);
-      if (mId == SymbolTable::NOT_FOUND)
-	{
-	  cerr << "ERROR: allthreads statement refers to nonexistent module type "
-	       << is.module
-	       << endl;
-	  abort();
-	}
-      
-      ModuleType *module = app->modules[mId];
-      
-      module->set_useAllThreads();
-    }
-
   for (const input::ILimitStmt is : appSpec->ilimits)
     {
       //
@@ -192,29 +172,6 @@ App *buildApp(const input::AppSpec *appSpec)
       ModuleType *module = app->modules[mId];
       
       module->set_inputLimit(std::min(is.limit, module->get_inputLimit()));
-    }
-  
-  for (const input::MappingStmt is : appSpec->mappings)
-    {
-      //
-      // VALIDATE that mapping stmt refers to an extant module
-      //
-      int mId = app->moduleNames.find(is.module);
-      if (mId == SymbolTable::NOT_FOUND)
-	{
-	  cerr << "ERROR: mapping statement refers to nonexistent module type "
-	       << is.module
-	       << endl;
-	  abort();
-	  
-	}
-      
-      ModuleType *module = app->modules[mId];
-      
-      if (is.isSIMD)
-	module->set_nThreads(is.nmap); // nmap threads/input
-      else
-	module->set_nElements(is.nmap);  // nmap inputs/thread
     }
   
   for (const input::NodeStmt *ns : appSpec->nodes)

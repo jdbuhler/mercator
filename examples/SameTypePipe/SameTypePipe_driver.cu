@@ -83,7 +83,6 @@ int main(int argc, char* argv[])
   Mercator::Buffer<PipeEltT> inBuffer(NUM_INPUTS);
   Mercator::Buffer<PipeEltT> outBufferAccept(MAX_OUTPUTS);
   
-  
   // create app object
   APP_TYPE app;
   
@@ -159,7 +158,7 @@ int main(int argc, char* argv[])
 	lastUpperBd = upperBd;
       }
       
-      // associate buffers with input and output
+      // associate buffers with nodes
       
       app.setSource(inBuffer);
       app.sinkNodeAccept.setSink(outBufferAccept);

@@ -55,7 +55,6 @@ class mercator_driver;
 // special symbols
 %token
   END  0  "end of file"
-  BANG    "!"
   COLON   ":"
   COMMA   ","
   GOESTO  "->"
@@ -69,7 +68,6 @@ class mercator_driver;
 // keywords
 %token
   AGGREGATE "aggregate"
-  ALLTHREADS "allthreads"
   APPLICATION "application"
   BUFFER "buffer"
   EDGE    "edge"
@@ -77,7 +75,6 @@ class mercator_driver;
   FROM    "from"
   FUNCTION "function"
   ILIMIT  "ilimit"
-  MAPPING "mapping"
   MODULE  "module"
   NODE    "node"
   NODEPARAM "nodeparam"
@@ -102,7 +99,7 @@ class mercator_driver;
 %type <std::string> appname nodename varscope edgechannelspec
 %type <input::NodeType *> nodetype
 %type <input::SourceStmt::SourceKind> sourcetype
-%type <int> maxoutput mappingspec
+%type <unsigned int> maxoutput
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
 %type <input::ChannelSpec *> channel simplechannel
 %type <std::vector<input::ChannelSpec *> *> channels implicitchannel 
@@ -139,13 +136,11 @@ stmt:
   referencestmt
 | applicationstmt
 | modulestmt
-| allthreadsstmt
 | ilimitstmt
 | threadwidthstmt
 | nodestmt
 | sourcestmt
 | edgestmt
-| mappingstmt
 | paramstmt
 | nodeparamstmt
 | nodestatestmt
@@ -208,34 +203,6 @@ threadwidthstmt:
    driver.currApp()->threadWidth = $2;
 };
 
-allthreadsstmt:
-"allthreads" modulename ";"
-{
-  input::AllThreadsStmt at($2);
-  if (!driver.currApp())
-   {
-      error(yyla.location, "AllThreads statement outside app context");
-      exit(EXIT_FAILURE);
-   }
-  driver.currApp()->allthreads.push_back(at);
-};
-
-mappingstmt:
-"mapping" modulename mappingspec ";"
-{
-  input::MappingStmt mapping($2, std::abs($3), ($3 < 0));
-  if (!driver.currApp())
-   {
-      error(yyla.location, "Mapping statement outside app context");
-      exit(EXIT_FAILURE);
-   }
-  driver.currApp()->mappings.push_back(mapping);
-};
-
-mappingspec:
-  "number"      { $$ =  $1; } // multiple inputs / thread
-| ":" "number"  { $$ = -$2; } // NB: negative means multiple threads / input
-;
 
 // node stmt: declare a node as instance of a given module
 nodestmt:
@@ -420,7 +387,7 @@ implicitchannel : typename maxoutput
 { 
   // a single channel does not need a name
   auto v = new std::vector<input::ChannelSpec *>;
-  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0), 0);
+  auto c = new input::ChannelSpec("__out", $1, $2, 0);
   v->push_back(c);
   $$ = v;
 }
@@ -444,12 +411,11 @@ simplechannel { $$ = $1; }
 
 simplechannel:
 channelname "<" typename  maxoutput ">" 
-{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0), false); }
+{ $$ = new input::ChannelSpec($1, $3, $4, false); }
 
 maxoutput:
   %empty              { $$ =   1; }
 | ":" "number"        { $$ =  $2; }
-| ":" "!" "number"    { $$ = -$3; } // NB: negative indicates fixed
 ;
  
 channelname: "identifier"

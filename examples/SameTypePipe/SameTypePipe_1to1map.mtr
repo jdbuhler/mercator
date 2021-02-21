@@ -18,6 +18,8 @@ Module A : PipeEltT -> PipeEltT;
 // NODES
 //
 
+Source A1node buffer;
+
 Node A1node : A;
 Node A2node : A;
 Node A3node : A;
@@ -25,8 +27,6 @@ Node A4node : A;
 Node A5node : A;
 
 Node sinkNodeAccept : Sink<PipeEltT>;
-
-Source A1node buffer;
 
 //
 // CONNECTIONS BETWEEN NODES
