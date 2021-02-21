@@ -68,7 +68,3 @@ add_subdirectory(ModFilter)
 add_subdirectory(AsyncFilter)
 
 add_subdirectory(SplitFilter)
-
-#add_subdirectory(LoopFilter)
-
-#add_subdirectory(Mandelbrot)
