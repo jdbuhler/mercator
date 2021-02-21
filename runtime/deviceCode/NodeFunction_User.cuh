@@ -57,12 +57,6 @@ namespace Mercator  {
        ? THREADS_PER_BLOCK 
        : maxActiveThreads);
     
-  protected:
-    
-    // maximum number of inputs that can be processed in a single 
-    // call to the node's run() function
-    static const unsigned int maxRunSize = deviceMaxActiveThreads;
-    
   public:
   
     ///////////////////////////////////////////////////////
@@ -75,12 +69,6 @@ namespace Mercator  {
     {}
     
     ////////////////////////////////////////////////////////
-    
-    //
-    // doRun() prefers to have a full width of inputs for
-    // the user's run function.
-    //
-    static const unsigned int inputSizeHint = maxRunSize;
     
     //
     // @brief function stub to execute the function code specific
@@ -104,7 +92,8 @@ namespace Mercator  {
       
       do
 	{
-	  unsigned int nItems = min(limit - nFinished, maxRunSize);
+	  unsigned int nItems = min(limit - nFinished,
+				    DerivedNodeFnType::maxInputs);
 	  
 	  //
 	  // Consume next nItems data items
@@ -118,7 +107,7 @@ namespace Mercator  {
 	  nf->run(myData, nItems);
 	  
 	  nFinished += nItems;
-	  NODE_OCC_COUNT(nItems, maxRunSize);
+	  NODE_OCC_COUNT(nItems, DerivedNodeFnType::maxInputs);
 	}
       while (nFinished < limit && !node->isDSActive());
       
@@ -134,7 +123,7 @@ namespace Mercator  {
     ///////////////////////////////////////////////////////////////////
   
     //
-    // @brief get the max number of active threads
+    // @brief get number of threads that are receiving input
     //
     __device__
     unsigned int getNumActiveThreads() const

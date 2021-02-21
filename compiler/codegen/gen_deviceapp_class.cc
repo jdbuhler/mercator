@@ -281,6 +281,11 @@ void genDeviceModuleClass(const App *app,
   
   if (mod->isUser())
     {
+      f.add("static const unsigned int maxInputs = "
+	    + to_string(mod->get_inputLimit() * mod->get_nInputsPerThread())
+	    + ";");
+      f.add("");
+      
       // run function (public because of CRTP)
       f.add("__device__");
       f.add(genFcnHeader("void",

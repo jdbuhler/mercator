@@ -106,7 +106,7 @@ namespace Mercator  {
 	  
 	  // Round the request size down to a multiple of the node function's
 	  // preferred input width (but don't make it 0!).
-	  const unsigned int vecsize = NodeFnType::inputSizeHint;
+	  const unsigned int vecsize = NodeFnType::maxInputs;
 	  if (numToRequest >= vecsize)
 	    numToRequest = (numToRequest / vecsize) * vecsize;
 	}

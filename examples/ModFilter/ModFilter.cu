@@ -46,7 +46,7 @@ void ModFilter_dev::
 Filter<InputView>::run(const InputView &view, size_t base, unsigned int size)
 {
   unsigned int tid = threadIdx.x;
-  
+
   for (unsigned int offset = 0; offset < size; offset += getNumActiveThreads())
     {
       unsigned int idx = offset + tid;

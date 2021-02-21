@@ -68,6 +68,7 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 "::"     return yy::mercator_parser::make_SCOPE(loc);
 ";"      return yy::mercator_parser::make_SEMICOLON(loc);
 "*"      return yy::mercator_parser::make_STAR(loc);
+"@"      return yy::mercator_parser::make_AT(loc);
 
 %{
   // keywords are case-insensitive

@@ -12,7 +12,7 @@ Application ModFilter;
 // Same module signature as EvenFilter
 //
 
-Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+Module Filter : {unsigned int} @8 -> accept<{unsigned int}> ;
 
 //
 // this time, build a chain of three filters

@@ -159,7 +159,7 @@ namespace Mercator  {
       // threshold for declaring data queue "empty" for scheduling
       unsigned int emptyThreshold = (this->isFlushing() 
 				     ? 0
-				     : NodeFnType::inputSizeHint - 1);
+				     : NodeFnType::maxInputs - 1);
       
       //
       // run until input queue satisfies EMPTY condition, or 
@@ -179,7 +179,7 @@ namespace Mercator  {
 	      
 	      if (!this->isFlushing())
 		{
-		  const unsigned int vsize = NodeFnType::inputSizeHint;
+		  const unsigned int vsize = NodeFnType::maxInputs;
 		  
 		  limit = (limit / vsize) * vsize;
 		}

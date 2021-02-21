@@ -53,7 +53,7 @@ namespace Mercator  {
     //
     // doRun() writes full thread-widths of inputs at a time
     //
-    static const unsigned int inputSizeHint = THREADS_PER_BLOCK;
+    static const unsigned int maxInputs = THREADS_PER_BLOCK;
     
     //
     // @brief function stub to execute the function code specific

@@ -86,7 +86,7 @@ namespace Mercator {
     //
     // doRun() processes inputs one at a time
     //
-    static const unsigned int inputSizeHint = 1;
+    static const unsigned int maxInputs = 1;
     
     //
     // @brief function to execute code specific to this node.  This

@@ -108,13 +108,16 @@ namespace input {
     
     std::string name;                     // name of module
     unsigned int flags;                   // assorted properties
+    unsigned int inputsPerThread;         // # inputs to read per thread      
     DataType *inputType;                  // type of module input
     std::vector<ChannelSpec *> channels;  // output channels
     
     
     ModuleTypeStmt(DataType *inputType,
+		   unsigned int inputsPerThread,
 		   OutputSpec *outputSpec)
       : flags(0),
+	inputsPerThread(inputsPerThread),
 	inputType(inputType)
     {
       assert(inputType);

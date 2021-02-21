@@ -86,6 +86,7 @@ ModuleType::ModuleType(const string &iname,
 		       DataType *iinputType,
 		       unsigned int inChannels,
 		       unsigned int iflags,
+		       unsigned int iinputsPerThread,
 		       unsigned int iinputLimit)
   : name(iname),
     idx(iidx),
@@ -93,7 +94,7 @@ ModuleType::ModuleType(const string &iname,
     nChannels(inChannels),
     flags(iflags),
     inputLimit(iinputLimit),
-    nElements(1)
+    nInputsPerThread(iinputsPerThread)
 {
   channels = new Channel * [nChannels];
   for (unsigned int j = 0; j < nChannels; j++)
@@ -216,7 +217,7 @@ void ModuleType::print() const
   
   cout << "      FLAGS: " << flags << endl;
   cout << "     ILIMIT: " << inputLimit << endl;
-  cout << "  NELEMENTS: " << nElements << endl;
+  cout << "ELTS/THREAD: " << nInputsPerThread << endl;
   
   if (moduleParams.size() > 0)
     {

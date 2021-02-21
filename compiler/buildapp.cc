@@ -65,11 +65,23 @@ App *buildApp(const input::AppSpec *appSpec)
 	  abort();
 	} 
       
+      //
+      // VALIDATE that multi-input-per-thread modules don't use simple interface
+      //
+      if (mts->isSimple() && mts->inputsPerThread != 1)
+	{
+	  cerr << "ERROR: simple module " << mts->name
+	       << " may not take multiple inputs per thread"
+	       << endl;
+	  abort();
+	}
+      
       ModuleType *module = new ModuleType(mts->name,
 					  mId,
 					  new DataType(mts->inputType),
 					  mts->channels.size(),
 					  mts->flags,
+					  mts->inputsPerThread,
 					  app->threadWidth);
       
       int cId = 0;
@@ -122,6 +134,7 @@ App *buildApp(const input::AppSpec *appSpec)
 						  new DataType(mts->inputType),
 						  1, 
 						  ModuleType::F_isEnumerate,
+						  1,
 						  app->threadWidth);
 	  
 	  app->moduleNames.insertUnique(enumModuleName, mId + 1);
@@ -148,8 +161,6 @@ App *buildApp(const input::AppSpec *appSpec)
 	  
 	  app->modules.push_back(module);
 	  app->modules.push_back(enumModule);
-	  
-
 	}
       else
 	app->modules.push_back(module);
@@ -227,6 +238,7 @@ App *buildApp(const input::AppSpec *appSpec)
 			       mId,
 			       new DataType(typeStr), 0, 
 			       ModuleType::F_isSink,
+			       1,
 			       app->threadWidth);
 	      
 	      app->moduleNames.insertUnique(moduleName, mId);

@@ -245,6 +245,7 @@ public:
 	     DataType *iinputType,
 	     unsigned int inChannels,
 	     unsigned int flags,
+	     unsigned int inputsPerThread,
 	     unsigned int inputLimit);
   
   ~ModuleType();
@@ -268,8 +269,8 @@ public:
   unsigned int get_inputLimit() const
   { return inputLimit; }
   
-  unsigned int get_nElements() const
-  { return nElements; }
+  unsigned int get_nInputsPerThread() const
+  { return nInputsPerThread; }
   
   Channel *get_channel(unsigned int cId) const
   { 
@@ -290,9 +291,6 @@ public:
   
   void set_inputLimit(unsigned int il)
   { inputLimit = il; }
-
-  void set_nElements(unsigned int ni)
-  { nElements = ni; }
   
   void set_channel(unsigned int cId, Channel *c)
   {
@@ -354,7 +352,7 @@ private:
   
   unsigned int inputLimit; // max threads per firing
   
-  unsigned int nElements;  // items consumed by each thread
+  unsigned int nInputsPerThread;  // items consumed by each thread
 };  
 
 

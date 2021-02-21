@@ -192,10 +192,11 @@ void genNodeChannelInitStmts(const string &nodeObj,
       const Channel *channel = mod->get_channel(j);
       const Node *dsNode = node->get_dsEdge(j)->dsNode;
       string dsNodeObj = "d" + dsNode->get_name();
-	  
+      
       unsigned int spaceRequired;
       if (mod->isUser())
-	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
+	spaceRequired = 
+	  mod->get_inputLimit() * mod->get_nInputsPerThread() * channel->maxOutputs;
       else // enumerate can keep going until channel fills
 	spaceRequired = 1; 
       

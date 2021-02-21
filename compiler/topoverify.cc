@@ -111,7 +111,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	
 	unsigned int maxInputsPerFiring = 
 	  usmod->get_inputLimit() * 
-	  usmod->get_nElements();
+	  usmod->get_nInputsPerThread();
 	
 	node->queueSize = maxInputsPerFiring * usChannel->maxOutputs;
       }
@@ -125,7 +125,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	  
 	  unsigned int maxInputsPerFiring = 
 	    usmod->get_inputLimit() * 
-	    usmod->get_nElements();
+	    usmod->get_nInputsPerThread();
 	  
 	  unsigned int dsReservedSlots = 
 	    maxInputsPerFiring * usChannel->maxOutputs;

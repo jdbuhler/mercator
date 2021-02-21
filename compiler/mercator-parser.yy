@@ -63,6 +63,7 @@ class mercator_driver;
   SCOPE   "::"
   SEMICOLON ";"
   STAR    "*"
+  AT      "@"
 ;
 
 // keywords
@@ -100,14 +101,14 @@ class mercator_driver;
 %type <std::string> appname nodename varscope edgechannelspec
 %type <input::NodeType *> nodetype
 %type <input::SourceStmt::SourceKind> sourcetype
-%type <unsigned int> maxoutput
+%type <unsigned int> maxoutput inputsperthread
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
 %type <input::ChannelSpec *> channel simplechannel
 %type <std::vector<input::ChannelSpec *> *> channels implicitchannel 
 %type <input::OutputSpec *> outputtype 
 %type <input::ModuleTypeStmt *> moduletype simplemoduletype
-%type <input::DataStmt *> varname scoped_varname;
-%type <bool> modulekind;
+%type <input::DataStmt *> varname scoped_varname
+%type <bool> modulekind
 
 // expected shift-reduce conflicts:
 //   node <nodename> : <modulename> vs node <nodename> : <moduletype> 
@@ -371,15 +372,18 @@ simplemoduletype { $$ = $1; }
 };
 
 simplemoduletype:
-inputtype "->" outputtype 
+inputtype inputsperthread "->" outputtype 
 {
-  $$ = new input::ModuleTypeStmt($1, $3);
+  $$ = new input::ModuleTypeStmt($1, $2, $4);
 };
 
-
-
 inputtype:
- typename                { $$ = $1; }
+ typename { $$ = $1; }
+;
+
+inputsperthread:
+  %empty       { $$ = 1; }
+| "@" "number" { $$ = $2; }
 ;
 
 outputtype:
