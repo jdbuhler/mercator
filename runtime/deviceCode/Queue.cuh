@@ -164,7 +164,7 @@ namespace Mercator  {
     
   private:
     
-    T *const data;  // actual queue space
+    T *const __restrict__ data;  // actual queue space
   };  // end class Queue
 
 }   // end Mercator namespace

@@ -81,7 +81,7 @@ namespace Mercator  {
     // @return number of items ACTUALLY consumed (may be 0).
     //
     __device__
-    unsigned int doRun(const InputView &view, 
+    unsigned int doRun(const InputView & __restrict__ view, 
 		       size_t start,
 		       unsigned int limit)
     {
