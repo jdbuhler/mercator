@@ -316,17 +316,20 @@ the \texttt{mercator-rules.txt} file defines two CMake functions:
 
 \item
 \begin{verbatim}
-  add_mercator_app(TARGET <appname>
+  add_mercator_app(TARGET <target>
                    SPECFILE <filename>
+                   [APPNAME <appname>]
                    SOURCES <filename> [<filename> ...])
 \end{verbatim}
 
 Build a MERCATOR application from a specification file and one or more
 user-provided sources (which should include the filled-in skeleton).
-The application name should be the target.  CMake will construct a
-static library \texttt{lib<appname>.a} containing all the device-side
-code for the application and will generate all the necessary support
-code and headers as described above.
+By default, the app name in the specification file is assumed to be
+\texttt{<target>}; this name can be changed by specifying the optional
+\texttt{APPNAME} parameter. CMake will construct a static library
+\texttt{lib<target>.a} containing all the device-side code for the
+application and will generate all the necessary support code and
+headers as described above.
 
 \item
 \begin{verbatim}
