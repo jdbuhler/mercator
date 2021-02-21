@@ -43,14 +43,19 @@ unsigned int munge(unsigned int key)
 //
 __MDECL__
 void ModFilter_dev::
-Filter<InputView>::run(const unsigned int& inputItem, unsigned int nInputs)
+Filter<InputView>::run(const InputView &view, size_t base, unsigned int size)
 {
   unsigned int tid = threadIdx.x;
-  unsigned int v;
   
-  if (tid < nInputs)
-    v = munge(inputItem);
-  
-  push(v, tid < nInputs && (v % getParams()->modulus) == 0);
+  for (unsigned int offset = 0; offset < size; offset += getNumActiveThreads())
+    {
+      unsigned int idx = offset + tid;
+      unsigned int v;
+
+      if (idx < size)
+	v = munge(view.get(base + idx));
+      
+      push(v, idx < size && (v % getParams()->modulus) == 0);
+    }
 }
 

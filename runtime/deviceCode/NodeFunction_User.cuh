@@ -35,7 +35,6 @@ namespace Mercator  {
   // @tparam numChannels  number of output channels
   // @tparam InputView type of input view passed to doRun()
   // @tparam THREADS_PER_BLOCK constant giving thread block size
-  // @tparam threadGroupSize number of threads per input
   // @tparam maxActiveThreads max # of threads that can take input at once 
   // @tparam DerivedNodeFnKind subtype that defines the run() function
   //

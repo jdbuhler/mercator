@@ -15,7 +15,7 @@ Application SplitFilter;
 // the Filter module now has two output channels
 //
 
-Module Filter : uint32_t -> 
+SimpleModule Filter : uint32_t -> 
      accept<uint32_t>, reject<uint32_t> ;
 
 // nodes

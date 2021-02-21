@@ -234,6 +234,7 @@ class ModuleType {
 public:
   // flags describing special module properties
   enum {
+    F_isSimple            = 0x01,
     F_isSink              = 0x02,
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
@@ -299,6 +300,7 @@ public:
     channels[cId] = c;
   }
   
+  bool isSimple()            const { return flags & F_isSimple; }
   bool isSink()              const { return flags & F_isSink; }
   bool isEnumerate()         const { return flags & F_isEnumerate; }
   bool isUser()              const { return (flags & (F_isSink | F_isEnumerate)) == 0; }

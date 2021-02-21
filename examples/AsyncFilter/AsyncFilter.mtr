@@ -12,7 +12,7 @@ Application AsyncFilter;
 // Same module signature as EvenFilter
 //
 
-Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+SimpleModule Filter : {unsigned int} -> accept<{unsigned int}> ;
 
 // nodes
 

@@ -102,6 +102,7 @@ namespace input {
     
     // flags set when parsing module type spec
     enum { 
+      F_isSimple    = 0x01,
       F_isEnumerate = 0x04
     };
     
@@ -132,8 +133,11 @@ namespace input {
 	delete channel;
     }
     
+    bool isSimple() const { return flags & F_isSimple; };
+    void setSimple()      { flags |= F_isSimple; }
+
     bool isEnumerate() const { return flags & F_isEnumerate; }
-    void setEnumerate()   { flags |= F_isEnumerate; }
+    void setEnumerate()      { flags |= F_isEnumerate; }
   };
   
   

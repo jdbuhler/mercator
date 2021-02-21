@@ -34,9 +34,15 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
   
   string runFcnParams;
   
-  runFcnParams = inputType + " const & inputItem";
-  
-  runFcnParams += ", unsigned int nInputs";
+  if (mod->isSimple())
+    {
+      runFcnParams = 
+	inputType + " const & inputItem, unsigned int nInputs";
+    }
+  else
+    {
+      runFcnParams = "const InputView &view, size_t base, unsigned int size";
+    }
   
   return runFcnParams;
 }
@@ -77,7 +83,10 @@ string genDeviceModuleBaseType(const ModuleType *mod)
     {
       string moduleTypeVariant;
       
-      moduleTypeVariant = "NodeFunction_User";
+      if (mod->isSimple())
+	moduleTypeVariant = "NodeFunction_User";
+      else
+	moduleTypeVariant = "NodeFunction_WithView";
       
       baseType =
 	moduleTypeVariant
@@ -611,6 +620,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
   {
     // include only the module type specializations needed by the app
     bool needsUser      = false;
+    bool needsWithView  = false;
     bool needsEnumerate = false;
     
     for (const ModuleType *mod : app->modules)
@@ -619,12 +629,17 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  continue;
 	else if (mod->isEnumerate())
 	  needsEnumerate = true;
-	else
+	else if (mod->isSimple())
 	  needsUser = true;
+	else
+	  needsWithView = true;
       }
     
     if (needsUser)
       f.add(genUserInclude("deviceCode/NodeFunction_User.cuh"));
+
+    if (needsWithView)
+      f.add(genUserInclude("deviceCode/NodeFunction_WithView.cuh"));
     
     if (needsEnumerate)
       f.add(genUserInclude("deviceCode/NodeFunction_Enumerate.cuh"));

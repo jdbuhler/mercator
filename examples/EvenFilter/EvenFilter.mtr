@@ -10,7 +10,7 @@ Application EvenFilter;
 
 // nodes
 
-Module filter : size_t -> {unsigned int};
+SimpleModule filter : size_t -> {unsigned int};
 
 //
 // By default, the filter module produces either 0 or 1 outputs

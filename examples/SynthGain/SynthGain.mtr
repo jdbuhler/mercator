@@ -10,7 +10,7 @@ Application SynthGain;
 
 // nodes
 
-Module type1 : size_t -> {size_t}:16;
+SimpleModule type1 : size_t -> {size_t}:16;
 
 //
 // By default, the filter module produces either 0 or 1 outputs

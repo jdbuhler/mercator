@@ -81,6 +81,7 @@ class mercator_driver;
   NODESTATE "nodestate"
   PARAM    "param"
   REFERENCE "reference"
+  SIMPLEMODULE "simplemodule"
   SINK    "sink"
   SOURCE  "source"
   THREADWIDTH "threadwidth"
@@ -106,6 +107,7 @@ class mercator_driver;
 %type <input::OutputSpec *> outputtype 
 %type <input::ModuleTypeStmt *> moduletype simplemoduletype
 %type <input::DataStmt *> varname scoped_varname;
+%type <bool> modulekind;
 
 // expected shift-reduce conflicts:
 //   node <nodename> : <modulename> vs node <nodename> : <moduletype> 
@@ -165,9 +167,13 @@ appname: "identifier"
 
 // module stmt: name a module and define its type
 modulestmt:
-"module" modulename ":" moduletype ";" 
+modulekind modulename ":" moduletype ";" 
 { 
   $4->name = $2;
+
+  if ($1)
+   $4->setSimple();
+    
   if (!driver.currApp())
    {
       error(yyla.location, "ModuleType statement outside app context");
@@ -175,6 +181,10 @@ modulestmt:
    }
   driver.currApp()->modules.push_back($4);
 };
+
+modulekind:
+  "module"       { $$ = false; }
+| "simplemodule" { $$ = true; };
 
 modulename: "identifier"
 { $$ = $1; };

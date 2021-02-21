@@ -87,6 +87,7 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"nodestate")   return yy::mercator_parser::make_NODESTATE(loc);
 (?i:"param")       return yy::mercator_parser::make_PARAM(loc);
 (?i:"reference")   return yy::mercator_parser::make_REFERENCE(loc);
+(?i:"simplemodule") return yy::mercator_parser::make_SIMPLEMODULE(loc);
 (?i:"source")      return yy::mercator_parser::make_SOURCE(loc);
 (?i:"sink")        return yy::mercator_parser::make_SINK(loc);
 (?i:"threadwidth") return yy::mercator_parser::make_THREADWIDTH(loc);
