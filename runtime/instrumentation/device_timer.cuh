@@ -111,15 +111,15 @@ private:
 //
 
 #ifdef INSTRUMENT_TIME
-#define NODE_TIMER_START(tm) { (this->tm ## Timer).start(); } 
+#define XNODE_TIMER_START(node,tm) { (node->tm ## Timer).start(); } 
 #else
-#define NODE_TIMER_START(tm) {}
+#define XNODE_TIMER_START(node,tm) {}
 #endif
 
 #ifdef INSTRUMENT_TIME
-#define NODE_TIMER_STOP(tm) { (this->tm ## Timer).stop(); } 
+#define XNODE_TIMER_STOP(node,tm) { (node->tm ## Timer).stop(); } 
 #else
-#define NODE_TIMER_STOP(tm) {}
+#define XNODE_TIMER_STOP(node,tm) {}
 #endif
 
 #endif

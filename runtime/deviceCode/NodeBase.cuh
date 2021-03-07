@@ -193,12 +193,13 @@ namespace Mercator  {
     void printTimersCSV(unsigned int nodeId) const
     {
       assert(IS_BOSS());
-    
+      
       DeviceTimer::DevClockT overheadTime = overheadTimer.getTotalTime();
       DeviceTimer::DevClockT userTime     = userTimer.getTotalTime();
+      DeviceTimer::DevClockT pushTime     = pushTimer.getTotalTime();
       
-      printf("%d,%u,%llu,%llu\n",
-	     blockIdx.x, nodeId, userTime, overheadTime);
+      printf("%d,%u,%llu,%llu,%llu\n",
+	     blockIdx.x, nodeId, userTime, pushTime, overheadTime);
     }
   
 #endif
@@ -225,6 +226,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_TIME
     DeviceTimer overheadTimer;
     DeviceTimer userTimer;
+    DeviceTimer pushTimer;
 #endif
   
 #ifdef INSTRUMENT_OCC

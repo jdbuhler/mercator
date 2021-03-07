@@ -13,6 +13,8 @@
 
 #include "NodeBase.cuh"
 
+#include "timing_options.cuh"
+
 namespace Mercator  {
 
   //
@@ -22,7 +24,7 @@ namespace Mercator  {
   __device__
   void Scheduler::run()
   {
-    NODE_TIMER_START(scheduler);
+    TIMER_START(scheduler);
     
     while (true)
       {	
@@ -41,14 +43,14 @@ namespace Mercator  {
 	if (!nextNode) // queue is empty -- terminate
 	  break;
 
-	NODE_TIMER_STOP(scheduler);
+	TIMER_STOP(scheduler);
 
         nextNode->fire();
 
-        NODE_TIMER_START(scheduler);
+        TIMER_START(scheduler);
       }
     
-    NODE_TIMER_STOP(scheduler);
+    TIMER_STOP(scheduler);
   }
 }   // end Mercator namespace
 

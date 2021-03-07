@@ -16,6 +16,8 @@
 
 #include "Channel.cuh"
 
+#include "timing_options.cuh"
+
 #include "support/collective_ops.cuh"
 
 namespace Mercator  {
@@ -177,6 +179,9 @@ namespace Mercator  {
     __device__
     void push(const DST &item, bool pred, unsigned int channelIdx = 0) const
     {
+      NODE_TIMER_STOP(node, user);
+      NODE_TIMER_START(node, push);
+      
       using Channel = Channel<DST>;
       
       Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
@@ -201,6 +206,9 @@ namespace Mercator  {
       
       if (pred)
 	channel->dsWrite(basePtr, dsOffset, item);
+
+      NODE_TIMER_STOP(node, push);
+      NODE_TIMER_START(node, user);
     }
   };
 }  // end Mercator namespace

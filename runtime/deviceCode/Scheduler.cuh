@@ -80,8 +80,8 @@ namespace Mercator  {
     __device__
     void printTimersCSV() const
     {
-      printf("%d,%d,%llu,%llu\n",
-	     blockIdx.x, -1, 0ULL, schedulerTimer.getTotalTime());
+      printf("%d,%d,%llu,%llu,%llu\n",
+	     blockIdx.x, -1, 0ULL, 0ULL, schedulerTimer.getTotalTime());
     }
 #endif
 

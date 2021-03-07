@@ -14,20 +14,30 @@
 #include "options.cuh"
 
 #ifndef INSTRUMENT_TAIL
+#define NODE_TIMER_START(node,tm)			\
+  { if (!(node)->isFlushing()) { XNODE_TIMER_START(node,tm); } }
 #define TIMER_START(tm)			\
-  { if (!this->isFlushing()) { NODE_TIMER_START(tm); } }
+  { if (!this->isFlushing()) { XNODE_TIMER_START(this,tm); } }
 #else
-#define TIMER_START(tm) \
-  { NODE_TIMER_START(tm); }
+#define NODE_TIMER_START(node,tm)		\
+  { XNODE_TIMER_START(node,tm); }
+#define TIMER_START(tm)		\
+  { XNODE_TIMER_START(this,tm); }
 #endif
 
 #ifndef INSTRUMENT_TAIL
+#define NODE_TIMER_STOP(node,tm)			\
+  { if (!(node)->isFlushing()) { XNODE_TIMER_STOP(node,tm); } }
 #define TIMER_STOP(tm)			\
-  { if (!this->isFlushing()) { NODE_TIMER_STOP(tm); } }
+  { if (!this->isFlushing()) { XNODE_TIMER_STOP(this,tm); } }
 #else
-#define TIMER_STOP(tm) \
-  { NODE_TIMER_STOP(tm); }
+#define NODE_TIMER_STOP(node,tm)		\
+  { XNODE_TIMER_STOP(node,tm); }
+#define TIMER_STOP(tm)		\
+  { XNODE_TIMER_STOP(this,tm); }
 #endif
+
+
 
 #ifndef INSTRUMENT_TAIL
 #define OCC_COUNT(n, w)				\
