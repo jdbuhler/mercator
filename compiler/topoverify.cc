@@ -8,6 +8,7 @@
 //
 
 #include <iostream>
+#include <algorithm>
 
 #include "topoverify.h"
 
@@ -71,9 +72,24 @@ using namespace std;
  * are heads of cycles also hold their cycle predecessor.
  */
 
+bool TopologyVerifier::compareStartTime(const Node *n1, const Node *n2)
+{
+  return (n1->startTime < n2->startTime);
+}
+
 void TopologyVerifier::verifyTopology(App *app)
 {
-  dfsVisit(app->sourceNode, nullptr, 1);
+  parentRegion.clear();
+  parentRegion.push_back(0); // reserve entry for global region 0
+  
+  // region 0's head is the source node
+  app->regionHeads.push_back(app->sourceNode);
+  app->regionNTerminalNodes.push_back(0);
+  
+  nextRegionId = 1;          // ID of first non-global region
+  
+  time = 0;
+  dfsVisit(app->sourceNode, nullptr, 1, 0, app);
   
   for (Node *node : app->nodes)
     {
@@ -85,7 +101,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	  abort();
 	}
       
-      if (node->get_moduleType()->isSource()) // no input queue
+      if (node->get_isSource()) // no input queue
 	continue;
       
       // compute max inputs/run call and outputs/input for tree parent
@@ -93,7 +109,7 @@ void TopologyVerifier::verifyTopology(App *app)
 	const ModuleType *usmod  = node->treeEdge->usNode->get_moduleType();
 	const Channel *usChannel = node->treeEdge->usChannel;
 	
-	int maxInputsPerFiring = 
+	unsigned int maxInputsPerFiring = 
 	  usmod->get_inputLimit() * 
 	  usmod->get_nElements()/usmod->get_nThreads();
 	
@@ -103,20 +119,40 @@ void TopologyVerifier::verifyTopology(App *app)
       // if the node has a cycle parent, add to its queue size and
       // set the reserved slots on its tree parent edge.
       if (node->cycleEdge)
-      {
-	const ModuleType *usmod  = node->cycleEdge->usNode->get_moduleType();
-	const Channel *usChannel = node->cycleEdge->usChannel;
-	
-	int maxInputsPerFiring = 
-	  usmod->get_inputLimit() * 
-	  usmod->get_nElements()/usmod->get_nThreads();
-	
-	int dsReservedSlots = maxInputsPerFiring * usChannel->maxOutputs;
-	
-	node->treeEdge->dsReservedSlots = dsReservedSlots;
-	node->queueSize                += dsReservedSlots;
-      }
+	{
+	  const ModuleType *usmod  = node->cycleEdge->usNode->get_moduleType();
+	  const Channel *usChannel = node->cycleEdge->usChannel;
+	  
+	  unsigned int maxInputsPerFiring = 
+	    usmod->get_inputLimit() * 
+	    usmod->get_nElements()/usmod->get_nThreads();
+	  
+	  unsigned int dsReservedSlots = 
+	    maxInputsPerFiring * usChannel->maxOutputs;
+	  
+	  node->treeEdge->dsReservedSlots = dsReservedSlots;
+	  node->queueSize                += dsReservedSlots;
+	}
+      
+      // record reference count for enumerate nodes, and make sure
+      // that from type did not leak through to sink
+      if (node->enumerateId > 0)
+	{
+	  if (node->moduleType->isSink())
+	    {
+	      cerr << "ERROR: Sink node "
+		   << node->get_name()
+		   << " has an enumerate ID. "
+		   << "Missing an aggregate channel "
+		   << "before this node."
+		   << endl;
+	      abort();
+	    }
+	}
     }
+  
+  // sort the nodes by start time
+  sort(app->nodes.begin(), app->nodes.end(), compareStartTime);
 }
     
 
@@ -125,7 +161,9 @@ void TopologyVerifier::verifyTopology(App *app)
 
 Node *TopologyVerifier::dfsVisit(Node *node,
 				 Edge *parentEdge,
-				 long multiplier)
+				 long multiplier,
+				 unsigned int regionId,
+				 App *app)
 {
   if (node->dfsStatus == Node::InProgress)
     {
@@ -143,7 +181,6 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	}
       
       return node; // return in-progress node 
-
     }
   else if (node->dfsStatus == Node::Finished)
     {
@@ -156,14 +193,39 @@ Node *TopologyVerifier::dfsVisit(Node *node,
   else
     {
       node->dfsStatus  = Node::InProgress; 
+      node->startTime  = time++;
       
       node->treeEdge   = parentEdge;
       node->multiplier = multiplier;
       
       const ModuleType *mod = node->get_moduleType();
       
+      node->regionId = regionId;
+      
+      if (node->moduleType->isEnumerate())
+	{
+	  // New enumerate node gets a new, distinct enum ID greater
+	  // than that of the region that contains it, which becomes
+	  // the region ID for its children.
+	  
+	  node->enumerateId = nextRegionId++;
+	  app->regionHeads.push_back(node);
+	  app->regionNTerminalNodes.push_back(0);
+	  
+	  parentRegion.push_back(regionId);  // remember parent of new region
+	  regionId = node->enumerateId; // set new region for children
+	  
+#if 0
+	  cout << "FOUND ENUMERATE:" << endl
+	       << "\t" << node->moduleType->get_name() << endl
+	       << "\tRegionID:\t" << node->regionId << endl
+	       << "\tEnumerateID:\t" << node->enumerateId << endl;
+#endif
+	}
+      
       Node *head = nullptr;
-      for (int j = 0; j < mod->get_nChannels(); j++)
+      bool isTerminalNode = true;
+      for (unsigned int j = 0; j < mod->get_nChannels(); j++)
 	{
 	  Edge *e = node->dsEdges[j];
 	  if (e == nullptr) // output channel is not connected
@@ -171,9 +233,23 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	  
 	  long nextAmpFactor = e->usChannel->maxOutputs;
 	  
+	  unsigned int dsRegionId;
+	  if (e->usChannel->isAggregate) 
+	    {
+	      // we are passing out of current region; revert to its parent
+	      dsRegionId = parentRegion[regionId];
+	    }
+	  else
+	    {
+	      dsRegionId = regionId;
+	      isTerminalNode = false;
+	    }
+	  
 	  Node *nextHead = dfsVisit(e->dsNode, 
 				    e,
-				    multiplier * nextAmpFactor);
+				    multiplier * nextAmpFactor,
+				    dsRegionId,
+				    app);
 	  
 	  if (nextHead && nextHead->dfsStatus == Node::InProgress)
 	    {
@@ -187,11 +263,19 @@ Node *TopologyVerifier::dfsVisit(Node *node,
 	      else
 		head = nextHead;
 	    }
-
+	}
+      
+      if (isTerminalNode)
+	{
+	  node->setTerminalNode();
+	  app->regionNTerminalNodes[regionId]++;
 	}
       
       node->dfsStatus = Node::Finished;
-      
+
+      if (node->moduleType->isEnumerate())
+	node->set_nTerminalNodes(app->regionNTerminalNodes[node->enumerateId]);
+				
       return head;
     }
 }

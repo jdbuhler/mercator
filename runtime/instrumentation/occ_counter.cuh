@@ -16,38 +16,31 @@
 /**
  * @class OccCounter
  *
- * @brief Structure to hold occupancy data for module firings.
+ * @brief Structure to hold occupancy data for node firings
  */
 struct OccCounter {
   
   unsigned long long totalInputs;
   unsigned long long totalRuns;
   unsigned long long totalFullRuns;
-
-  unsigned long long sizePerRun;
   
   __device__
   OccCounter()
     : totalInputs(0), 
       totalRuns(0), 
-      totalFullRuns(0),
-      sizePerRun(0)
+      totalFullRuns(0)
   {}
   
   __device__
-  void setMaxRunSize(unsigned long long isizePerRun)
-  { sizePerRun = isizePerRun; }
-  
-  __device__
-  void add_firing(unsigned long long nElements)
+  void add_run(unsigned int nElements, unsigned int vectorWidth)
   {
     if (IS_BOSS())
       {
 	totalInputs += nElements;
 	
-	totalRuns += (nElements + sizePerRun - 1)/ sizePerRun;
+	totalRuns++;
 	
-	totalFullRuns += nElements / sizePerRun;
+	totalFullRuns += (nElements == vectorWidth);
       }
   }
      
@@ -56,9 +49,9 @@ struct OccCounter {
 #endif
 
 #ifdef INSTRUMENT_OCC
-#define OCC_COUNT(n) { occCounter.add_firing(n); }
+#define NODE_OCC_COUNT(n, w) { node->occCounter.add_run(n, w); }
 #else
-#define OCC_COUNT(n) {}
+#define NODE_OCC_COUNT(n, w) {}
 #endif
 
 #endif

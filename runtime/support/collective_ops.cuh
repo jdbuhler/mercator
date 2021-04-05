@@ -15,6 +15,28 @@
 
 namespace Mercator  {
   
+  template <typename T, unsigned int TPB>
+  __device__
+  T broadcast(const T &v, unsigned int sourceTID = 0)
+  {
+    if (TPB == WARP_SIZE)
+      {
+	return __shfl_sync((1ULL << WARP_SIZE) - 1, v, sourceTID);
+      }
+    else
+      {
+	__shared__ T vShared;
+	
+	__syncthreads();
+	if (threadIdx.x == sourceTID)
+	  vShared = v;
+	__syncthreads();
+	
+	return vShared;
+      }
+  }
+  
+  
   //
   // @brief Block-wide scan operations
   // @tparam T data type for sum
@@ -207,10 +229,26 @@ namespace Mercator  {
       
       return Reducer(CUB_tmp).Sum(v, nThreads);
     }
+
+    __device__
+    static T max(const T &v, unsigned int nThreads = TPB)
+    {
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      return Reducer(CUB_tmp).Reduce(v, cub::Max());
+    }
+
+    __device__
+    static T min(const T &v, unsigned int nThreads = TPB)
+    {
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      return Reducer(CUB_tmp).Reduce(v, cub::Min());
+    }
   };
 
   //
-  // @brief block-wide sum reductions
+  // @brief warp-wide sum reductions
   // @tparam T type over which to reduce
   // @tparam TPW threads per warp
   //
@@ -245,6 +283,39 @@ namespace Mercator  {
        
       return Reducer(CUB_tmp).Sum(v, nThreads);
     }
+
+    __device__
+    static T max(const T &v, unsigned int nThreads = TPW)
+    {
+      // In theory, we need to allocate one of these per warp.  But
+      // with shuffles, it is never used.  Make sure it has
+      // essentially zero size (actually size 1, perhaps because CUB
+      // takes its address?)
+
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      static_assert(sizeof(CUB_tmp) <= 1,
+		    "warp reduce requires temporary storage!");
+       
+      return Reducer(CUB_tmp).Reduce(v, cub::Max(), nThreads);
+    }
+
+    __device__
+    static T min(const T &v, unsigned int nThreads = TPW)
+    {
+      // In theory, we need to allocate one of these per warp.  But
+      // with shuffles, it is never used.  Make sure it has
+      // essentially zero size (actually size 1, perhaps because CUB
+      // takes its address?)
+
+      __shared__ typename Reducer::TempStorage CUB_tmp;
+      
+      static_assert(sizeof(CUB_tmp) <= 1,
+		    "warp reduce requires temporary storage!");
+       
+      return Reducer(CUB_tmp).Reduce(v, cub::Min(), nThreads);
+    }
+    
   };
   
   

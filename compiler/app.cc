@@ -33,30 +33,44 @@ DataType::DataType(const string &iname)
   from = nullptr;
 }
 
+DataType::DataType(const string &iname, const string &fname)
+{
+  name = iname;
+  from = new DataType(fname);
+}
+
 ///////////////////////////////////////////
+
 
 Node::Node(const string &iname,
 	   ModuleType *imt,
-	   int imIdx)
+	   unsigned int imIdx)
   : name(iname),
     moduleType(imt),
     mIdx(imIdx),
+    regionId(0),
+    enumerateId(0),
+    nTerminalNodes(0),
+    isSource(false),
+    _isTerminalNode(false),
     queueSize(0),
+    enumerator(nullptr),
     treeEdge(nullptr),
     cycleEdge(nullptr),
     dfsStatus(Node::NotVisited),
+    startTime(0),
     multiplier(0)
 {
-  int nChannels = moduleType->get_nChannels();
+  unsigned int nChannels = moduleType->get_nChannels();
   
   dsEdges = new Edge * [nChannels];
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     dsEdges[j] = nullptr;
 }
 
 Node::~Node()
 {
-  for (int j = 0; j < moduleType->get_nChannels(); j++)
+  for (unsigned int j = 0; j < moduleType->get_nChannels(); j++)
     {
       if (dsEdges[j])
 	delete dsEdges[j];
@@ -68,27 +82,28 @@ Node::~Node()
 //////////////////////////////////////////
 
 ModuleType::ModuleType(const string &iname,
-		       int iidx,
+		       unsigned int iidx,
 		       DataType *iinputType,
-		       int inChannels,
-		       unsigned int iflags)
+		       unsigned int inChannels,
+		       unsigned int iflags,
+		       unsigned int iinputLimit)
   : name(iname),
     idx(iidx),
     inputType(iinputType),
     nChannels(inChannels),
     flags(iflags),
-    inputLimit(options.threadsPerBlock),
+    inputLimit(iinputLimit),
     nElements(1), nThreads(1)
 {
   channels = new Channel * [nChannels];
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     channels[j] = nullptr;
 }
 
 
 ModuleType::~ModuleType()
 {
-  for (DataItem *param : params)
+  for (DataItem *param : moduleParams)
     {
       delete param;
     }
@@ -103,7 +118,7 @@ ModuleType::~ModuleType()
       delete node;
     }
   
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     {
       if (channels[j])
 	delete channels[j];
@@ -156,7 +171,7 @@ void Node::print() const
 {
   cout << "NODE " << name << " : " << moduleType->get_name() << endl;
   cout << " * " << moduleType->get_nChannels() << " outgoing edges" << endl;
-  for (int j = 0; j < moduleType->get_nChannels(); j++)
+  for (unsigned int j = 0; j < moduleType->get_nChannels(); j++)
     {
       cout << "  ";
       if (dsEdges[j])
@@ -166,6 +181,9 @@ void Node::print() const
       
       cout << endl;
     }
+
+  if (isSource)
+    cout << "* Node is APPLICATION SOURCE\n";
   
   cout << " * Tree predecessor: " 
        << (treeEdge ? treeEdge->usNode->name : "NONE")
@@ -179,17 +197,14 @@ void Node::print() const
 void ModuleType::print() const
 {
   cout << "MODULE TYPE " << name << " : ";
-  if (inputType)
-    inputType->print();
-  else
-    cout << "NULL [source]";
+  inputType->print();
   cout << endl << "  ->  " << endl;
   
-  for (int j = 0; j < nChannels; j++)
+  for (unsigned int j = 0; j < nChannels; j++)
     {
       cout << "  ";
       channels[j]->print();
-      if (j < nChannels -1 )
+      if (j < nChannels - 1)
 	cout << ',';
       cout << endl;
     }
@@ -207,10 +222,10 @@ void ModuleType::print() const
   cout << "  NELEMENTS: " << nElements << endl;
   cout << "   NTHREADS: " << nThreads << endl;
   
-  if (params.size() > 0)
+  if (moduleParams.size() > 0)
     {
       cout << "   PER-MODULE PARAMS:" << endl;
-      for (const DataItem *p : params)
+      for (const DataItem *p : moduleParams)
 	{
 	  cout << "    ";
 	  p->print();
@@ -252,7 +267,8 @@ void App::print() const
 	  cout << endl;
 	}
     }
-  
+
+  cout << " THREAD WIDTH: " << threadWidth << endl;
   cout << " SOURCE NODE: " << sourceNode->get_name() << endl;
   
   for (ModuleType *mod : modules)

@@ -52,7 +52,7 @@ public:
   bool VisitVarDecl(VarDecl *var) 
   {
     // Check for VarDecls in the top (main) file ONLY
-    if (astContext->getSourceManager().isInMainFile(var->getLocStart())) 
+    if (astContext->getSourceManager().isInMainFile(var->getBeginLoc())) 
       {
 	// For each variable that we created for type-checking purposes,
 	// map its typename *as it appears in the specfile* to
@@ -112,13 +112,15 @@ public:
   {
     string code = "";
     
+    code += "#include <cstddef>\n"; // for default input type size_t
+    
     // add all references to the current code
     for (const string &ref : references)
       code += "#include \"" + ref + "\"\n";
     
     // add dummy variables for ASTContext to be able to grab QualTypes easily
     int dummyNumber = 0;
-    code = code + "\nvoid __typecheck_dummyDecls() {\n";
+    code += "\nvoid __typecheck_dummyDecls() {\n";
     for (const string &typeString : typeStrings)
       {
 	if (typeString != "NULL") 
@@ -130,18 +132,26 @@ public:
 	    ++dummyNumber;
 	  }
       }
-    code = code + "}";
+    
+    // add dummy variable specifically for size_t so we can use it later
+    {
+      string varName = "__typecheck_dummy_sizet";
+      originalTypeStrings.insert(make_pair(varName, "size_t")); 
+      code += "size_t __typecheck_dummy_sizet;\n";
+    }
+    
+    code += "}";
     
     //Set up args for building the ASTContext 
     vector<string> args;
     
-    args.push_back("--std=c++11");
+    args.push_back("--std=c++14");
     
     // enable for path debugging
     // args.push_back("-v");
     
     // we must include the path to Clang's standard system libraries
-    args.push_back("-I" LLVM_PATH "/lib/clang/" LLVM_VERSION "/include");
+    args.push_back("-I" LLVM_LIBDIR "/clang/" LLVM_VERSION "/include");
 
     // include the paths supplied by local CUDA install, which could
     // be a list separated by ";" characters

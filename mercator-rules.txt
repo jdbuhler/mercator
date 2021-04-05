@@ -5,7 +5,13 @@
 # MERCATOR
 # Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
+cmake_minimum_required(VERSION 3.8)
+
 set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
+
+define_property(TARGET PROPERTY appname
+                BRIEF_DOCS "name of Mercator app" 
+                FULL_DOCS "name of the Mercator app to be used in compilation")
 
 # add_mercator_app()
 # Construct a MERCATOR application from sources
@@ -26,13 +32,17 @@ set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/bin/mercator)
 #     a library lib${appname}.a associated with the given target name
 #
 function(add_mercator_app)
-   set(oneValueArgs TARGET SPECFILE)
+   set(oneValueArgs TARGET SPECFILE APPNAME)
    set(multiValueArgs SOURCES)
    cmake_parse_arguments(PARSE_ARGV 0 ADD_MERCATOR "" 
    		         "${oneValueArgs}" 
 			 "${multiValueArgs}")
 
-   set(appname ${ADD_MERCATOR_TARGET})
+   if(DEFINED ADD_MERCATOR_APPNAME)
+     set(appname ${ADD_MERCATOR_APPNAME})
+   else()
+     set(appname ${ADD_MERCATOR_TARGET})
+   endif()
 
    # names of generated files depend on the app name
    set(GENERATED_CUFILES ${CMAKE_CURRENT_BINARY_DIR}/${appname}_init.cu)
@@ -41,7 +51,7 @@ function(add_mercator_app)
 
    # teach cmake how to build the genenerated files from the spec
    add_custom_command(OUTPUT ${GENERATED_CUFILES} ${GENERATED_CUHFILES}
-	COMMAND ${MERCATOR_CC} -a ${appname} ${CMAKE_CURRENT_SOURCE_DIR}/${ADD_MERCATOR_SPECFILE}
+	COMMAND ${MERCATOR_CC} ${MERCATOR_FLAGS} -a ${appname} ${CMAKE_CURRENT_SOURCE_DIR}/${ADD_MERCATOR_SPECFILE}
 	DEPENDS ${ADD_MERCATOR_SPECFILE}
         COMMENT "Compiling MERCATOR spec file ${ADD_MERCATOR_SPECFILE}"
    )
@@ -61,24 +71,26 @@ function(add_mercator_app)
    endforeach()
 
    set(COMBINED_CUFILE ${CMAKE_CURRENT_BINARY_DIR}/${appname}_dev_combined.cu)
-
+   
    add_custom_command(OUTPUT ${COMBINED_CUFILE}
 	COMMAND echo -e ${includes} > ${COMBINED_CUFILE}
 	DEPENDS ${userfiles} ${GENERATED_CUFILES}
 	IMPLICIT_DEPENDS c++ ${ADD_MERCATOR_SOURCES} ${GENERATED_CUFILES}
         VERBATIM
     )
-
+    
    # turn the combined object into a library
-   add_library(${appname} ${COMBINED_CUFILE})
-
-   target_include_directories(${appname}
+   add_library(${ADD_MERCATOR_TARGET} ${COMBINED_CUFILE})
+   
+   target_include_directories(${ADD_MERCATOR_TARGET}
 			      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-			      PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
-		              PRIVATE ${CUB_ROOT_DIR})
+			      	      PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
+			      
+  target_compile_features(${appname} PUBLIC cxx_std_14 cuda_std_14)
 
-  target_compile_features(${appname} PUBLIC cxx_std_11)
+  # remember the name of the app
+  set_property(TARGET ${ADD_MERCATOR_TARGET} PROPERTY appname ${appname})
 
 endfunction(add_mercator_app)
 
@@ -102,7 +114,8 @@ function(add_mercator_executable)
   			"${oneValueArgs}" 
 			"${multiValueArgs}")
 
-  foreach(appname ${ADD_MERCATOR_EXE_APPS})
+  foreach(app ${ADD_MERCATOR_EXE_APPS})
+     get_property(appname TARGET ${app} PROPERTY appname) 
      list(APPEND alldeps ${CMAKE_CURRENT_BINARY_DIR}/${appname}.cuh)
   endforeach()
 
@@ -110,13 +123,12 @@ function(add_mercator_executable)
 
   add_executable(${ADD_MERCATOR_EXE_TARGET} ${alldeps})
 
-  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_11)
+  target_compile_features(${ADD_MERCATOR_EXE_TARGET} PUBLIC cxx_std_14)
 
   target_include_directories(${ADD_MERCATOR_EXE_TARGET}
 			     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 			     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
-		             PRIVATE ${MERCATOR_ROOT_DIR}/runtime 
-		             PRIVATE ${CUB_ROOT_DIR})
+		             PRIVATE ${MERCATOR_ROOT_DIR}/runtime)
 
   # Link the executable against all apps (which become its dependencies)
   target_link_libraries(${ADD_MERCATOR_EXE_TARGET} "${ADD_MERCATOR_EXE_APPS}")

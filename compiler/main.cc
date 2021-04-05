@@ -37,10 +37,6 @@ static
 string device_class_cuhfile(const string &appName)
 { return options.outputPath + appName + "_dev.cuh"; }
 
-static
-string skeleton_cufile(const string &appName)
-{ return options.outputPath + appName + ".cu.skl"; }
-
 
 //
 // emit a list of the files generated from a given spec file, in
@@ -74,35 +70,52 @@ static
 void compileApps(const vector<input::AppSpec *> &appSpecs,
 		 const vector<string> &references)
 {  
-  for (const input::AppSpec *appSpec : appSpecs)
+  TopologyVerifier tv;
+  
+  if (options.generateSkeletons)
     {
-      App *app = buildApp(appSpec);
-      TopologyVerifier::verifyTopology(app);
+      vector<App *> apps;
       
-      if (options.appToBuild != "" &&
-	  options.appToBuild != app->name)
-	continue;
-      
-#if 0
-      app->print();
-#endif
-      
-      const string &appName = appSpec->name;
-      
-      if (options.generateSkeletons)
+      for (const input::AppSpec *appSpec : appSpecs)
 	{
-	  genDeviceAppSkeleton(skeleton_cufile(appName), app);
+	  App *app = buildApp(appSpec);
+	  
+	  tv.verifyTopology(app);
+	  
+	  apps.push_back(app);
 	}
-      else
+      
+      genDeviceAppSkeleton(options.skeletonFileName, apps);
+      
+      for (App *app : apps)
+	delete app;
+    }
+  else
+    {
+      for (const input::AppSpec *appSpec : appSpecs)
 	{
+	  App *app = buildApp(appSpec);
+	  
+	  tv.verifyTopology(app);
+	  
+	  if (options.appToBuild != "" &&
+	      options.appToBuild != app->name)
+	    continue;
+	  
+#if 0
+	  app->print();
+#endif
+	  
+	  const string &appName = appSpec->name;
+	  
 	  genHostAppHeader(host_class_cuhfile(appName), app, references);
 	  
 	  genHostAppConstructor(host_class_cufile(appName), app);
 	  
 	  genDeviceAppHeader(device_class_cuhfile(appName), app);
+	  
+	  delete app;
 	}
-      
-      delete app;
     }
 }
 

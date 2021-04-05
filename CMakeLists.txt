@@ -1,11 +1,11 @@
 # MERCATOR
-# Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+# Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 
 # for VERSION
 cmake_policy(SET CMP0048 NEW)
 
 project(MERCATOR
-        VERSION 0.9.1
+        VERSION 2.0.0
         LANGUAGES CUDA CXX)
 
 cmake_minimum_required(VERSION 3.8)
@@ -21,7 +21,8 @@ set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
 ######################################################################
 
 # Point to the LLVM installation's path (required) 
-set(LLVM_PATH /project/cassini/llvm)
+set(LLVM_PATH /project/cassini/llvm-11.0.0)
+#set(LLVM_PATH /usr)
 
 ######################################################################
 # MAKE CONFIGURATION
@@ -49,4 +50,3 @@ install(DIRECTORY runtime            DESTINATION .
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runtime/version.h  
         DESTINATION runtime)
-

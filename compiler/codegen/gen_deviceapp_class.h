@@ -10,6 +10,7 @@
 //
 
 #include <string>
+#include <vector>
 
 class App;  
 
@@ -28,6 +29,6 @@ void genDeviceAppHeader(const std::string &fileName,
 // @param app application to be codegen'd
 // 
 void genDeviceAppSkeleton(const std::string &fileName,
-			  const App *app);
+			  const std::vector<App *> apps);
 
 #endif

@@ -35,7 +35,7 @@
 
 using namespace std;
 
-const int NTRIALS = 10;
+const int NTRIALS = 1;
 
 int main(int argc, char* argv[])
 {
@@ -77,17 +77,17 @@ int main(int argc, char* argv[])
   
   // host-side input and output data
   PipeEltT* inputs = new PipeEltT [NUM_INPUTS];
-  PipeEltT* outputs     = new PipeEltT [MAX_OUTPUTS];
+  PipeEltT* outputs = new PipeEltT [MAX_OUTPUTS];
   
   // create buffers
   Mercator::Buffer<PipeEltT> inBuffer(NUM_INPUTS);
   Mercator::Buffer<PipeEltT> outBufferAccept(MAX_OUTPUTS);
   
+  
   // create app object
   APP_TYPE app;
   
   cout << "# GPU BLOCKS = " << app.getNBlocks() << endl; 
-  
   for (int trial = 0; trial < NTRIALS; trial++)
     {
       // generate input data
@@ -124,31 +124,47 @@ int main(int argc, char* argv[])
       
       // set up each node in pipeline
       
-      int upperBd = NUM_INPUTS;
-      int lastUpperBd = upperBd;  // final (lowest) filter value; used for
-      //  validation
-      
+      int lastUpperBd; // final (lowest) filter value, for validation
       {
-	const int NUM_NODES = APP_TYPE::A::getNumInstances();
+	int upperBd = NUM_INPUTS;
 	
-	auto params = app.A.getParams();
-	for (int i=0; i < NUM_NODES; ++i)
-	  {
-	    if (i == NUM_NODES - 1)
-	      lastUpperBd = upperBd;
-	    
-	    params->filterRate[i] = float(FILTER_RATE);
-	    params->upperBound[i] = upperBd;
-	    
-	    upperBd -= (int)(FILTER_RATE * (float)upperBd);
-	  }
+	auto params = app.A1node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+
+	params = app.A2node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+
+	params = app.A3node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+	
+	params = app.A4node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	upperBd -= (int)(FILTER_RATE * (float)upperBd);
+	
+	params = app.A5node.getParams();
+	params->filterRate = float(FILTER_RATE);
+	params->upperBound = upperBd;
+	
+	lastUpperBd = upperBd;
       }
       
-      // associate buffers with nodes
+      // associate buffers with input and output
       
-      app.sourceNode.setSource(inBuffer);
+      app.setSource(inBuffer);
       app.sinkNodeAccept.setSink(outBufferAccept);
       
+      cout << "SAME-TYPE-PIPE APP LAUNCHING.\n" ;
       // run main function
       app.run();
       

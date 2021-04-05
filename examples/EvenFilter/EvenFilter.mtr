@@ -3,29 +3,25 @@
 // Demonstrate a simple MERCATOR filter
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 Application EvenFilter;
 
+// nodes
+
+Module filter : size_t -> {unsigned int};
+AllThreads filter;
+
 //
 // By default, the filter module produces either 0 or 1 outputs
 // for each input on each output channel. This module has a
-// single channel, called "accept" (though we need not use this
-// name anywhere).
+// single, unnamed output channel.
 
-Module Filter : {unsigned int} -> accept<{unsigned int}> ;
-
-// nodes
-
-Node src : Source<{unsigned int}> ;
-
-Node f : Filter;
-
+Node f : filter;
 Node snk : Sink<{unsigned int}> ;
 
+Source f;
+
 // edges
-
-Edge src -> f;
-
 Edge f -> snk;

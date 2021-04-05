@@ -3,7 +3,7 @@
 // Parameterized modular filter application
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 Application AsyncFilter;
@@ -16,15 +16,13 @@ Module Filter : {unsigned int} -> accept<{unsigned int}> ;
 
 // nodes
 
-Node src : Source<{unsigned int}> ;
-
 Node f : Filter;
 
 Node snk : Sink<{unsigned int}> ;
 
 // edges
 
-Edge src -> f;
+Source f buffer;
 
 Edge f -> snk;
 

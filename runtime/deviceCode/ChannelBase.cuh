@@ -1,63 +1,161 @@
-#ifndef __CHANNEL_BASE_CUH
-#define __CHANNEL_BASE_CUH
+#ifndef __CHANNELBASE_CUH
+#define __CHANNELBASE_CUH
 
 //
 // @file ChannelBase.cuh
-// @brief Base class of MERCATOR channel object
+// @brief MERCATOR channel base object
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
-#include "options.cuh"
+#include <cassert>
 
-#include "instrumentation/item_counter.cuh"
+#include "NodeBase.cuh"
+
+#include "Queue.cuh"
+
+#include "Signal.cuh"
+
+#include "options.cuh"
 
 namespace Mercator  {
 
   //
   // @class ChannelBase
-  // @brief Base class for an output channel of a module.  This is
-  // a pure interface class, so that we can mix channels with different
-  // properties in a module's channels[] array.
+  // @brief Holds all data associated with an output stream from a node.
   //
-  template <class Props>
-  class ModuleType<Props>::ChannelBase {
+  class ChannelBase {
+    
+    enum Flags { FLAG_ISAGGREGATE = 0x01 };
+    
   public:
     
-    __device__
-    ChannelBase() {}
-    
-    __device__
-    virtual
-    ~ChannelBase() {}
-    
-    //
-    //  @brief get the number of inputs that can be safely be
-    //  consumed by the specified instance of this channel's
-    //  module without overrunning the available downstream
-    //  queue space.  Virtual because it requires access to
-    //  the channel's queue, which does not have an untyped base.
-    //
-    __device__
-    virtual
-    unsigned int dsCapacity(unsigned int) const = 0;
-    
-    //
-    // @brief After a call to run(), scatter its outputs
-    //  to the appropriate queues.
-    //  NB: must be called with all threads
-    //
-    __device__
-    virtual
-    void scatterToQueues(InstTagT, bool, bool) = 0;
-    
-#ifdef INSTRUMENT_COUNTS
-    // counts outputs on channel, accessed by ModuleType
-    ItemCounter<numInstances> itemCounter;
-#endif
+    ///////////////////////////////////////////////////////
+    // INIT/CLEANUP KERNEL FUNCIIONS
+    ///////////////////////////////////////////////////////
 
-  };
-}   // end Mercator namespace
+    //
+    // @brief Constructor (called single-threaded)
+    //
+    // @param minFreeSpace minimum space required for ds queue to be non-full
+    //
+    __device__
+    ChannelBase(unsigned int iminFreeSpace, bool isAgg,
+		NodeBase *dsNode,
+		QueueBase *dsQueue, 
+		Queue<Signal> *dsSignalQueue)
+      : minFreeSpace(iminFreeSpace),
+	propFlags(isAgg ? FLAG_ISAGGREGATE : 0),
+	numItemsWritten(0),
+	dsNode(dsNode),
+	dsQueue(dsQueue),
+	dsSignalQueue(dsSignalQueue)
+    {}
+    
+    ///////////////////////////////////////////////////////
+    
+    //
+    // @brief determine if this channel is aggregating
+    //
+    __device__
+    bool isAggregate() const
+    {
+      return (propFlags & FLAG_ISAGGREGATE);
+    }
+    
+    //
+    // @brief get total size of the downstream data queue
+    //
+    __device__
+    unsigned int dsSize() const
+    {
+      return dsQueue->getCapacity();
+    }
+    
+    //
+    // @brief get free space of the downstream data queue
+    //
+    __device__
+    unsigned int dsCapacity() const
+    {
+      return dsQueue->getFreeSpace();
+    }    
+    
+    //
+    // @brief prepare for a direct write to the downstream queue(s)
+    // by reserving space for the items to write.
+    //
+    // @param number of slots to reserve for next write
+    // @return starting index of reserved segment.
+    //
+    __device__
+    size_t dsReserve(unsigned int nToWrite)
+    {
+      assert(IS_BOSS());
+      assert(dsQueue->getFreeSpace() >= nToWrite);
+      
+      if (dsQueue->getFreeSpace() - nToWrite < minFreeSpace)
+	dsNode->activate();
+      
+      numItemsWritten += nToWrite;
+      
+      return dsQueue->reserve(nToWrite);
+    }
+    
+    //
+    // @brief push a signal to a specified channel, and reset the number
+    // of items produced on that channel. 
+    //
+    // @param s the signal being sent downstream
+    //
+    __device__
+    void pushSignal(const Signal& s)
+    {
+      assert(IS_BOSS());
+      assert(dsSignalQueue->getFreeSpace() > 0);
+      
+      unsigned int credit;
+      
+      if (dsSignalQueue->empty())
+	credit = dsQueue->getOccupancy();
+      else
+	{
+	  if (dsSignalQueue->getFreeSpace() <= MAX_SIGNALS_PER_RUN)
+	    dsNode->activate();
+	  
+	  credit = numItemsWritten;
+	}
+      
+      Signal &sNew = dsSignalQueue->enqueue(s);
+      sNew.credit = credit;
+      
+      numItemsWritten = 0;
+    }
+    
+    //
+    // @brief pass a flush request to our downstream node
+    //
+    __device__
+    void flush(unsigned int flushStatus) const
+    { NodeBase::flush(dsNode, flushStatus); }
+      
+  protected:
+    
+    const unsigned int minFreeSpace;  // min space for queue not to be full
+    const unsigned int propFlags;     // Signal propagation flags
+  
+    //
+    // target (edge) for writing items downstream
+    //
+    
+    NodeBase* const dsNode;
+    QueueBase* const dsQueue;
+    Queue<Signal>* const dsSignalQueue;
+    
+    unsigned int numItemsWritten;     // # items produced since last signal
+    
+  }; // end ChannelBase class
+}  // end Mercator namespace
 
 #endif

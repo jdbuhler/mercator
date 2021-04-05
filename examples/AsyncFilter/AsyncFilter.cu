@@ -27,12 +27,12 @@ unsigned int munge(unsigned int key)
 // Hash each input and emit only hashes that are 0 modulo the user's
 // modulus
 //
-__device__
+__MDECL__
 void AsyncFilter_dev::
-Filter::run(const unsigned int& inputItem, InstTagT nodeIdx)
+Filter<InputView>::run(unsigned int const & inputItem)
 {
   unsigned int v = munge(inputItem);
   
-  if (v % getParams()->modulus == 0)
-    push(v, nodeIdx);
+  if (v % getModuleParams()->modulus == 0)
+    push(v);
 }

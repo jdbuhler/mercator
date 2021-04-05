@@ -13,6 +13,7 @@ Application ModFilter;
 //
 
 Module Filter : {unsigned int} -> accept<{unsigned int}> ;
+AllThreads Filter;
 
 //
 // this time, build a chain of three filters
@@ -20,7 +21,6 @@ Module Filter : {unsigned int} -> accept<{unsigned int}> ;
 
 // nodes
 
-Node src : Source<{unsigned int}> ;
 
 Node f1 : Filter;
 
@@ -32,7 +32,7 @@ Node snk : Sink<{unsigned int}> ;
 
 // edges
 
-Edge src -> f1;
+Source f1 function;
 
 Edge f1 -> f2;
 

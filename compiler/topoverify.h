@@ -10,21 +10,29 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
+#include <vector>
+
 #include "app.h"
 
 class TopologyVerifier {
 public:
   
-  static
   void verifyTopology(App *app);
   
 private:
   
-  static
+  unsigned int time;
+  unsigned int nextRegionId;
+  std::vector<unsigned int> parentRegion;
+  
   Node *dfsVisit(Node *node,
 		 Edge *parentEdge,
-		 long multiplier);
+		 long multiplier,
+		 unsigned int enumId,
+		 App *app);
   
+  static
+  bool compareStartTime(const Node *n1, const Node *n2);
 };
 
 #endif

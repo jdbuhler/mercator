@@ -1,0 +1,102 @@
+INTERFACE CONTRACTS IN RUNTIME TEMPLATE CLASSES
+
+*** InputView{T} [NodeFunction_*]
+
+An InputView accesses a conceptual array of type T.  (The actual
+implementation may or may not be an array.)
+
+typename EltT; // return type of get(), which is T or const T& depending
+               // on whether T is a scalar type
+
+// return the idxth element of the view
+EltT get(size_t idx) const;
+
+------------------------------------------------
+
+*** Source [Node_Source]
+
+(Note that Source is a model of InputView)
+
+typename EltT; // return type of get(), which is T or const T& depending
+               // on whether T is a scalar type
+
+void init();    // called at start of app run
+void setup(size_t, size_t *); // called at start of app run
+void cleanup(); // called at end of app run
+
+// reserve a chunk of the source
+size_t reserve(size_t, size_t *);
+
+// return the idxth element of the source
+EltT get(size_t idx) const;
+
+---------------------------------------------------
+
+NB: all following contracts for object types are implicitly
+parameterized by a type T, which must match the template parameter T
+of the class using the object and of the InputView
+
+*** NodeFcnKind{InputView} [Node, Node_Source]
+
+The NodeFunctionKind provides the interface of a NodeFunction to its
+controlling node object.  It is a template parameterized by the
+NodeFunction's InputView type.
+
+// set the NodeFunction's controlling node, so that the function can
+// communicate with the node during execution.  numChannels matches
+// the number of channels in the NodeFunction's template parameters,
+// so that the NodeFunction can call getChannel() and getDSNode()
+// on the node.
+void setNode(NodeBaseWithChannels<numChannels> *node);
+
+// called by the node once at the beginning and end of an application's run,
+// respectively
+void init();
+void cleanup();
+
+// preferred minimum # of inputs per call to doRun()
+static const unsigned int inputSizeHint;
+
+// process up to limit items from the InputView view starting at offset start
+// Return the number of items actually processed.
+unsigned int doRun(const InputView<T> &view, size_t start, unsigned int limit);
+
+// access parent arena and index of current parent object for nodes in an
+// enumeration region
+RefcountedArena *getParentArena() const;
+unsigned int getParentIdx() const;
+void setParentIdx(unsigned int idx);
+
+// called by the node once at the begining and end of processing inputs
+// from new parent object, for nodes in an enumeration region
+void begin();
+void end();
+
+--------------------------------------------------------------
+
+*** NodeFunction_User::DerivedNodeFunctionKind{InputView}
+
+Used for CRTP to avoid virtualization of specific NodeFunction behaviors
+
+// process nItems, one per thread starting from thread 0.  Must be
+// called with ALL THREADS; for threads >= nItems, item is unused.
+void run(const T &item, unsigned int nItems);
+
+--------------------------------------------------------------
+
+*** NodeFunction_Buffered::DerivedNodeFunctionKind{InputView}
+
+Used for CRTP to avoid virtualization of specific NodeFunction behaviors
+
+// process one item per thread starting from thread 0.  Will be
+// called with as many active threads as available items.
+void run(const T &item);
+
+---------------------------------------------------------------
+
+NodeFunction_Enumerate::DerivedNodeFunctionKind{InputView}
+
+Used for CRTP to avoid virtualization of specific NodeFunction behaviors
+
+// return the # of elements of input item
+unsigned int findCount(const T &item) const;

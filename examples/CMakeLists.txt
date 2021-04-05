@@ -5,7 +5,7 @@
 project(MERCATOR_EXAMPLES
 	LANGUAGES CUDA CXX)
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.18)
 
 #set(CMAKE_BUILD_TYPE debug)
 set(CMAKE_BUILD_TYPE release)
@@ -16,10 +16,7 @@ set(CMAKE_BUILD_TYPE release)
 # PACKAGE DEPENDENCIES
 ######################################################################
 
-#set(MERCATOR_ROOT_DIR /project/cassini/mercator-devel)
-set(MERCATOR_ROOT_DIR /home/research/planot/compareMecator/mercator)
-
-set(CUB_ROOT_DIR /project/cassini/cub)
+set(MERCATOR_ROOT_DIR /project/cassini/master/mercator)
 
 # Uncomment this variable to build MERCATOR's examples inside
 # its development source tree.
@@ -28,6 +25,10 @@ set(BUILDING_IN_TREE true)
 #######################################################################
 # CUDA COMPILER FLAGS
 #######################################################################
+
+#set (CMAKE_CUDA_ARCHITECTURES 52)
+set (CMAKE_CUDA_ARCHITECTURES 61)
+#set (CMAKE_CUDA_ARCHITECTURES 72)
 
 set (CMAKE_CXX_FLAGS_DEBUG   
      "${CMAKE_CXX_FLAGS_DEBUG} -UNDEBUG -Wall")
@@ -41,10 +42,9 @@ set (CMAKE_CXX_FLAGS_RELEASE
 set (CMAKE_CUDA_FLAGS_RELEASE
      "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo -DNDEBUG")
 
-set(ARCHFLAGS -arch compute_61 -code sm_61)
 set(WARNFLAGS -Xcompiler -Wall -Xcudafe --diag_suppress=unsigned_compare_with_zero -Xptxas --suppress-stack-size-warning)
 
-string(JOIN " " NVCCFLAGS ${ARCHFLAGS} ${WARNFLAGS})
+string(JOIN " " NVCCFLAGS ${WARNFLAGS})
 
 string(APPEND CMAKE_CUDA_FLAGS ${NVCCFLAGS})
 
@@ -55,20 +55,22 @@ include(${MERCATOR_ROOT_DIR}/mercator-rules.txt)
 if(${BUILDING_IN_TREE})
   # Override default path to MERCATOR compiler to allow build from
   # non-installed version
-  set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/compiler/mercator)
+  set(MERCATOR_CC ${MERCATOR_ROOT_DIR}/build/compiler/mercator)
   include_directories(AFTER ${MERCATOR_ROOT_DIR}/build/runtime)
 endif()
 
 add_subdirectory(SameTypePipe)
 
+add_subdirectory(SameTypePipeAT)
+
 add_subdirectory(EvenFilter)
 
 add_subdirectory(ModFilter)
 
-add_subdirectory(SplitFilter)
-
-add_subdirectory(LoopFilter)
-
 add_subdirectory(AsyncFilter)
 
-add_subdirectory(Mandelbrot)
+add_subdirectory(SplitFilter)
+
+#add_subdirectory(LoopFilter)
+
+#add_subdirectory(Mandelbrot)

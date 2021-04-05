@@ -21,126 +21,212 @@ using namespace std;
 // @brief generate statements to construct an individual module object inside
 //   the app's constructor
 //
-// @param moduleObj name of module object being built
-// @param mod module type being built
+// @param nodeObj name of node object being built
+// @param node representation of node object
 // @param app application being codegen'd
 // @param f Formatter to receive generated code
 //
 static
-void genModuleConstruction(const string &moduleObj,
-			   const ModuleType *mod,
-			   const App *app,
-			   Formatter &f)
+void genNodeConstruction(const string &nodeObj,
+			 const Node *node,
+			 const App *app,
+			 Formatter &f)
 {
+  const ModuleType *mod = node->get_moduleType();
+
   string hostModuleType = "Host::" + mod->get_name();
-  string deviceModuleType  = mod->get_name();
+  string deviceModuleKind = mod->get_name();
+  string deviceModuleType = deviceModuleKind +
+    "<" + (node->get_isSource()
+	   ? "Source" 
+	   : "Mercator::Queue<" + mod->get_inputType()->name + ">")
+    + ">";
   
+  string nodeFunctionObj = nodeObj + "Fcn";
+  
+  string hostNodeParamObj   = "params->n" + mod->get_name() + 
+    "[" + to_string(node->get_idxInModuleType()) + "]";
   string hostModuleParamObj = "params->p" + mod->get_name();
   string hostAppParamObj    = "params->appParams";
   
-  f.add("{");
-  f.indent();
+	
+  // allocate the node function object
   
-  // create const array of queue sizes per instance
-  {
-    string nextStmt = "const unsigned int queueSizes[] = {";
-    for (const Node *node : mod->nodes)
-      nextStmt += to_string(node->get_queueSize() * options.queueScaler) + ", ";
-    nextStmt += "};";
-    
-    f.add(nextStmt);
-  }
+  string nextStmt =
+    deviceModuleType + "* " + nodeFunctionObj +
+    " = new " + deviceModuleType + "(";
   
-  // allocate the module object
-  {
-    string nextStmt =
-      moduleObj + " = new " + deviceModuleType + "(";
-    
-    if (mod->isSource())
-      nextStmt += "tailPtr, ";
-    
-    nextStmt += "queueSizes";
-    
-    if (mod->hasParams())
-      nextStmt += ", &" + hostModuleParamObj;
-    
-    if (app->hasParams())
-      nextStmt += ", &" + hostAppParamObj;
-    
-    nextStmt += ");";
-    
-    f.add(nextStmt);
-    f.add("assert(" + moduleObj + " != nullptr);"); // verify that allocation succeeded
-  }
+  vector<string> arglist;
   
-  f.unindent();
-  f.add("}");
+  string arenaObj;
+  if (node->get_regionId() > 0) // node is in a non-base region
+    {
+      // add pointer to region head's parent buffer. which
+      // already exists because we construct nodes in
+      // topological order
+      
+      Node *enumNode = app->regionHeads[node->get_regionId()];
+      string enumNodeFcnObj = "d"  + enumNode->get_name() + "Fcn";
+      arenaObj = enumNodeFcnObj + "->getArena()";
+    }
+  else
+    arenaObj = "nullptr";
+  
+  arglist.push_back(arenaObj);
+  
+  if (mod->isEnumerate())
+    {
+      arglist.push_back(to_string(node->get_enumerateId()));
+      arglist.push_back(to_string(node->get_nTerminalNodes()));
+    }
+  
+  if (mod->hasNodeParams())
+    arglist.push_back("&" + hostNodeParamObj);
+  
+  if (mod->hasModuleParams())
+    arglist.push_back("&" + hostModuleParamObj);
+  
+  if (app->hasParams())
+    arglist.push_back("&" + hostAppParamObj);
+  
+  if (arglist.size() > 0)
+    {
+      nextStmt += arglist[0];
+      for (unsigned int j = 1; j < arglist.size(); j++)
+	nextStmt += ", " + arglist[j];
+    }
+  
+  nextStmt += ");";
+  
+  // verify that allocation succeeded	
+  f.add(nextStmt);
+  f.add("assert(" + nodeFunctionObj + " != nullptr);");
+  
+  
+  // allocate the containing node object
+  
+  if (node->get_isSource())
+    {
+      // create the actual source object
+      f.add("Source *sourceObj = new Source(tailPtr, params);");
+      
+      // allocate the node object
+      string NodeType = "Mercator::Node_Source<" + 
+	mod->get_inputType()->name +
+	", " + to_string(mod->get_nChannels()) +
+	", Source"
+	", " + deviceModuleKind + ">";
+      
+      nextStmt =
+	NodeType + " * " + nodeObj + " = new " + NodeType + "(";
+      
+      nextStmt += "&scheduler";
+      
+      nextStmt += ", " + to_string(node->get_regionId());
+      
+      nextStmt += ", sourceObj";
+      
+      nextStmt += ", " + nodeFunctionObj;
+      
+      nextStmt += ");";
+      
+      f.add(nextStmt);
+    }
+  else
+    {
+      // only nodes in non-zero enumeration regions use signals
+      bool usesSignals = (node->get_regionId() > 0);
+      
+      string NodeType = "Mercator::Node_Queue<" + 
+	mod->get_inputType()->name +
+	", " + to_string(mod->get_nChannels()) +
+	", " + to_string(usesSignals) +
+	", " + deviceModuleKind + ">";
+      
+      nextStmt =
+	NodeType + " * " + nodeObj + " = new " + NodeType + "(";
+      
+      nextStmt += "&scheduler";
+      
+      nextStmt += ", " + to_string(node->get_regionId());
+      
+      nextStmt += ", " + to_string(node->isTerminalNode());
+      
+      const Edge *usEdge = node->get_usEdge();
+      nextStmt += ", d" + usEdge->usNode->get_name();
+      nextStmt += ", " + to_string(usEdge->usChannel->id);
+      
+      nextStmt += 
+	", " + to_string(node->get_queueSize() * options.queueScaler);
+      
+      nextStmt += ", " + nodeFunctionObj;
+      
+      nextStmt += ");";
+      
+      f.add(nextStmt);
+    }
+  
+  // verify that allocation succeeded	
+  f.add("assert(" + nodeObj + " != nullptr);");
 }
 
-    
+
 //
-// @brief Generate statements that connect the modules of the app
-//    according to the user's edge specifications
+// @brief generate statements that initialize the channels of
+//   a node
 //
-// @param app app being codegen'd
+// @param nodeObj name of node object to receive channels
+// @param node the actual node representation
 // @param f Formatter to receive generated code
-//
 static
-void genEdgeInitStmts(const App *app,
-		      Formatter &f)
+void genNodeChannelInitStmts(const string &nodeObj,
+			     const Node *node,
+			     Formatter &f)
 {
-  for (const ModuleType *mod : app->modules)
+  const ModuleType *mod = node->get_moduleType();
+  string nodeFcnObj = nodeObj + "Fcn";
+  
+  // create output channels and associate them with the node
+  for (unsigned int j = 0; j < mod->get_nChannels(); ++j)
     {
-      int nChannels = mod->get_nChannels();
-	
-      if (nChannels > 0)
+      const Channel *channel = mod->get_channel(j);
+      const Node *dsNode = node->get_dsEdge(j)->dsNode;
+      string dsNodeObj = "d" + dsNode->get_name();
+	  
+      unsigned int spaceRequired;
+      if (mod->isUser())
+	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
+      else // enumerate can keep going until channel fills
+	spaceRequired = 1; 
+      
+      string ChannelType = "Mercator::Channel<" + channel->type->name + ">";
+      
+      f.add("{");
+      f.indent();
+      
+      f.add(ChannelType + "*channel = new " + ChannelType + "("
+	    + to_string(spaceRequired) + ", "
+	    + (channel->isAggregate ? "true, " : "false, ")
+	    + dsNodeObj + ", "
+	    + dsNodeObj + "->getQueue(), "
+	    + dsNodeObj + "->getSignalQueue());");
+      
+      f.add("assert(channel != nullptr);");
+      
+      f.add(nodeObj + "->setChannel(" + to_string(j) + ", channel);");
+      
+      if (mod->isUser() && !mod->get_useAllThreads())
 	{
-	  f.add("// set outgoing edges for nodes of module type " + 
-		mod->get_name());
-	  
-	  string hostModuleType   = "Host::"   + mod->get_name();
-	  string deviceModuleType = mod->get_name();
-	  string moduleObj = "d" + mod->get_name();
-	  
-	  // set downstream queues
-	  for (int usChannel = 0; usChannel < nChannels; ++usChannel)
-	    {
-	      string channelName = mod->get_channel(usChannel)->name;
-	      
-	      for (const Node *usNode : mod->nodes)
-		{
-		  const Edge *dsEdge = 
-		    usNode->get_dsEdge(usChannel);
-		  
-		  if (!dsEdge) // output channel is not connected
-		    continue;
-		  
-		  const Node *dsNode = dsEdge->dsNode;
-		    
-		  const ModuleType *dsMod = dsNode->get_moduleType();
-		  
-		  string dsHostModuleType = "Host::" + dsMod->get_name();
-		  string dsModuleObj = "d" + dsMod->get_name();
-		  
-		  // break this call across two lines for readability
-		  f.add(moduleObj + "->setDSEdge(" +
-			deviceModuleType +
-			"::Out::" + channelName + ", " +
-			hostModuleType + "::Node::" +
-			usNode->get_name() + ", ");
-		  
-		  f.indentAfter('(');
-		  
-		  f.add(dsModuleObj + ", " +
-			dsHostModuleType + "::Node::" + 
-			dsNode->get_name() + ");");
-		  
-		  f.unindent();
-		}
-	    }
-	  
-	  f.add("");
+	  // channel is buffered -- create its buffer object
+	  f.add(nodeFcnObj + "->initChannelBuffer<"
+		+ channel->type->name + ">("
+		+ to_string(j) + ", "
+		+ to_string(channel->maxOutputs)
+		+ ");");
 	}
+      
+      f.unindent();
+      f.add("}");
     }
 }
 
@@ -165,46 +251,42 @@ void genDeviceAppConstructor(const App *app,
   f.add("using Host = " + app->name + ";");
   f.add("");
   
-  // instantiate all modules of the app
+  // instantiate all nodes of the app in topological order
   
-  f.add("// initialize each module of the app on the device");
+  f.add("// construct each node of the app on the device");
   
-  for (const ModuleType *mod : app->modules)
+  for (const Node *node : app->nodes)
     {
-      string modVar = mod->get_name();
-      
-      string deviceModuleType = mod->get_name();
-      string moduleObj = "d" + mod->get_name();
-      
-      f.add(deviceModuleType + "* " + moduleObj + ";");
-      
-      genModuleConstruction(moduleObj, mod, app, f);
+      string nodeObj = "d" + node->get_name();
+      genNodeConstruction(nodeObj, node, app, f);
       f.add("");
     }
   
-  // connect the instances of each module by edges
-  genEdgeInitStmts(app, f);
+  f.add("// construct the output channels for each node");
   
-  // create an array of all modules to initialize the scheduler 
-  int srcMod;
-  int j = 0;
-  string nextStmt = "Mercator::ModuleTypeBase *mods[] = {";
-  for (const ModuleType *mod : app->modules)
+  for (const Node *node : app->nodes)
     {
-      string moduleObj = "d" + mod->get_name();
-      
-      nextStmt += moduleObj + ", ";
-      
-      if (mod->isSource())
-	srcMod = j; 
-      
-      j++;
+      string nodeObj = "d" + node->get_name();
+      genNodeChannelInitStmts(nodeObj,
+			      node,
+			      f);
+      f.add("");
+    }
+  
+  // create an array of all nodes to initialize the scheduler 
+  
+  string nextStmt = "Mercator::NodeBase *nodes[] = {";
+
+  for (const Node *node : app->nodes)
+    {
+      string nodeObj = "d" + node->get_name();
+      nextStmt += nodeObj + ", ";
     }
   nextStmt += "};";
   f.add(nextStmt);
   
-  f.add("// tell scheduler about the modules in this app");
-  f.add("registerModules(mods, " + to_string(srcMod) + ");");
+  f.add("// tell device app about all nodes");
+  f.add("registerNodes(nodes);");
   
   f.unindent();
   f.add("}");    

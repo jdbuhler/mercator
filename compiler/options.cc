@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <stdexcept>
 #include <cstdlib>
 #include <cassert>
 #include <unistd.h>
@@ -17,7 +18,7 @@
 
 using namespace std;
 
-const char OptionList[] = "a:DhH:I:Ko:S:t:v";
+const char OptionList[] = ":a:DhH:I:K:o:q:S:t:v";
 
 CommandOptions options;
 
@@ -35,13 +36,17 @@ static void printUsage()
        << "   (by default, check system includes, CUDA includes, and\n"
        << "    the directory where the spec file is located)\n"
        << "\n"
-       << " -K\n"
-       << "   generate a skeleton user stub files for apps\n"
+       << " -K <path>\n"
+       << "   generate a skeleton user stub files for apps at <path>\n"
        << "    (default: generate runtime support code for apps)\n"
        << "\n"
        << " -o <path>\n"
        << "   write the output files to <path>\n"
        << "   (defaults to current directory)\n"
+       << "\n"
+       << "-q <#>\n"
+       << "   queue size scale factor for generated application\n"
+       << "   (default " << options.queueScaler << ")\n"
        << "\n"
        << " -t <#>\n"
        << "   number of threads per block for the generated application\n"
@@ -77,99 +82,118 @@ bool parseCommandLine(int argc, char **argv)
     }
   
   int c;
-  while ((c = getopt(argc, argv, OptionList)) != -1)
+  try 
     {
-      switch (c)
+      while ((c = getopt(argc, argv, OptionList)) != -1)
 	{
-	case 'a':
-	  options.appToBuild = optarg;
-	  break;
-	  
-	case 'I':
-	  options.typecheckIncludePaths.push_back(optarg);
-	  break;
-	  
-	case 'K':
-	  options.generateSkeletons = true;
-	  break;
-	  
-	case 'o':
-	  options.outputPath = optarg;
-	  break;
-	  	  
-	case 't':
-	  options.threadsPerBlock = stoi(optarg);
-	  if (options.threadsPerBlock < 1)
+	  switch (c)
 	    {
-	      cerr << "ERROR: threads per block must be >= 1" 
-		   << endl;
+	    case 'a':
+	      options.appToBuild = optarg;
+	      break;
+	      
+	    case 'I':
+	      options.typecheckIncludePaths.push_back(optarg);
+	      break;
+	      
+	    case 'K':
+	      options.generateSkeletons = true;
+	      options.skeletonFileName = optarg;
+	      break;
+	      
+	    case 'o':
+	      options.outputPath = optarg;
+	      break;
+	      
+	    case 'q':
+	      options.queueScaler = stoi(optarg);
+	      if (options.queueScaler < 1)
+		{
+		  cerr << "ERROR: queue scaler must be >= 1"
+		       << endl;
+		  return false;
+		}
+	      break;
+	      
+	    case 't':
+	      options.threadsPerBlock = stoi(optarg);
+	      if (options.threadsPerBlock < 1)
+		{
+		  cerr << "ERROR: threads per block must be >= 1" 
+		       << endl;
+		  return false;
+		}
+	      break;
+	      
+	    case 'S':
+	      options.deviceStackSize = stoi(optarg) * 1024;
+	      if (options.deviceStackSize < 1024)
+		{
+		  cerr << "ERROR: device stack must be >= 1 KB"
+		       << endl;
+		  return false;
+		}
+	      break;
+	      
+	    case 'H':
+	      options.deviceHeapSize = stoi(optarg) * 1024 * 1024;
+	      if (options.deviceHeapSize < 1024 * 1024)
+		{
+		  cerr << "ERROR: device heap must be >= 1 MB"
+		       << endl;
+		  return false;
+		}
+	      break;
+	      
+	    case 'D':
+	      options.emitDeps = true;
+	      break;
+	      
+	    case 'v':
+	      cout << "MERCATOR " 
+		   << MERCATOR_MAJOR << '.' 
+		   << MERCATOR_MINOR << '.'
+		   << MERCATOR_PATCHLEVEL << "\n";
+	      exit(1);
+	    break;
+	    
+	    case 'h':
+	      printUsage(); // does not return
+	      break;
+	      
+	    case '?':
+	      cerr << "  (use -h to get help)" << endl;
 	      return false;
-	    }
-	  break;
-	  
-	case 'S':
-	  options.deviceStackSize = stoi(optarg) * 1024;
-	  if (options.deviceStackSize < 1024)
-	    {
-	      cerr << "ERROR: device stack must be >= 1 KB"
-		   << endl;
+	      
+	    case ':':
+	      cerr << "ERROR: option '" << optopt << "' requires argument" << endl;
+	      cerr << "  (use -h to get help)" << endl;
 	      return false;
+	      
+	    default:
+	      // we should never get here!
+	      assert(false);
 	    }
-	  break;
-	  
-	case 'H':
-	  options.deviceHeapSize = stoi(optarg) * 1024 * 1024;
-	  if (options.deviceHeapSize < 1024 * 1024)
-	    {
-	      cerr << "ERROR: device heap must be >= 1 MB"
-		   << endl;
-	      return false;
-	    }
-	  break;
-	  
-	case 'D':
-	  options.emitDeps = true;
-	  break;
-	  
-	case 'v':
-	  cout << "MERCATOR " 
-	       << MERCATOR_MAJOR << '.' 
-	       << MERCATOR_MINOR << '.'
-	       << MERCATOR_PATCHLEVEL << "\n";
-	  exit(1);
-	  break;
-	  
-	case 'h':
-	  printUsage(); // does not return
-	  break;
-	  
-	case '?':
-	  cerr << "ERROR: unknown option '" << optopt << "'" << endl;
-	  cerr << "  (use -h to get help)" << endl;
-	  return false;
-	  
-	case ':':
-	  cerr << "ERROR: option '" << optopt << "' requires argument" << endl;
-	  cerr << "  (use -h to get help)" << endl;
-	  return false;
-	  
-	default:
-	  // we should never get here!
-	  assert(false);
 	}
     }
-    
-    for (int j = optind; j < argc; j++)
-      options.sourceFiles.push_back(argv[j]);
-    
-    //
-    // make sure the output path ends with a path separator
-    //
-    
-    if (options.outputPath != "" && 
-	options.outputPath.back() != '/')
-      options.outputPath += "/";
-    
-    return true;
+  catch (const invalid_argument &ia) 
+    {
+      cerr << "ERROR: invalid numerical argument '" << optarg << "' to option -" << (char) c << endl;
+      cerr << "  (use -h to get help)" << endl;
+      return false;
+    }
+  
+  for (int j = optind; j < argc; j++)
+    options.sourceFiles.push_back(argv[j]);
+  
+  //
+  // make sure the output path ends with a path separator
+  //
+  
+  if (options.outputPath != "" && 
+      options.outputPath.back() != '/')
+    options.outputPath += "/";
+  
+  return true;
 }
     

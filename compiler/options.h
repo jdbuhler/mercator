@@ -15,6 +15,7 @@ struct CommandOptions {
   
   bool emitDeps;            // run in emit dependency mode
   bool generateSkeletons;   // run in generate skeleton mode
+  std::string skeletonFileName; // name of skeleton file
   
   unsigned int threadsPerBlock; // # threads per GPU block
   unsigned int deviceStackSize; // size of device stack
@@ -42,7 +43,9 @@ struct CommandOptions {
     
     threadsPerBlock = 128;
     deviceStackSize = (1024 * 8);          // 8 KB
-    deviceHeapSize  = (1024 * 1024 * 200); // 100 MB
+
+    //deviceHeapSize  = (1024 * 1024 * 200); // 100 MB
+    deviceHeapSize  = (1024 * 1024 * 500); // 524MB 
     
     queueScaler = 4;
     

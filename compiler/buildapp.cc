@@ -10,6 +10,7 @@
 
 #include "buildapp.h"
 #include "typecheck.h"
+#include "options.h"
 
 using namespace std;
 
@@ -31,7 +32,10 @@ void validateTopologyComplete(const App *app);
 //
 App *buildApp(const input::AppSpec *appSpec)
 {
-  App *app = new App(appSpec->name);
+  App *app = new App(appSpec->name,
+		     appSpec->threadWidth == 0
+		     ? options.threadsPerBlock
+		     : appSpec->threadWidth);
   
   for (const input::ModuleTypeStmt *mts : appSpec->modules)
     {
@@ -65,7 +69,8 @@ App *buildApp(const input::AppSpec *appSpec)
 					  mId,
 					  new DataType(mts->inputType),
 					  mts->channels.size(),
-					  mts->flags);
+					  mts->flags,
+					  app->threadWidth);
       
       int cId = 0;
       for (const input::ChannelSpec *cs : mts->channels)
@@ -96,15 +101,59 @@ App *buildApp(const input::AppSpec *appSpec)
 	      abort();
 	    }
 	  
-	  Channel *channel = new Channel(cs->name,
+	  Channel *channel = new Channel(cs->name, cId,
 					 new DataType(cs->type),
 					 cs->maxOutputs,
-					 cs->isVariable);
+					 cs->isVariable,
+					 cs->isAggregate);
 	  
 	  module->set_channel(cId++, channel);
 	}
+
+      if (module->isEnumerate())
+	{
+	  //
+	  // create a new enumerating module
+	  //
+	  
+	  string enumModuleName = "__enumerateFor_" + module->get_name();
+	  
+	  ModuleType *enumModule = new ModuleType(enumModuleName,
+						  mId + 1,
+						  new DataType(mts->inputType),
+						  1, 
+						  ModuleType::F_isEnumerate,
+						  app->threadWidth);
+	  
+	  app->moduleNames.insertUnique(enumModuleName, mId + 1);
       
-      app->modules.push_back(module);
+	  // NB: max output count 1 is patently false, but it doesn't
+	  // matter excpet for cycle checking -- which doesn't work
+	  // with enumeration right now.
+	  Channel *channel = new Channel("__out", 0,
+					 new DataType("unsigned int", 
+						      mts->inputType->name),
+					 1, true, false);
+	  
+	  enumModule->set_channel(0, channel);
+	  enumModule->channelNames.insertUnique("__out", 0);
+	  
+	  //
+	  // make the module labeled "enumerate" by the user
+	  // formerly enumerating, and fix its input type.
+	  //
+	  
+	  module->set_inputType(new DataType("unsigned int", 
+					     mts->inputType->name));
+	  module->makeFormerlyEnumerate();
+	  
+	  app->modules.push_back(module);
+	  app->modules.push_back(enumModule);
+	  
+
+	}
+      else
+	app->modules.push_back(module);
     }
   
   for (const input::AllThreadsStmt is : appSpec->allthreads)
@@ -157,7 +206,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	       << is.module
 	       << endl;
 	  abort();
-
+	  
 	}
       
       ModuleType *module = app->modules[mId];
@@ -184,17 +233,16 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
       
       //
-      // Look up the module type of this node.  Source and sink nodes
-      // are handled specially according to their data types; we create
-      // their module types if they do not yet exist.
+      // Look up the module type of this node.  Sink nodes are handled
+      // specially according to their data types; we create their
+      // module types if they do not yet exist.
       //
       
       int mId;
-      if (ns->type->kind == input::NodeType::isSource ||
-	  ns->type->kind == input::NodeType::isSink)
+      if (ns->type->kind == input::NodeType::isSink)
 	{
 	  const string &typeStr = ns->type->dataType->name;
-	  
+		  
 	  //
 	  // VALIDATE that typeStr names a valid type
 	  // 
@@ -207,64 +255,29 @@ App *buildApp(const input::AppSpec *appSpec)
 	    }
 	  
 	  unsigned int typeId = appSpec->typeInfo->typeId(typeStr);
+
+	  string moduleName = "__MTR_SINK_" + to_string(typeId);
 	  
-	  if (ns->type->kind == input::NodeType::isSource)
+	  // retrieve the sink module type; create it if it
+	  // doesn't exist
+	  mId = app->moduleNames.find(moduleName);
+	  if (mId == SymbolTable::NOT_FOUND)
 	    {
-	      string moduleName = "__MTR_SOURCE_" + to_string(typeId);
+	      mId = app->modules.size();
 	      
-	      // retrieve the source module type; create it if it
-	      // doesn't exist
-	      mId = app->moduleNames.find(moduleName);
-	      if (mId == SymbolTable::NOT_FOUND)
-		{
-		  mId = app->modules.size();
-		  
-		  ModuleType *module = 
-		    new ModuleType(moduleName,
-				   mId,
-				   nullptr, 1, 
-				   ModuleType::F_isSource);
-		  
-		  // a source module has a single channel named "out"
-		  string channelName = "out";
-		  
-		  module->channelNames.insertUnique(channelName, 0);
-		  
-		  Channel *channel = new Channel(channelName,
-						 new DataType(typeStr),
-						 1, false);
-		  
-		  module->set_channel(0, channel);
-		  
-		  app->moduleNames.insertUnique(moduleName, mId);
-		  
-		  app->modules.push_back(module);
-		}
-	    }
-	  else // isSink
-	    {
-	      string moduleName = "__MTR_SINK_" + to_string(typeId);
+	      ModuleType *module = 
+		new ModuleType(moduleName,
+			       mId,
+			       new DataType(typeStr), 0, 
+			       ModuleType::F_isSink,
+			       app->threadWidth);
 	      
-	      // retrieve the sink module type; create it if it
-	      // doesn't exist
-	      mId = app->moduleNames.find(moduleName);
-	      if (mId == SymbolTable::NOT_FOUND)
-		{
-		  mId = app->modules.size();
-		  
-		  ModuleType *module = 
-		    new ModuleType(moduleName,
-				   mId,
-				   new DataType(typeStr), 0, 
-				   ModuleType::F_isSink);
-		  
-		  app->moduleNames.insertUnique(moduleName, mId);
-		  
-		  app->modules.push_back(module);
-		}
+	      app->moduleNames.insertUnique(moduleName, mId);
+	      
+	      app->modules.push_back(module);
 	    }
 	}
-      else // non-source, non-sink node
+      else // non-sink node
 	{
 	  //
 	  // VALIDATE that node's module type is valid, and
@@ -282,35 +295,46 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
       
       ModuleType *module = app->modules[mId];
+      
       int nLocalId = module->nodes.size();
       
       Node *node = new Node(ns->name,
-			    app->modules[mId],
+			    module,
 			    nLocalId);
       
       app->nodes.push_back(node);
       module->nodes.push_back(node);
       
-      if (node->get_moduleType()->isSource())
+      if (module->isFormerlyEnumerate())
 	{
 	  //
-	  // VALIDATE that app has unique source node, and
-	  // record it if none has yet been seen.
+	  // we need an enumerate node prior to this node
 	  //
-	  if (app->sourceNode)
-	    {
-	      cerr << "ERROR: app " << app->name
-		   << " has multiple source nodes." << endl
-		   << " (" << app->sourceNode->get_name() 
-		   << ", "
-		   << node->get_name() << ')'
-		   << endl;
-	      abort();
-	    }
-	  else
-	    app->sourceNode = node;
+	  string enumName = "__enumerateFor_" + ns->type->name;
+	  int emId = app->moduleNames.find(enumName);
+	  
+	  ModuleType *enumModule = app->modules[emId];
+	  
+	  int enLocalId = enumModule->nodes.size();
+	  
+	  string enumNodeName = "__enumerateFor_" + ns->name;
+	  Node *enumNode = new Node(enumNodeName,
+				    enumModule,
+				    enLocalId);
+	  
+	  app->nodes.push_back(enumNode);
+	  enumModule->nodes.push_back(enumNode);
+	  
+	  app->nodeNames.insertUnique(enumNodeName, nGlobalId + 1);
+	  
+	  // add an edge from the enumerate node to the given node
+	  Edge *edge = new Edge(enumNode, enumModule->get_channel(0), node);
+	  
+	  enumNode->set_dsEdge(0, edge);
+
+	  node->set_enumerator(enumNode);
 	}
-    }
+    }  
   
   for (const input::EdgeStmt es : appSpec->edges)
     {
@@ -338,6 +362,17 @@ App *buildApp(const input::AppSpec *appSpec)
       
       Node *usNode = app->nodes[usnId];
       Node *dsNode = app->nodes[dsnId];
+      
+      //
+      // redirect edges into a formerly enumerate node to its actual
+      // enumerate node.
+      //
+      if (dsNode->get_moduleType()->isFormerlyEnumerate())
+	{
+	  string enumName = "__enumerateFor_" + dsNode->get_name();
+	  int emId = app->nodeNames.find(enumName);
+	  dsNode = app->nodes[emId];
+	}
       
       //
       // VALIDATE that upstream channel of edge exists if specified,
@@ -372,6 +407,7 @@ App *buildApp(const input::AppSpec *appSpec)
       Channel *usChannel = mod->get_channel(uscId);
       
       Edge *edge = new Edge(usNode, usChannel, dsNode);
+      
       
       //
       // VALIDATE that types at the two endpoints of the edge are
@@ -410,9 +446,7 @@ App *buildApp(const input::AppSpec *appSpec)
       usNode->set_dsEdge(uscId, edge);
     }
   
-  // make sure app's graph has a source, and that no edges are omitted.
-  validateTopologyComplete(app);
-  
+    
   int vId = 0;
   for (const input::DataStmt *var : appSpec->vars)
     {      
@@ -500,7 +534,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	  if (var->isParam)
 	    {
 	      vector<DataItem *> &vars = 
-		(var->isPerNode ? mod->nodeParams : mod->params);
+		(var->isPerNode ? mod->nodeParams : mod->moduleParams);
 	      
 	      vars.push_back(v);
 	    }
@@ -513,38 +547,12 @@ App *buildApp(const input::AppSpec *appSpec)
     }
   
   //
-  // Each source module type has a parameter which is the data
-  // describing its source (passed from the host), and a state
-  // variable which is a Source object (constructed on the device).
-  // Similarly, each sink module type has a data parameter and
-  // an object state variable.
+  // Each sink module type has a parameter which is the data
+  // describing its sink (passed from the host).
   //
   for (ModuleType *mod : app->modules)
     {
-      if (mod->isSource())
-	{
-	  string dataType = mod->get_channel(0)->type->name;
-	  DataItem *v;
-	  
-	  v = new DataItem("sourceData",
-			   new DataType("Mercator::SourceData<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeParams.push_back(v);
-	  
-	  v = new DataItem("source",
-			   new DataType("Mercator::Source<" 
-					+ dataType
-					+ ">*"));
-	  mod->nodeState.push_back(v);
-	  
-	  v = new DataItem("sourceMem",
-			   new DataType("Mercator::SourceMemory<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeState.push_back(v);
-	}
-      else if (mod->isSink())
+      if (mod->isSink())
 	{
 	  string dataType = mod->get_inputType()->name;
 	  DataItem *v;
@@ -554,22 +562,72 @@ App *buildApp(const input::AppSpec *appSpec)
 					+ dataType
 					+ ">"));
 	  mod->nodeParams.push_back(v);
-	  
-	  v = new DataItem("sink",
-			   new DataType("Mercator::Sink<"
-					+ dataType
-					+ ">*"));
-	  mod->nodeState.push_back(v);
-
-	  v = new DataItem("sinkMem",
-			   new DataType("Mercator::SinkMemory<" 
-					+ dataType
-					+ ">"));
-	  mod->nodeState.push_back(v);
-
 	}
+
     }
+
+    
+  //
+  // Process the source designation.  VALIDATE that exactly
+  // one node has been designated source.
+  //
+  if (appSpec->sources.size() == 0)
+    {
+      cerr << "ERROR: app " << app->name
+	   << " has no designated source node." << endl;
+      abort();
+    }
+  else if (appSpec->sources.size() > 1)
+    {
+     cerr << "ERROR: app " << app->name
+	  << " has two or more designated source nodes." << endl;
+     abort();
+    }
+  else
+    {
+      const input::SourceStmt &ss = appSpec->sources[0];
+      
+      int nid = app->nodeNames.find(ss.node);
+      if (nid == SymbolTable::NOT_FOUND)
+	{
+	  cerr << "ERROR: source statement designates nonexistent node "
+	       << ss.node << endl;
+	  abort();
+	}
+
+      Node *node = app->nodes[nid];
+      if (node->get_moduleType()->isFormerlyEnumerate())
+	node = node->get_enumerator();
+
+      node->set_isSource(true);
+      app->sourceNode = node;
+      
+      if (ss.kind == input::SourceStmt::SourceIdx)
+	{
+	  app->sourceKind = App::SourceIdx;
+	  
+	  // make sure input type of source module is size_t
+	  const DataType *inputType = 
+	    app->sourceNode->get_moduleType()->get_inputType();
+	  
+	  if (!appSpec->typeInfo->compareTypes(inputType->name, "size_t"))
+	    {
+	      cerr << "ERROR: input type of source node "
+		   << node->get_name()
+		   << "should be size_t\n";
+	      abort();
+	    }
+	}
+      else if (ss.kind == input::SourceStmt::SourceBuffer)
+	app->sourceKind = App::SourceBuffer;
+      else // function
+	app->sourceKind = App::SourceFunction;
+    }
+
+  // make sure app's graph has a source, and that no edges are omitted.
+  validateTopologyComplete(app);
   
+
   //
   // VALIDATE that all modules are used in the app.  If a module
   // is not used, warn and do not generate code for it.

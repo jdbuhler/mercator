@@ -6,11 +6,11 @@
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 
 %skeleton "lalr1.cc" /* -*- C++ -*- */
-%require "3.0.4"
+%require "3.3"
 
 %defines
 
-%define parser_class_name {mercator_parser}
+%define api.parser.class {mercator_parser}
 //%define api.prefix {yy}
 
 %define api.token.constructor
@@ -71,9 +71,11 @@ class mercator_driver;
   AGGREGATE "aggregate"
   ALLTHREADS "allthreads"
   APPLICATION "application"
+  BUFFER "buffer"
   EDGE    "edge"
   ENUMERATE "enumerate"
   FROM    "from"
+  FUNCTION "function"
   ILIMIT  "ilimit"
   MAPPING "mapping"
   MODULE  "module"
@@ -84,6 +86,7 @@ class mercator_driver;
   REFERENCE "reference"
   SINK    "sink"
   SOURCE  "source"
+  THREADWIDTH "threadwidth"
   VOID    "void"
 ;
 
@@ -98,13 +101,18 @@ class mercator_driver;
 %type <std::string> typename_string channelname modulename sourcefilename
 %type <std::string> appname nodename varscope edgechannelspec
 %type <input::NodeType *> nodetype
-%type <int> maxoutput mappingspec qualifier
+%type <input::SourceStmt::SourceKind> sourcetype
+%type <int> maxoutput mappingspec
 %type <input::DataType *> typename basetypename fromtypename inputtype vartype
-%type <input::ChannelSpec *> channel 
-%type <std::vector<input::ChannelSpec *> *> channels
-%type <input::OutputSpec *> outputtype
-%type <input::ModuleTypeStmt *> moduletype
+%type <input::ChannelSpec *> channel simplechannel
+%type <std::vector<input::ChannelSpec *> *> channels implicitchannel 
+%type <input::OutputSpec *> outputtype 
+%type <input::ModuleTypeStmt *> moduletype simplemoduletype
 %type <input::DataStmt *> varname scoped_varname;
+
+// expected shift-reduce conflicts:
+//   node <nodename> : <modulename> vs node <nodename> : <moduletype> 
+//%expect 1
 
 //////////////////////////////////////////////////////////////////
 // GRAMMAR RULES
@@ -133,7 +141,9 @@ stmt:
 | modulestmt
 | allthreadsstmt
 | ilimitstmt
+| threadwidthstmt
 | nodestmt
+| sourcestmt
 | edgestmt
 | mappingstmt
 | paramstmt
@@ -187,6 +197,17 @@ ilimitstmt:
   driver.currApp()->ilimits.push_back(limit);
 };
 
+threadwidthstmt:
+"threadwidth" "number" ";"
+{
+   if (!driver.currApp())
+    {
+       error(yyla.location, "ThreadWdith statment outside app context");
+       exit(EXIT_FAILURE);
+    }
+   driver.currApp()->threadWidth = $2;
+};
+
 allthreadsstmt:
 "allthreads" modulename ";"
 {
@@ -220,7 +241,25 @@ mappingspec:
 nodestmt:
 "node" nodename ":" nodetype ";"
 { 
-  input::NodeStmt *node = new input::NodeStmt($2, $4);
+  input::NodeStmt *node;
+  
+  if ($4->kind == input::NodeType::isGensym)
+  {
+    // module type was implicitly defined; give it a name and this
+    // name to record the type of the node
+    
+     std::string gensymType = $2 + "_type";
+     $4->mt->name = gensymType;
+     driver.currApp()->modules.push_back($4->mt);
+     
+     node = new input::NodeStmt($2, new input::NodeType(gensymType));
+     delete $4;
+  }
+  else
+  {
+     node = new input::NodeStmt($2, $4);
+  }
+
   if (!driver.currApp())
    {
       error(yyla.location, "Node statement outside app context");
@@ -232,13 +271,33 @@ nodestmt:
 nodename: "identifier"
 { $$ = $1; };
 
+
 nodetype: 
   "identifier"                    { $$ = new input::NodeType($1); }
-| "source" "<" basetypename ">"  
-       { $$ = new input::NodeType(input::NodeType::isSource, $3); }
 | "sink" "<" basetypename ">"  
          { $$ = new input::NodeType(input::NodeType::isSink, $3); }
-;
+| moduletype                      { $$ = new input::NodeType($1); };
+
+
+sourcestmt:
+"source" nodename sourcetype ";"
+{
+   input::SourceStmt src($2, $3);
+   
+   if (!driver.currApp())
+   {
+      error(yyla.location, "Edge statement outside app context");
+      exit(EXIT_FAILURE);
+   }
+   driver.currApp()->sources.push_back(src);
+};
+
+
+sourcetype:
+ %empty       { $$ = input::SourceStmt::SourceIdx; }
+| "function"  { $$ = input::SourceStmt::SourceFunction; }
+| "buffer"    { $$ = input::SourceStmt::SourceBuffer; };
+
 
 // edge stmt: declare an edge from a channel out of one node into another
 edgestmt:
@@ -327,17 +386,20 @@ vartype: basetypename
 /////////////////////////////
 
 moduletype:
-qualifier inputtype "->" outputtype 
-{ 
-  $$ = new input::ModuleTypeStmt($2, $4); 
-  $$->flags |= $1;
+simplemoduletype { $$ = $1; }
+| "enumerate" simplemoduletype
+{
+  $2->setEnumerate();
+  $$ = $2;
 };
 
-qualifier:
-  %empty                 { $$ = 0; }
-| "enumerate"            { $$ = input::ModuleTypeStmt::isEnumerate; }
-| "aggregate"            { $$ = input::ModuleTypeStmt::isAggregate; }
-;
+simplemoduletype:
+inputtype "->" outputtype 
+{
+  $$ = new input::ModuleTypeStmt($1, $3);
+};
+
+
 
 inputtype:
  typename                { $$ = $1; }
@@ -346,17 +408,22 @@ inputtype:
 outputtype:
  "void"                  
 { $$ = new input::OutputSpec(input::OutputSpec::isVoid);  }
-| typename maxoutput
-{ 
-  // a single channel does not need a name
-  auto v = new std::vector<input::ChannelSpec *>;
-  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0));
-  v->push_back(c);
-  $$ = new input::OutputSpec(v);
-}
+| implicitchannel
+{ $$ = new input::OutputSpec($1); }
+| "aggregate" implicitchannel
+{ (*$2)[0]->isAggregate = true; $$ = new input::OutputSpec($2); }
 | channels               
 { $$ = new input::OutputSpec($1); }
 ;
+
+implicitchannel : typename maxoutput
+{ 
+  // a single channel does not need a name
+  auto v = new std::vector<input::ChannelSpec *>;
+  auto c = new input::ChannelSpec("__out", $1, std::abs($2), ($2 > 0), 0);
+  v->push_back(c);
+  $$ = v;
+}
 
 channels:
   channel           
@@ -367,8 +434,17 @@ channels:
 
 // an output channel of a module has a name and a type
 channel:
+simplechannel { $$ = $1; }
+|
+"aggregate" simplechannel
+{
+  $2->isAggregate = true;
+  $$ = $2;
+};
+
+simplechannel:
 channelname "<" typename  maxoutput ">" 
-{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0)); };
+{ $$ = new input::ChannelSpec($1, $3, std::abs($4), ($4 > 0), false); }
 
 maxoutput:
   %empty              { $$ =   1; }

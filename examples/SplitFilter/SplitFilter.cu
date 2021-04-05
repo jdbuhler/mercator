@@ -3,7 +3,7 @@
 // Device-side splitting filter application
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2021 Washington University in St. Louis; all rights reserved.
 //
 
 #include "SplitFilter_dev.cuh"
@@ -25,11 +25,11 @@ uint32_t munge(uint32_t key)
 // one of two output channels, depending on whether the
 // hash is an odd or even number.
 //
-__device__
-void SplitFilter_dev::
-Filter::run(const uint32_t& inputItem, InstTagT nodeIdx)
+__MDECL__
+void SplitFilter_dev::Filter<InputView>::
+run(uint32_t const & inputItem)
 {
   uint32_t v = munge(inputItem);
   
-  push(v, nodeIdx, (v % 2 == 0 ? Out::accept : Out::reject));
+  push(v, (v % 2 == 0 ? Out::accept : Out::reject));
 }

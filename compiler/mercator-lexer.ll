@@ -77,9 +77,11 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"aggregate")   return yy::mercator_parser::make_AGGREGATE(loc);
 (?i:"allthreads")  return yy::mercator_parser::make_ALLTHREADS(loc);
 (?i:"application") return yy::mercator_parser::make_APPLICATION(loc);
+(?i:"buffer")      return yy::mercator_parser::make_BUFFER(loc);
 (?i:"edge")        return yy::mercator_parser::make_EDGE(loc);
 (?i:"enumerate")   return yy::mercator_parser::make_ENUMERATE(loc); 
 (?i:"from")        return yy::mercator_parser::make_FROM(loc); 
+(?i:"function")    return yy::mercator_parser::make_FUNCTION(loc); 
 (?i:"ilimit")      return yy::mercator_parser::make_ILIMIT(loc); 
 (?i:"mapping")     return yy::mercator_parser::make_MAPPING(loc);
 (?i:"module")      return yy::mercator_parser::make_MODULE(loc);
@@ -90,6 +92,7 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"reference")   return yy::mercator_parser::make_REFERENCE(loc);
 (?i:"source")      return yy::mercator_parser::make_SOURCE(loc);
 (?i:"sink")        return yy::mercator_parser::make_SINK(loc);
+(?i:"threadwidth") return yy::mercator_parser::make_THREADWIDTH(loc);
 (?i:"void")        return yy::mercator_parser::make_VOID(loc);
 
 {int}      {

@@ -3,31 +3,21 @@
 
 //
 // @file Sink.cuh
-// device-side sink object associated with ModuleType_Sink
+// device-side sink object associated with Node_Sink
 //
 // MERCATOR
 // Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
 //
 
-#include <cstddef>
 #include <cassert>
 
 #include "Buffer.cuh"
 
 namespace Mercator {
   
-  //
-  // POD type holding tagged union of possible sink objects;
-  // we cannot use virtual functions across host/device boundary
-  //
   template <typename T>
   struct SinkData {
-    
-    enum Kind { Buffer } kind; // what kind of sink are we?
-    
-    union {
-      BufferData<T> *bufferData; // Buffer object
-    };
+    BufferData<T> *bufferData; // Buffer object
   };
 
   //
@@ -48,11 +38,19 @@ namespace Mercator {
     // @param isize pointer to shared size field
     //
     __device__
-    Sink(size_t icapacity, size_t *isize)
-      : capacity(icapacity),
-	size(isize)
+    Sink()
+      : capacity(0),
+	data(nullptr)	
     {}
-
+    
+    __device__
+    void init(BufferData<T> *bufferData)
+    {
+      capacity = bufferData->capacity;
+      size = &bufferData->size;
+      data = bufferData->data;
+    }
+    
     //
     // @brief reserve up to reqSize elements's worth of space from the
     // end of the array.  If not enough space exists, crash.
@@ -62,7 +60,7 @@ namespace Mercator {
     // @return indx of beginning of reserved space in array
     //
     __device__
-    size_t reserve(size_t reqSize)
+    size_t reserve(unsigned int reqSize)
     {
       // try to reserve reqSize items
       size_t oldSize = myAtomicAdd(size, reqSize);
@@ -71,63 +69,7 @@ namespace Mercator {
       
       return oldSize;
     }
-    
-    //
-    // @brief put elements into the array
-    // 
-    __device__
-    virtual
-    void put(size_t base, size_t offset,
-	     const T &elt) const = 0;
 
-  private:
-    
-    const size_t capacity;
-    size_t *size;
-    
-    //
-    // @brief CUDA does not provide an atomic add for size_t, despite
-    // its being a 64 bit integer type.  Provide one here.
-    //
-    // @param address pointer to value to increment
-    // @param val size of increment
-    //
-    __device__ 
-    size_t myAtomicAdd(size_t *address, size_t val)
-    {
-      static_assert(sizeof(size_t) == sizeof(unsigned long long),
-		    "ERROR: sizeof(size_t) != sizeof(ULL)");
-      
-      unsigned long long * address_as_ull =
-	(unsigned long long *) address;
-      
-      unsigned long long v = val;
-      
-      return (size_t) atomicAdd(address_as_ull, v);
-    }
-    
-  };
-  
-  //
-  // @class SinkBuffer
-  // @brief a sink that writes to a Buffer
-  //
-  template<typename T>
-  class SinkBuffer : public Sink<T> {
-    
-  public:
-    
-    //
-    // @brief constructor
-    //
-    // @param bufferData data describing buffer object (data ptr cached)
-    //
-    __device__
-    SinkBuffer(BufferData<T> *bufferData)
-      : Sink<T>(bufferData->capacity, &bufferData->size),
-	data(bufferData->data)
-    {}
-    
     //
     // @brief write data to the buffer
     // 
@@ -136,7 +78,7 @@ namespace Mercator {
     // @elt element to write
     //
     __device__
-    void put(size_t base, size_t offset,
+    void put(size_t base, unsigned int offset,
 	     const T &elt) const
     {
       data[base + offset] = elt;
@@ -144,17 +86,29 @@ namespace Mercator {
     
   private:
     
-    T *data;
-  };
-
-
-  //
-  // Memory suitable for holding a Sink object of any subtype
-  //
-  template <typename T>
-  struct alignas(SinkBuffer<T>)
-    SinkMemory {
-    char c[sizeof(typename Mercator::SinkBuffer<T>)];
+    size_t capacity;
+    size_t *size;
+    
+    T* data;
+    
+    //
+    // @brief CUDA does not provide an atomic add for size_t, despite
+    // its being a 64-bit integer type.  Provide one here.
+    //
+    // @param address pointer to value to increment
+    // @param val size of increment
+    //
+    __device__ 
+    size_t myAtomicAdd(size_t *address, size_t val)
+    {
+      typedef unsigned long long ull;
+      
+      static_assert(sizeof(size_t) == sizeof(ull),
+		    "ERROR: sizeof(size_t) != sizeof(ULL)");
+      
+      return (size_t) atomicAdd((ull *) address, (ull) val);
+    }
+    
   };
 }
 

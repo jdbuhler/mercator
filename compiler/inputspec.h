@@ -41,17 +41,20 @@ namespace input {
   struct ChannelSpec {
     std::string name; // channel names
     DataType *type;   // type of values emitted on channel
-    int maxOutputs;   // max outputs per input
+    unsigned int maxOutputs;   // max outputs per input
     bool isVariable;  // is outputs/input fixed or variable?
+    bool isAggregate;
     
     ChannelSpec(const std::string &name,
 		DataType *type,
-		int maxOutputs,
-		bool isVariable)
+		unsigned int maxOutputs,
+		bool isVariable,
+		bool isAggregate)
       : name(name),
 	type(type),
 	maxOutputs(maxOutputs),
-	isVariable(isVariable)
+	isVariable(isVariable),
+	isAggregate(isAggregate)
     {}
     
     ~ChannelSpec()
@@ -102,8 +105,7 @@ namespace input {
     
     // flags set when parsing module type spec
     enum { 
-      isEnumerate = 0x01,
-      isAggregate = 0x02 
+      F_isEnumerate = 0x04
     };
     
     std::string name;                     // name of module
@@ -132,9 +134,12 @@ namespace input {
       for (ChannelSpec *channel : channels)
 	delete channel;
     }
+    
+    bool isEnumerate() const { return flags & F_isEnumerate; }
+    void setEnumerate()   { flags |= F_isEnumerate; }
   };
   
-    
+  
   //
   // Statement limiting the number of threads
   // that can concurrently execute a module.
@@ -142,10 +147,10 @@ namespace input {
   
   struct ILimitStmt {
     std::string module;
-    int limit;
+    unsigned int limit;
     
     ILimitStmt(const std::string &module,
-	       int limit)
+	       unsigned int limit)
       : module(module),
 	limit(limit)
     {}
@@ -174,11 +179,11 @@ namespace input {
   
   struct MappingStmt {
     std::string module;
-    int nmap;
+    unsigned int nmap;
     bool isSIMD; // true if mapping is 1:nmap rather than nmap:1
     
     MappingStmt(const std::string &module,
-		int nmap, bool isSIMD = false)
+		unsigned int nmap, bool isSIMD = false)
       : module(module),
 	nmap(nmap),
 	isSIMD(isSIMD)
@@ -195,12 +200,13 @@ namespace input {
   struct NodeType {
     
     enum Kind {
-      isSource, isSink, isOther
+      isSink, isGensym, isOther
     };
     
     std::string name;    // names a module for standard nodes
     Kind kind;           // indicates source or sink type
     DataType *dataType;  // element type of source or sink
+    ModuleTypeStmt *mt;  // module type for gensym'd types
     
     NodeType(const std::string &name)
       : name(name),
@@ -215,6 +221,13 @@ namespace input {
 	dataType(dataType)
     {}
     
+    NodeType(ModuleTypeStmt *mt)
+      : name(""),
+	kind(isGensym),
+	dataType(nullptr),
+	mt(mt)
+    {}
+	
     ~NodeType()
     { 
       if (dataType) delete dataType; 
@@ -238,6 +251,28 @@ namespace input {
     
     ~NodeStmt()
     { delete type; }
+  };
+
+  struct SourceStmt {
+    enum SourceKind { SourceIdx, SourceBuffer, SourceFunction };
+    
+    std::string node;
+    SourceKind kind;
+    std::string param;
+
+    SourceStmt(const std::string &node,
+	       SourceKind kind)
+      : node(node),
+	kind(kind)
+    {}
+    
+    SourceStmt(const std::string &node,
+	       SourceKind kind,
+	       const std::string &param)
+      : node(node),
+	kind(kind),
+	param(param)
+    {}	       
   };
   
   //
@@ -291,13 +326,17 @@ namespace input {
   // all topological info for a MERCATOR application
   struct AppSpec {
     std::string name;
-    ASTContainer *typeInfo;
+    unsigned int threadWidth; // threads per block, if non-zero
     
+    ASTContainer *typeInfo;
+
     std::vector<ModuleTypeStmt *> modules;
     
     std::vector<NodeStmt *>  nodes;
     
     std::vector<EdgeStmt>    edges;
+
+    std::vector<SourceStmt>  sources;
     
     std::vector<ILimitStmt>  ilimits;
     
@@ -309,19 +348,20 @@ namespace input {
     
     AppSpec(const std::string &name)
       : name(name),
+	threadWidth(0),
 	typeInfo(nullptr)
     {}
     
     ~AppSpec()
     {
-      for (ModuleTypeStmt *module : modules)
-	delete module;
+      for (ModuleTypeStmt *modSpec : modules)
+	delete modSpec;
 
-      for (NodeStmt *node : nodes)
-	delete node;
+      for (NodeStmt *nodeSpec : nodes)
+	delete nodeSpec;
 
-      for (DataStmt *var : vars)
-	delete var;
+      for (DataStmt *varSpec : vars)
+	delete varSpec;
     }
   };  
 }

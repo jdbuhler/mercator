@@ -6,23 +6,23 @@
 // base class of all MERCATOR device-side apps
 //
 // MERCATOR
-// Copyright (C) 2018 Washington University in St. Louis; all rights reserved.
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
 //
 
 #include <cstdio>
 
 #include "options.cuh"
 
-#include "ModuleTypeBase.cuh"
+#include "NodeBase.cuh"
 #include "Scheduler.cuh"
 
 #include "instrumentation/device_timer.cuh"
 #include "instrumentation/occ_counter.cuh"
-#include "instrumentation/item_counter.cuh"
+#include "instrumentation/sched_counter.cuh"
 
 namespace Mercator {
  
-  template <unsigned int numModules,
+  template <unsigned int numNodes,
 	    unsigned int _THREADS_PER_BLOCK,
 	    unsigned int _DEVICE_STACK_SIZE,
 	    unsigned int _DEVICE_HEAP_SIZE>
@@ -36,50 +36,68 @@ namespace Mercator {
     
     //
     // @brief constructor
-    // initialize space for app's modules
+    // initialize space for app's nodes
     //
     __device__
     DeviceApp()
+      : scheduler(numNodes)
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j] = nullptr;
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j] = nullptr;
     }
 
     //
     // @brief destructor
-    // clean up app's modules
+    // clean up app's nodes
     //
     __device__
     virtual ~DeviceApp() 
     {
-      for (unsigned int j = 0; j < numModules; j++)
+      for (unsigned int j = 0; j < numNodes; j++)
 	{
-	  if (modules[j])
-	    delete modules[j];
+	  if (nodes[j])
+	    delete nodes[j];
 	}
     }
     
     //
     // @brief run an app in one block from the main kernel
-    //   We need to initialize all modules, then actually
-    //   do the run, and finally clean up all modules
+    //   We need to initialize all nodes, then actually
+    //   do the run, and finally clean up all nodes
     //
     __device__
     void run()
     {
-      // call init hooks for each module
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->init();
+      const unsigned int sourceNodeIdx = 0; // nodes are sorted topologically
       
-      __syncthreads(); // make sure init is visible to all threads
-      
-      scheduler.run(modules, modules[sourceModuleIdx]);
-      
-      __syncthreads(); // make sure run is complete in all threads
+      // call init hooks for each node
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->init();
 
-      // call cleanup hooks for each module
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->cleanup();    
+      __syncthreads(); // writes from init() visible to all threads
+      
+      if (IS_BOSS())
+	{
+	  nodes[sourceNodeIdx]->activate();
+	}
+      
+      scheduler.run();
+      
+#ifndef NDEBUG
+      if (IS_BOSS())
+	{
+	  // sanity check -- make sure no node still has pending inputs
+	  bool hasPending = false;
+	  for (unsigned int j = 0; j < numNodes; j++)
+	    hasPending |= nodes[j]->hasPending();
+	  
+	  assert(!hasPending);
+	}
+#endif
+      
+      // call cleanup hooks for each node
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->cleanup();    
     }
     
     /////////////////////////////////////////////////////////////
@@ -92,15 +110,15 @@ namespace Mercator {
     {
       scheduler.printTimersCSV();
       
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printTimersCSV(j);
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printTimersCSV(j);
     }
-
+    
     __device__
     static
     void printTimersCSVHeader()
     {
-      printf("blockIdx,moduleID,gather,run,scatter\n");
+      printf("blockIdx,nodeID,user,push,overhead\n");
     }
 #endif
     
@@ -108,52 +126,40 @@ namespace Mercator {
     __device__
     void printOccupancy() const
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printOccupancyCSV(j);
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printOccupancyCSV(j);
     }
     
     __device__
     static
     void printOccupancyCSVHeader()
     {
-      printf("blockIdx,moduleID,maxWidth,totalInputs,totalRuns,totalFullRuns\n");
+      printf("blockIdx,nodeID,totalInputs,totalRuns,totalFullRuns\n");
     }
 #endif
     
-#ifdef INSTRUMENT_COUNTS
-    __device__
-    void printCounts() const
+#ifdef INSTRUMENT_SCHED_COUNTS
+  __device__
+  void printSchedLoopCount() const
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j]->printCountsCSV(j);
+      scheduler.printLoopCount();
     }
-
-    __device__
-    static
-    void printCountsCSVHeader()
-    {
-      printf("blockIdx,moduleID,channelId,nodeId,count\n");
-    }
-#endif
     
+#endif    
   protected:
     
     __device__
-    void registerModules(ModuleTypeBase * const *imodules, 
-		    unsigned int isourceModuleIdx) 
+    void registerNodes(NodeBase * const *inodes) 
     {
-      for (unsigned int j = 0; j < numModules; j++)
-	modules[j] = imodules[j];
-      
-      sourceModuleIdx = isourceModuleIdx;
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j] = inodes[j];
     }
+
+    Scheduler scheduler;
     
   private:
     
-    Scheduler<numModules, THREADS_PER_BLOCK> scheduler;
-    
-    ModuleTypeBase *modules[numModules];
-    unsigned int sourceModuleIdx;
+    NodeBase *nodes[numNodes];
   };
 }
 
