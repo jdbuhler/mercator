@@ -5,7 +5,7 @@
 cmake_policy(SET CMP0048 NEW)
 
 project(MERCATOR
-        VERSION 0.9.8
+        VERSION 2.0.0
         LANGUAGES CUDA CXX)
 
 cmake_minimum_required(VERSION 3.8)
@@ -14,8 +14,7 @@ cmake_minimum_required(VERSION 3.8)
 # INSTALL TARGETS
 ######################################################################
 
-#set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
-set(CMAKE_INSTALL_PREFIX /export/project/hondius/stimcheck/umercator/mercator-${PROJECT_VERSION})
+set(CMAKE_INSTALL_PREFIX /project/cassini/mercator-${PROJECT_VERSION})
 
 ######################################################################
 # PACKAGE DEPENDENCIES
@@ -51,4 +50,3 @@ install(DIRECTORY runtime            DESTINATION .
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/runtime/version.h  
         DESTINATION runtime)
-
