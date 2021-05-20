@@ -222,6 +222,26 @@ namespace Mercator  {
 	     occCounter.totalFullRuns);
     }
 #endif
+
+#ifdef INSTRUMENT_OUT_DIST
+    //
+    // @brief print the contents of the node's output distribtuion counters
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    virtual void printOutputDistributionCSV(unsigned int nodeId) { printf("IN BASE CLASS\n"); }
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    //
+    // @brief print the contents of the node's max vector gain distribtuion counters
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    virtual void printMaxVectorGainDistributionCSV(unsigned int nodeId) { printf("IN BASE CLASS\n"); }
+#endif
     
 #ifdef INSTRUMENT_TIME
     DeviceTimer overheadTimer;
@@ -232,7 +252,7 @@ namespace Mercator  {
 #ifdef INSTRUMENT_OCC
     OccCounter occCounter;
 #endif
-    
+
     
     ///////////////////////////////////////////////////////////////
     // FLUSHING API

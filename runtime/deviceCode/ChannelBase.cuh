@@ -19,6 +19,9 @@
 
 #include "options.cuh"
 
+#include "instrumentation/out_dist_counter.cuh"
+#include "instrumentation/maxvectorgain_dist_counter.cuh"
+
 namespace Mercator  {
 
   //
@@ -140,6 +143,31 @@ namespace Mercator  {
     void flush(unsigned int flushStatus) const
     { NodeBase::flush(dsNode, flushStatus); }
       
+
+    //////////////////////////////////////
+    // OUTPUT DISTRIBUTION INSTRUMENTATION
+    //////////////////////////////////////
+
+#ifdef INSTRUMENT_OUT_DIST
+    OutDistCounter outDistCounter;
+
+    /*__device__
+    unsigned long long* getOutDist()
+    {
+      return outDistCounter.distribution;
+    }*/
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    MaxVectorGainCounter maxVectorGainDistCounter;
+
+    /*__device__
+    unsigned long long* getOutDist()
+    {
+      return outDistCounter.distribution;
+    }*/
+#endif
+
   protected:
     
     const unsigned int minFreeSpace;  // min space for queue not to be full

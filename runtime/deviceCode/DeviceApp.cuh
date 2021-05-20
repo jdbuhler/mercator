@@ -146,6 +146,38 @@ namespace Mercator {
     }
     
 #endif    
+
+#ifdef INSTRUMENT_OUT_DIST
+    __device__
+    void printOutputDistribution() const
+    {
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printOutputDistributionCSV(j);
+    }
+    
+    __device__
+    static
+    void printOutputDistributionCSVHeader()
+    {
+      printf("blockIdx,nodeID,channelIdx,numberOutputs,totalTimes\n");
+    }
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    __device__
+    void printMaxVectorGainDistribution() const
+    {
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printMaxVectorGainDistributionCSV(j);
+    }
+    
+    __device__
+    static
+    void printMaxVectorGainDistributionCSVHeader()
+    {
+      printf("blockIdx,nodeID,channelIdx,maxNumberOutputs,occurances\n");
+    }
+#endif
   protected:
     
     __device__

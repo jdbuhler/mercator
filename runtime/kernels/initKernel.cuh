@@ -66,6 +66,16 @@ namespace Mercator {
     if (IS_BOSS_BLOCK())
       DeviceAppClass::printCountsCSVHeader();
 #endif
+
+#ifdef INSTRUMENT_OUT_DIST
+    if (IS_BOSS_BLOCK())
+      DeviceAppClass::printOutputDistributionCSVHeader();
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    if (IS_BOSS_BLOCK())
+      DeviceAppClass::printMaxVectorGainDistributionCSVHeader();
+#endif
   }
 }    // end Mercator namespace
 

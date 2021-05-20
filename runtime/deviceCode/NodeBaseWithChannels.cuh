@@ -92,6 +92,76 @@ namespace Mercator  {
       return channels[c]; 
     }
     
+#ifdef INSTRUMENT_OUT_DIST
+    //
+    // @brief print the contents of the node's output distribtuion counters
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    void printOutputDistributionCSV(unsigned int nodeId)
+    {
+      assert(IS_BOSS());
+      for(unsigned int i = 0; i < numChannels; ++i)
+      {
+	/*
+        printf("%d,%u,%u",blockIdx.x, nodeId, i);
+	for(unsigned int j = 0; j < OUT_DIST_MAX; ++j)
+	{
+	  printf(",%llu",channels[i]->outDistCounter.distribution[j]);
+	}
+	printf("\n");
+	*/
+	for(unsigned int j = 0; j < OUT_DIST_MAX; ++j)
+	{
+          printf("%d,%u,%u,%u,%llu\n",blockIdx.x, nodeId, i, j, channels[i]->outDistCounter.distribution[j]);
+	}
+      }
+      /*
+      printf("%d,%u,%llu,%llu,%llu\n",
+	     blockIdx.x, nodeId,
+	     occCounter.totalInputs,
+	     occCounter.totalRuns,
+	     occCounter.totalFullRuns);
+      */
+    }
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    //
+    // @brief print the contents of the node's output distribtuion counters
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    void printMaxVectorGainDistributionCSV(unsigned int nodeId)
+    {
+      assert(IS_BOSS());
+      for(unsigned int i = 0; i < numChannels; ++i)
+      {
+	/*
+        printf("%d,%u,%u",blockIdx.x, nodeId, i);
+	for(unsigned int j = 0; j < OUT_DIST_MAX; ++j)
+	{
+	  printf(",%llu",channels[i]->outDistCounter.distribution[j]);
+	}
+	printf("\n");
+	*/
+	for(unsigned int j = 0; j < MAXVECTORGAIN_DIST_MAX; ++j)
+	{
+          printf("%d,%u,%u,%u,%llu\n",blockIdx.x, nodeId, i, j, channels[i]->maxVectorGainDistCounter.distribution[j]);
+	}
+      }
+      /*
+      printf("%d,%u,%llu,%llu,%llu\n",
+	     blockIdx.x, nodeId,
+	     occCounter.totalInputs,
+	     occCounter.totalRuns,
+	     occCounter.totalFullRuns);
+      */
+    }
+#endif
+
   private:
     
     ChannelBase *channels[numChannels]; // node's output channels

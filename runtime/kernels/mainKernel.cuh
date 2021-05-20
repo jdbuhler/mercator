@@ -61,6 +61,16 @@ namespace Mercator   {
     if (IS_BOSS())
       deviceAppObjs[blockIdx.x]->printSchedLoopCount();
 #endif
+
+#ifdef INSTRUMENT_OUT_DIST
+    if (IS_BOSS())
+      deviceAppObjs[blockIdx.x]->printOutputDistribution();
+#endif
+
+#ifdef INSTRUMENT_MAXVECTORGAIN_DIST
+    if (IS_BOSS())
+      deviceAppObjs[blockIdx.x]->printMaxVectorGainDistribution();
+#endif
   }
 }    // end Mercator namespace
 

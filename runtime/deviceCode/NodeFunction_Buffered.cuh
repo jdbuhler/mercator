@@ -156,6 +156,7 @@ namespace Mercator  {
 	  // Consume next nItems data items
 	  //
 	  
+	  CHANNEL_OUT_RESET();
 	  __syncthreads(); // BEGIN WRITE output buffer through push()
 	  
 	  if (tid < nItems)
@@ -166,6 +167,7 @@ namespace Mercator  {
 	    }
 	  
 	  __syncthreads(); // END WRITE output buffer through push()
+	  CHANNEL_OUT_FINALIZE();
       
 	  //
 	  // have each ChannelBuffer complete a push to the corresponding

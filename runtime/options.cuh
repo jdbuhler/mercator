@@ -21,6 +21,15 @@
 // instrument code for input counts and occupancy of each node firing?
 //#define INSTRUMENT_OCC
 
+// instrument code for output counts on all channels of each node firing?
+//#define INSTRUMENT_OUT_DIST
+//#define OUT_DIST_MAX 128 * 16 + 1
+////#define OUT_DIST_MAX 30000
+
+// instrument code for output counts on all channels of each node firing?
+#define INSTRUMENT_MAXVECTORGAIN_DIST
+#define MAXVECTORGAIN_DIST_MAX 16 + 1
+
 // collect data from tail of app's execution?
 // 1 = collect data from all firings
 // 0 = collect data from all firings until tail is reached
@@ -49,10 +58,10 @@
 // Misc runtime options
 //
 //how many blocks to run with
-//#define USE_ONE_BLOCKS
+#define USE_ONE_BLOCKS
 //#define USE_X_BLOCKS 8
 //#define USE_SM_BLOCKS
-#define USE_MAX_BLOCKS
+//#define USE_MAX_BLOCKS
 
 //use random thread to record timings 
 //#define RAND_TIMING_THREAD

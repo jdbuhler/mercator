@@ -116,6 +116,8 @@ namespace Mercator  {
       unsigned int totalToWrite;
       
       unsigned int dsOffset = scanner.exclusiveSum(count, totalToWrite);
+
+      CHANNEL_OUT_COUNT(totalToWrite);
       
       // BEGIN WRITE basePtr, ds queue, node dsActive status, nextSlot
       // __syncthreads();  // elided due to sync in exclusiveSum()

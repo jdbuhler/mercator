@@ -128,7 +128,11 @@ namespace Mercator  {
 	     ? view.get(start + nFinished + tid)
 	     : view.get(start)); // don't create null ref -- assumes nItems > 0
 	  
+	  CHANNEL_OUT_RESET(); //iterate through channels and reset values
+	  CHANNEL_MAXVECTORGAIN_RESET();
 	  nf->run(myData, nItems);
+	  CHANNEL_OUT_FINALIZE(); //iterate through chanels and write values
+	  CHANNEL_MAXVECTORGAIN_FINALIZE();
 	  
 	  nFinished += nItems;
 	  NODE_OCC_COUNT(nItems, maxRunSize);
@@ -194,6 +198,11 @@ namespace Mercator  {
       unsigned int totalToWrite;
       
       unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
+
+      CHANNEL_OUT_COUNT(totalToWrite);
+      if(totalToWrite > 0) {
+      	CHANNEL_MAXVECTORGAIN_COUNT(1);
+      }
       
       // BEGIN WRITE basePtr, ds queue, node dsActive status
       // __syncthreads();   // elided due to sync inside exclusiveSum()
