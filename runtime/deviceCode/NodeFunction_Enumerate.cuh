@@ -221,9 +221,8 @@ namespace Mercator {
 	  // if we consumed all available input and our node is
 	  // flushing, send an extra signal so that downstream nodes
 	  // can also finish their open parents.
-	  if (nFinished == limit && node->isFlushing())
+	  if (nFinished == limit /*&& node->isFlushing()*/)
 	    {
-
 	      Signal s_new(Signal::Enum);	
 	      s_new.parentIdx = RefCountedArena::NONE;
 	      
