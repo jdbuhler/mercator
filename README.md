@@ -27,7 +27,7 @@ When using MERCATOR, please cite the following publications:
 
 S. V. Cole and J. Buhler, "MERCATOR: A GPGPU Framework for Irregular
 Streaming Applications," 2017 Conference on High Performance Computing
-& Simulation (HPCS)_, Genoa, 2017, pp. 727-736.
+& Simulation (HPCS), Genoa, 2017, pp. 727-736.
 
 
 [The node scheduling algorithm]
@@ -37,7 +37,7 @@ SIMD architectures." 6th Wkshp. on Programming Models for SIMD/Vector
 Processing, 1-9, San Diego, CA, Feb 2020.
  
  
-[The signaling mechanism and region-based state extensions[
+[The signaling mechanism and region-based state extensions]
 
 S. Timcheck and J. Buhler. "Streaming computations with region-based
 state on SIMD architectures." 13th Int'l Wkshp. on Programmability and
