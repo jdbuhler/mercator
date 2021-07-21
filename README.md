@@ -3,7 +3,7 @@
 ## A framework to implement irregular streaming applications on NVIDIA GPUs
 
 Copyright (C) 2021 Washington University in St. Louis.  All rights
-reserved.
+reserved. 
 
 MERCATOR is licensed under the Apache License, Version 2.0 (the
 "License"); you may not use this software except in compliance with
@@ -17,6 +17,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+Detailed documentation on the use of MERCATOR can be found in the doc subdirectory.  For an overview of Mercator's 
+goals and paradigm, please see the references below.
 
 Development of MERCATOR has been sponsored by NSF CISE awards
 CNS-1500173 and CNS-1763503.
