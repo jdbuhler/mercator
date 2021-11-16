@@ -27,10 +27,13 @@ When using MERCATOR, please cite the following publications:
 
 [The full system]
 
-S. V. Cole and J. Buhler, "MERCATOR: A GPGPU Framework for Irregular
-Streaming Applications," 2017 Conference on High Performance Computing
+S. V. Cole and J. Buhler. "MERCATOR: A GPGPU framework for irregular
+streaming applications." 2017 Conference on High Performance Computing
 & Simulation (HPCS), Genoa, 2017, pp. 727-736.
 
+S. Timcheck and J. Buhler, "Reducing queueing impact in streaming 
+applications with irregular dataflow." Parallel Computing 
+109:102863, 2022.
 
 [The node scheduling algorithm]
 
