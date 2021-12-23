@@ -171,6 +171,19 @@ namespace input {
     {}
   };
   
+  //
+  // Statement specifying that a module should
+  // be interruptible, saving execution state
+  // and can resume execution at a later time.
+  //
+  
+  struct InterruptStmt {
+    std::string module;
+    
+    InterruptStmt(const std::string &module)
+      : module(module)
+    {}
+  };
   
   //
   // Statement specifying a mapping other than
@@ -341,6 +354,8 @@ namespace input {
     std::vector<ILimitStmt>  ilimits;
     
     std::vector<AllThreadsStmt> allthreads;
+
+    std::vector<InterruptStmt> interrupt;
     
     std::vector<MappingStmt> mappings;
     

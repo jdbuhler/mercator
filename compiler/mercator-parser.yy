@@ -82,6 +82,7 @@ class mercator_driver;
   NODE    "node"
   NODEPARAM "nodeparam"
   NODESTATE "nodestate"
+  INTERRUPT "interrupt"
   PARAM    "param"
   REFERENCE "reference"
   SINK    "sink"
@@ -149,6 +150,7 @@ stmt:
 | paramstmt
 | nodeparamstmt
 | nodestatestmt
+| interruptstmt
 ;
 
 // reference stmt: include a C++/CUDA source file to define types
@@ -218,6 +220,18 @@ allthreadsstmt:
       exit(EXIT_FAILURE);
    }
   driver.currApp()->allthreads.push_back(at);
+};
+
+interruptstmt:
+"interrupt" modulename ";"
+{
+  input::InterruptStmt at($2);
+  if (!driver.currApp())
+   {
+      error(yyla.location, "Interrupt statement outside app context");
+      exit(EXIT_FAILURE);
+   }
+  driver.currApp()->interrupt.push_back(at);
 };
 
 mappingstmt:

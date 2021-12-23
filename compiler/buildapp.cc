@@ -175,6 +175,25 @@ App *buildApp(const input::AppSpec *appSpec)
       module->set_useAllThreads();
     }
 
+  for (const input::InterruptStmt is : appSpec->interrupt)
+    {
+      //
+      // VALIDATE that interrupt stmt refers to an extant module
+      //
+      int mId = app->moduleNames.find(is.module);
+      if (mId == SymbolTable::NOT_FOUND)
+	{
+	  cerr << "ERROR: interrupt statement refers to nonexistent module type "
+	       << is.module
+	       << endl;
+	  abort();
+	}
+      
+      ModuleType *module = app->modules[mId];
+      
+      module->set_isInterrupt();
+    }
+
   for (const input::ILimitStmt is : appSpec->ilimits)
     {
       //

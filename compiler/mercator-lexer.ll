@@ -88,6 +88,7 @@ id       [a-zA-Z_][a-zA-Z_0-9]*
 (?i:"node")        return yy::mercator_parser::make_NODE(loc);
 (?i:"nodeparam")   return yy::mercator_parser::make_NODEPARAM(loc);
 (?i:"nodestate")   return yy::mercator_parser::make_NODESTATE(loc);
+(?i:"interrupt")   return yy::mercator_parser::make_INTERRUPT(loc);
 (?i:"param")       return yy::mercator_parser::make_PARAM(loc);
 (?i:"reference")   return yy::mercator_parser::make_REFERENCE(loc);
 (?i:"source")      return yy::mercator_parser::make_SOURCE(loc);

@@ -241,6 +241,7 @@ public:
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
     F_useAllThreads       = 0x10,
+    F_isInterrupt         = 0x20,
   };
   
   ModuleType(const std::string &iname,
@@ -279,6 +280,9 @@ public:
   
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
+
+  bool get_isInterrupt() const
+  { return (flags & F_isInterrupt); }
   
   Channel *get_channel(unsigned int cId) const
   { 
@@ -308,6 +312,9 @@ public:
   
   void set_useAllThreads()
   { flags |= F_useAllThreads; }
+
+  void set_isInterrupt()
+  { flags |= F_isInterrupt; }
   
   void set_channel(unsigned int cId, Channel *c)
   {

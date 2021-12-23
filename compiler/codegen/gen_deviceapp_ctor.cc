@@ -215,7 +215,7 @@ void genNodeChannelInitStmts(const string &nodeObj,
       
       f.add(nodeObj + "->setChannel(" + to_string(j) + ", channel);");
       
-      if (mod->isUser() && !mod->get_useAllThreads())
+      if (mod->isUser() && !mod->get_useAllThreads() && !mod->get_isInterrupt())
 	{
 	  // channel is buffered -- create its buffer object
 	  f.add(nodeFcnObj + "->initChannelBuffer<"

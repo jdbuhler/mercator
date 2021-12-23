@@ -90,6 +90,8 @@ string genDeviceModuleBaseType(const ModuleType *mod)
       
       if (!mod->get_useAllThreads()) //runWithAllThreads
 	moduleTypeVariant = "NodeFunction_Buffered";
+      else if (mod->get_isInterrupt()) //runInterruptible
+	moduleTypeVariant = "NodeFunction_Interrupt";
       else
 	moduleTypeVariant = "NodeFunction_User";
       
@@ -630,6 +632,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     bool needsUser      = false;
     bool needsBuffered  = false;
     bool needsEnumerate = false;
+    bool needsInterrupt = false;
     
     for (const ModuleType *mod : app->modules)
       {
@@ -639,6 +642,8 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  needsEnumerate = true;
 	else if (!mod->get_useAllThreads())
 	  needsBuffered = true;
+	else if (mod->get_isInterrupt())
+	  needsInterrupt = true;
 	else
 	  needsUser = true;
       }
@@ -651,6 +656,9 @@ void genDeviceAppHeader(const string &deviceClassFileName,
     
     if (needsEnumerate)
       f.add(genUserInclude("deviceCode/NodeFunction_Enumerate.cuh"));
+
+    if (needsInterrupt)
+      f.add(genUserInclude("deviceCode/NodeFunction_Interrupt.cuh"));
     
     f.add(genUserInclude("deviceCode/NodeFunction_Sink.cuh"));
     
