@@ -110,7 +110,7 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 			++i;
 		}
 
-	} while(i < MAX_EXPAND && continueSaving);
+	} while(i < MAX_EXPAND && !continueSaving);
 	//} while(i < MAX_EXPAND && !saveState[tid]);
 	//} while(i < threadIdx.x && !saveState);
 	__syncthreads();
