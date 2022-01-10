@@ -48,6 +48,11 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
     {
       runFcnParams += ", unsigned int nInputs";
     }
+
+  if (mod->get_isInterrupt())
+    {
+      runFcnParams += ", unsigned int nInputs";
+    }
   
   return runFcnParams;
 }
@@ -88,10 +93,10 @@ string genDeviceModuleBaseType(const ModuleType *mod)
     {
       string moduleTypeVariant;
       
-      if (!mod->get_useAllThreads()) //runWithAllThreads
-	moduleTypeVariant = "NodeFunction_Buffered";
-      else if (mod->get_isInterrupt()) //runInterruptible
+      if (mod->get_isInterrupt()) //runInterruptible
 	moduleTypeVariant = "NodeFunction_Interrupt";
+      else if (!mod->get_useAllThreads()) //runWithAllThreads
+	moduleTypeVariant = "NodeFunction_Buffered";
       else
 	moduleTypeVariant = "NodeFunction_User";
       
@@ -320,6 +325,15 @@ void genDeviceModuleClass(const App *app,
       f.add("using Mercator::" + baseType + "::getThreadGroupSize;");
       f.add("using Mercator::" + baseType + "::isThreadGroupLeader;");
       f.add("using Mercator::" + baseType + "::push;");
+      
+      f.add("");
+    }
+
+  if (mod->get_isInterrupt())
+    {
+      // generate reflectors for user code to learn about this module
+      f.add("using Mercator::" + baseType + "::pushAndCheck;");
+      f.add("using Mercator::" + baseType + "::restoreComplete;");
       
       f.add("");
     }
@@ -640,10 +654,10 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  continue;
 	else if (mod->isEnumerate())
 	  needsEnumerate = true;
-	else if (!mod->get_useAllThreads())
-	  needsBuffered = true;
 	else if (mod->get_isInterrupt())
 	  needsInterrupt = true;
+	else if (!mod->get_useAllThreads())
+	  needsBuffered = true;
 	else
 	  needsUser = true;
       }

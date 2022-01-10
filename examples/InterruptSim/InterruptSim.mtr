@@ -1,0 +1,37 @@
+//
+// EVENFILTER.MTR
+// Demonstrate a simple MERCATOR filter
+//
+// MERCATOR
+// Copyright (C) 2019 Washington University in St. Louis; all rights reserved.
+//
+
+Application InterruptSim;
+
+// nodes
+
+Module filter : size_t -> {unsigned int};
+Module otherFilter : {unsigned int} -> {unsigned int};
+Module expand : {unsigned int} -> {unsigned int};
+Interrupt expand;
+//AllThreads filter;
+//AllThreads otherFilter;
+
+NodeState expand::restoreArray : {unsigned int*};
+
+//
+// By default, the filter module produces either 0 or 1 outputs
+// for each input on each output channel. This module has a
+// single, unnamed output channel.
+
+Node f1 : filter;
+Node e : expand;
+Node f2 : otherFilter;
+Node snk : Sink<{unsigned int}> ;
+
+Source f1;
+
+// edges
+Edge f1 -> e;
+Edge e -> f2;
+Edge f2 -> snk;
