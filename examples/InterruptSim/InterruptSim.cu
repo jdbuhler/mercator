@@ -77,9 +77,9 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
   	unsigned int tid = threadIdx.x;
 	unsigned int i = getState()->restoreArray[threadIdx.x];
 	restoreComplete();
-	//bool saveState = false;
-	__shared__ bool saveState[THREADS_PER_BLOCK];
-	__shared__ bool continueSaving;
+	bool saveState = false;
+	//__shared__ bool saveState[THREADS_PER_BLOCK];
+	//__shared__ bool continueSaving;
 	//if(threadIdx.x == 0) {
 	//	saveState = false;
 	//}
@@ -90,8 +90,9 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 
 		//v = munge(inputItem);
 
-		saveState[tid] = pushAndCheck(v + i, tid < nInputs && i < v % MAX_EXPAND);
+		saveState = pushAndCheck(v + i, tid < nInputs && i < v % MAX_EXPAND);
 
+		/*
 		__syncthreads();
 
 		if(IS_BOSS()) {
@@ -104,13 +105,13 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 		}
 
 		__syncthreads();
-
+		*/
 		//if(!saveState[tid]) {
-		if(!continueSaving) {
+		if(!saveState) {
 			++i;
 		}
 
-	} while(i < MAX_EXPAND && !continueSaving);
+	} while(i < MAX_EXPAND && !saveState);
 	//} while(i < MAX_EXPAND && !saveState[tid]);
 	//} while(i < threadIdx.x && !saveState);
 	__syncthreads();
@@ -130,7 +131,7 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 
 	//if(saveState && !(i == v % 4)) {
 	if(tid < nInputs) {
-		if(continueSaving) {
+		if(saveState) {
 			getState()->restoreArray[threadIdx.x] = i;
 			printf("[%d, %d] SET RESTORE = %d\n", blockIdx.x, threadIdx.x, i);
 		}
@@ -144,7 +145,7 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 	if(tid == 0) {
 		printf("[%d, %d] NINPUTS = %d\n", blockIdx.x, threadIdx.x, nInputs);
 	}
-	__syncthreads();
+	//__syncthreads();
 }
 
 __MDECL__
