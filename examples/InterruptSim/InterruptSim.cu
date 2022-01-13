@@ -18,18 +18,13 @@ unsigned int munge(unsigned int key)
 __MDECL__
 void InterruptSim_dev::
 filter<InputView>::run(size_t const & inputItem)
-//filter<InputView>::run(size_t const & inputItem, unsigned int nInputs)
 {
-  //unsigned int tid = threadIdx.x;
   unsigned int v;
   
-  //if (tid < nInputs)
     v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
-  //push(v, tid < nInputs && (v % 2) == 1); // defaults to pushing to Out::accept
-  //push(v, (v % 2) == 1); // defaults to pushing to Out::accept
   if(v % 2 == 1)
   	push(v); // defaults to pushing to Out::accept
 }
@@ -37,18 +32,13 @@ filter<InputView>::run(size_t const & inputItem)
 __MDECL__
 void InterruptSim_dev::
 otherFilter<InputView>::run(unsigned int const & inputItem)
-//otherFilter<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 {
-  //unsigned int tid = threadIdx.x;
   unsigned int v;
   
-  //if (tid < nInputs)
     v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
-  //push(v, tid < nInputs && (v % 2) == 0); // defaults to pushing to Out::accept
-  //push(v, (v % 2) == 0); // defaults to pushing to Out::accept
   if(v % 2 == 0)
 	  push(v);
 }
@@ -78,58 +68,19 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 	unsigned int i = getState()->restoreArray[threadIdx.x];
 	restoreComplete();
 	bool saveState = false;
-	//__shared__ bool saveState[THREADS_PER_BLOCK];
-	//__shared__ bool continueSaving;
-	//if(threadIdx.x == 0) {
-	//	saveState = false;
-	//}
-	//__syncthreads();
 
 	unsigned int v = (tid < nInputs ? munge(inputItem) : 0);
 	do {
 
-		//v = munge(inputItem);
-
 		saveState = pushAndCheck(v + i, tid < nInputs && i < v % MAX_EXPAND);
 
-		/*
-		__syncthreads();
-
-		if(IS_BOSS()) {
-			continueSaving = false;
-			for(unsigned int j = 0; j < nInputs && !continueSaving; ++j) {
-				if(saveState[j]) {
-					continueSaving = true;
-				}
-			}
-		}
-
-		__syncthreads();
-		*/
-		//if(!saveState[tid]) {
 		if(!saveState) {
 			++i;
 		}
 
 	} while(i < MAX_EXPAND && !saveState);
-	//} while(i < MAX_EXPAND && !saveState[tid]);
-	//} while(i < threadIdx.x && !saveState);
 	__syncthreads();
 
-	/*
-	if(IS_BOSS()) {
-		continueSaving = false;
-		for(unsigned int j = 0; j < nInputs && !continueSaving; ++j) {
-			if(saveState[j]) {
-				continueSaving = true;
-			}
-		}
-	}
-
-	__syncthreads();
-	*/
-
-	//if(saveState && !(i == v % 4)) {
 	if(tid < nInputs) {
 		if(saveState) {
 			getState()->restoreArray[threadIdx.x] = i;
@@ -145,7 +96,6 @@ expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 	if(tid == 0) {
 		printf("[%d, %d] NINPUTS = %d\n", blockIdx.x, threadIdx.x, nInputs);
 	}
-	//__syncthreads();
 }
 
 __MDECL__
