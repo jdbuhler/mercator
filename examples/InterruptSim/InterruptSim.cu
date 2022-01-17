@@ -15,19 +15,21 @@ unsigned int munge(unsigned int key)
   return key;
 }
 
+
 __MDECL__
 void InterruptSim_dev::
 filter<InputView>::run(size_t const & inputItem)
 {
   unsigned int v;
   
-    v = munge((unsigned int) inputItem);
+  v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
   if(v % 2 == 1)
-  	push(v); // defaults to pushing to Out::accept
+    push(v); // defaults to pushing to Out::accept
 }
+
 
 __MDECL__
 void InterruptSim_dev::
@@ -35,7 +37,7 @@ otherFilter<InputView>::run(unsigned int const & inputItem)
 {
   unsigned int v;
   
-    v = munge((unsigned int) inputItem);
+  v = munge((unsigned int) inputItem);
   
   // If no channel is specified, push sends a value to the module's
   // first output channel.
@@ -43,67 +45,51 @@ otherFilter<InputView>::run(unsigned int const & inputItem)
 	  push(v);
 }
 
+
 __MDECL__
 void InterruptSim_dev::
 expand<InputView>::init()
 {
-	const int threadWidth = getNumActiveThreads();
-	if(threadIdx.x == 0) {
-		getState()->restoreArray = new unsigned int[threadWidth];
-	}
-	__syncthreads();
+  const int threadWidth = getNumActiveThreads();
 
-	if(threadIdx.x < threadWidth) {
-		getState()->restoreArray[threadIdx.x] = 0;
-	}
-
-	__syncthreads();
+  if (threadIdx.x == 0)
+    getState()->i = 0;
+  
+  __syncthreads(); // protect state update
 }
 
+
 __MDECL__
-void InterruptSim_dev::
+unsigned int InterruptSim_dev::
 expand<InputView>::run(unsigned int const & inputItem, unsigned int nInputs)
 {
-  	unsigned int tid = threadIdx.x;
-	unsigned int i = getState()->restoreArray[threadIdx.x];
-	restoreComplete();
-	bool saveState = false;
+  unsigned int tid = threadIdx.x;
+  unsigned int i = getState()->i;
+  
+  unsigned int v = (tid < nInputs ? munge(inputItem) % MAX_EXPAND : 0);
 
-	unsigned int v = (tid < nInputs ? munge(inputItem) : 0);
-	do {
+  bool canContinue;
+  do
+    {
+      canContinue = push(v + i, tid < nInputs && i < v);
+      
+      i++;
+    }
+  while (i < MAX_EXPAND && canContinue);
 
-		saveState = pushAndCheck(v + i, tid < nInputs && i < v % MAX_EXPAND);
+  if (threadIdx.x == 0)
+    getState()->i = (i < MAX_EXPAND ? i : 0);
 
-		if(!saveState) {
-			++i;
-		}
-
-	} while(i < MAX_EXPAND && !saveState);
-	__syncthreads();
-
-	if(tid < nInputs) {
-		if(saveState) {
-			getState()->restoreArray[threadIdx.x] = i;
-			printf("[%d, %d] SET RESTORE = %d\n", blockIdx.x, threadIdx.x, i);
-		}
-		else {
-			getState()->restoreArray[threadIdx.x] = 0;
-			restoreComplete();
-			printf("[%d, %d] RESET RESTORE\n", blockIdx.x, threadIdx.x);
-		}
-	}
-
-	if(tid == 0) {
-		printf("[%d, %d] NINPUTS = %d\n", blockIdx.x, threadIdx.x, nInputs);
-	}
+  __syncthreads(); // protect state update
+  
+  //if (threadIdx.x == 0)
+  //  printf("%d SET RESTORE = %d\n", blockIdx.x, i);
+  
+  return (i < MAX_EXPAND ? 0 : nInputs);
 }
 
 __MDECL__
 void InterruptSim_dev::
 expand<InputView>::cleanup()
 {
-	if(threadIdx.x == 0) {
-		delete [] getState()->restoreArray;
-	}
 }
-

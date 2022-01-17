@@ -75,9 +75,7 @@ namespace Mercator  {
     // call to the node's run() function
     static const unsigned int maxRunSize =
       numThreadGroups;
-
-    bool needsRestored = false;
-  
+    
   public:
   
     ///////////////////////////////////////////////////////
@@ -130,14 +128,13 @@ namespace Mercator  {
 	     ? view.get(start + nFinished + tid)
 	     : view.get(start)); // don't create null ref -- assumes nItems > 0
 	  
-	  nf->run(myData, nItems);
+	  size_t nConsumed = nf->run(myData, nItems);
 	  
-	  if(!needsRestored) {
-	    nFinished += nItems;
-	  }
+	  nFinished += nConsumed;
+	  
 	  NODE_OCC_COUNT(nItems, maxRunSize);
 	}
-      while (nFinished < limit && !node->isDSActive() && !needsRestored);
+      while (nFinished < limit && !node->isDSActive());
       
       return nFinished;
     }
@@ -170,20 +167,6 @@ namespace Mercator  {
     __device__
     bool isThreadGroupLeader() const
     { return (threadIdx.x % threadGroupSize == 0); }
-
-    //
-    // @brief return true iff we are the 0th thread in our group
-    //
-    __device__
-    void restoreComplete()
-    { needsRestored = false; }
-
-    //
-    // @brief return true iff we are the 0th thread in our group
-    //
-    __device__
-    void setRestore()
-    { needsRestored = true; }
     
     //
     // @brief Write an output item to the indicated channel.
@@ -193,9 +176,11 @@ namespace Mercator  {
     // @param pred predicate indicating whether thread should write
     // @param channelIdx channel to which to write the item
     //
+    // @return bool true if node can push() again; false otherwise
+    //
     template<typename DST>
     __device__
-    void push(const DST &item, bool pred, unsigned int channelIdx = 0) const
+    bool push(const DST &item, bool pred, unsigned int channelIdx = 0) const
     {
       NODE_TIMER_STOP(node, user);
       NODE_TIMER_START(node, push);
@@ -227,72 +212,8 @@ namespace Mercator  {
 
       NODE_TIMER_STOP(node, push);
       NODE_TIMER_START(node, user);
-    }
 
-    //
-    // @brief Write an output item to the indicated channel.
-    //
-    // @tparam DST Type of item to be written
-    // @param item Item to be written
-    // @param pred predicate indicating whether thread should write
-    // @param channelIdx channel to which to write the item
-    // @return bool True if node can continue to fire, false otherwise
-    //
-    template<typename DST>
-    __device__
-    bool pushAndCheck(const DST &item, bool pred, unsigned int channelIdx = 0)
-    {
-      NODE_TIMER_STOP(node, user);
-      NODE_TIMER_START(node, push);
-      
-      using Channel = Channel<DST>;
-      
-      Channel *channel = static_cast<Channel*>(node->getChannel(channelIdx));
-      
-      //
-      // assign offsets in the output queue to threads that want to write
-      // a value, and compute the total number of values to write
-      //
-      BlockScan<unsigned int, THREADS_PER_BLOCK> scanner;
-      unsigned int totalToWrite;
-      
-      unsigned int dsOffset = scanner.exclusiveSum(pred, totalToWrite);
-      
-      // BEGIN WRITE basePtr, ds queue, node dsActive status
-      // __syncthreads();   // elided due to sync inside exclusiveSum()
-      
-      __shared__ size_t basePtr;
-      if (IS_BOSS())
-	basePtr = channel->dsReserve(totalToWrite);
-      
-      __syncthreads(); // END WRITE basePtr, ds queue, node dsActive status
-      
-      if (pred)
-	channel->dsWrite(basePtr, dsOffset, item);
-
-
-      __shared__ bool isFireable;
-      if(IS_BOSS()) {
-	isFireable = true;
-      }
-
-      __syncthreads();
-
-      if(channel->dsCapacity() < THREADS_PER_BLOCK) {
-	//isFireable = true;
-	setRestore();
-        if(IS_BOSS()) {
-      	  isFireable = false;
-	  //needsRestored = true;
-        }
-      }
-
-      __syncthreads();
-
-      NODE_TIMER_STOP(node, push);
-      NODE_TIMER_START(node, user);
-
-      return isFireable;
+      return !channel->isFull();
     }
   };
 }  // end Mercator namespace

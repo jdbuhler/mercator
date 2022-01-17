@@ -325,6 +325,7 @@ public:
   bool isSink()              const { return flags & F_isSink; }
   bool isEnumerate()         const { return flags & F_isEnumerate; }
   bool isUser()              const { return (flags & (F_isSink | F_isEnumerate)) == 0; }
+  bool isInterrupt()         const { return isUser() && (flags & F_isInterrupt); } 
   bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
   void makeFormerlyEnumerate()

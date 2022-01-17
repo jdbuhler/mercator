@@ -15,13 +15,13 @@ using namespace std;
 int main()
 {
   //const unsigned int NVALUES = 1000000000; // one BEEEELLION values
-  const unsigned int NVALUES = 100000; // one BEEEELLION values
+  const unsigned int NVALUES = 10000000; 
   
-  unsigned int *outputValues = new unsigned int [NVALUES * 10];
+  unsigned int *outputValues = new unsigned int [NVALUES * 40];
   
   // begin MERCATOR usage
   
-  Mercator::Buffer<unsigned int> outputBufferAccept(NVALUES * 10);
+  Mercator::Buffer<unsigned int> outputBufferAccept(NVALUES * 40);
   
   InterruptSim efapp;
   
@@ -38,7 +38,7 @@ int main()
   
   cout << "# outputs = " << outSize << endl;
   /*
-  for(unsigned int i = 0; i < outSize; i++)
+    for(unsigned int i = 0; i < outSize; i++)
     cout << outputValues[i] << endl;
   */
   

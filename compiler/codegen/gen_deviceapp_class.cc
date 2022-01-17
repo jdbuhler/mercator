@@ -44,12 +44,8 @@ genDeviceModuleRunFcnParams(const ModuleType *mod)
 	inputType + " const & inputItem";
     }
   
-  if (mod->get_useAllThreads())
-    {
-      runFcnParams += ", unsigned int nInputs";
-    }
-
-  if (mod->get_isInterrupt())
+  if (mod->get_useAllThreads() ||
+      mod->isInterrupt())
     {
       runFcnParams += ", unsigned int nInputs";
     }
@@ -93,7 +89,7 @@ string genDeviceModuleBaseType(const ModuleType *mod)
     {
       string moduleTypeVariant;
       
-      if (mod->get_isInterrupt()) //runInterruptible
+      if (mod->isInterrupt()) //runInterruptible
 	moduleTypeVariant = "NodeFunction_Interrupt";
       else if (!mod->get_useAllThreads()) //runWithAllThreads
 	moduleTypeVariant = "NodeFunction_Buffered";
@@ -292,11 +288,11 @@ void genDeviceModuleClass(const App *app,
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
   
-  if (mod->isUser())
+  if (mod->isUser() || mod->isInterrupt())
     {
       // run function (public because of CRTP)
       f.add("__device__");
-      f.add(genFcnHeader("void",
+      f.add(genFcnHeader((mod->isInterrupt() ? "unsigned int" : "void"),
 			 "run", 
 			 genDeviceModuleRunFcnParams(mod)) + ";");
       f.add("");
@@ -325,15 +321,6 @@ void genDeviceModuleClass(const App *app,
       f.add("using Mercator::" + baseType + "::getThreadGroupSize;");
       f.add("using Mercator::" + baseType + "::isThreadGroupLeader;");
       f.add("using Mercator::" + baseType + "::push;");
-      
-      f.add("");
-    }
-
-  if (mod->get_isInterrupt())
-    {
-      // generate reflectors for user code to learn about this module
-      f.add("using Mercator::" + baseType + "::pushAndCheck;");
-      f.add("using Mercator::" + baseType + "::restoreComplete;");
       
       f.add("");
     }
@@ -654,7 +641,7 @@ void genDeviceAppHeader(const string &deviceClassFileName,
 	  continue;
 	else if (mod->isEnumerate())
 	  needsEnumerate = true;
-	else if (mod->get_isInterrupt())
+	else if (mod->isInterrupt())
 	  needsInterrupt = true;
 	else if (!mod->get_useAllThreads())
 	  needsBuffered = true;

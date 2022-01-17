@@ -81,7 +81,18 @@ namespace Mercator  {
     {
       return dsQueue->getFreeSpace();
     }    
+
+    //
+    // @brief is the channel's downstream queue too full to
+    // permit another push()?
+    //
     
+    __device__
+    bool isFull() const
+    {
+      return (dsQueue->getFreeSpace() < minFreeSpace);
+    }
+
     //
     // @brief prepare for a direct write to the downstream queue(s)
     // by reserving space for the items to write.
