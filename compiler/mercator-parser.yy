@@ -72,17 +72,18 @@ class mercator_driver;
   ALLTHREADS "allthreads"
   APPLICATION "application"
   BUFFER "buffer"
+  CYCLE "cycle"
   EDGE    "edge"
   ENUMERATE "enumerate"
   FROM    "from"
   FUNCTION "function"
   ILIMIT  "ilimit"
+  INTERRUPT "interrupt"
   MAPPING "mapping"
   MODULE  "module"
   NODE    "node"
   NODEPARAM "nodeparam"
   NODESTATE "nodestate"
-  INTERRUPT "interrupt"
   PARAM    "param"
   REFERENCE "reference"
   SINK    "sink"
@@ -151,6 +152,7 @@ stmt:
 | nodeparamstmt
 | nodestatestmt
 | interruptstmt
+| cyclestmt
 ;
 
 // reference stmt: include a C++/CUDA source file to define types
@@ -232,6 +234,19 @@ interruptstmt:
       exit(EXIT_FAILURE);
    }
   driver.currApp()->interrupt.push_back(at);
+};
+
+// edge stmt: declare an edge from a channel out of one node into another
+cyclestmt:
+"cycle" nodename "number" ";" 
+{
+  input::CycleStmt cyc($2, $3);
+  if (!driver.currApp())
+   {
+      error(yyla.location, "Cycle statement outside app context");
+      exit(EXIT_FAILURE);
+   }
+  driver.currApp()->cycle.push_back(cyc);
 };
 
 mappingstmt:

@@ -165,6 +165,12 @@ public:
   
   unsigned int get_queueSize() const
   { return queueSize; }
+
+  unsigned int get_nLayers() const
+  { return nLayers; }
+
+  bool get_isCycle() const
+  { return isCycle; }
   
   Edge *get_usEdge() const { return treeEdge; }
   
@@ -185,6 +191,10 @@ public:
   void set_isSource(bool v) { isSource = v; }
 
   void set_enumerator(Node *n) { enumerator = n; }
+
+  void set_nLayers(int l) { nLayers = l; }
+
+  void set_isCycle(bool c) { isCycle = c; }
   
   bool isTerminalNode() const { return _isTerminalNode; };
   void setTerminalNode() { _isTerminalNode = true; }
@@ -207,6 +217,10 @@ private:
   bool _isTerminalNode;
   
   unsigned int queueSize;
+
+  bool isCycle;		       // If we are part of a cylce, unroll
+  unsigned int nLayers;        // number of layers within the node,
+  			       // used when node is a simple cycle.
 
   Node *enumerator;            // if we have an enumerated input, which
                                // node actually does the enumerating?
@@ -241,7 +255,8 @@ public:
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
     F_useAllThreads       = 0x10,
-    F_isInterrupt         = 0x20,
+    F_isInterrupt         = 0x20
+    //F_isCycle             = 0x40,
   };
   
   ModuleType(const std::string &iname,
@@ -283,6 +298,9 @@ public:
 
   bool get_isInterrupt() const
   { return (flags & F_isInterrupt); }
+
+  //bool get_isCycle() const
+  //{ return (flags & F_isCycle); }
   
   Channel *get_channel(unsigned int cId) const
   { 
@@ -315,6 +333,9 @@ public:
 
   void set_isInterrupt()
   { flags |= F_isInterrupt; }
+
+  //void set_isCycle()
+  //{ flags |= F_isCycle; }
   
   void set_channel(unsigned int cId, Channel *c)
   {
@@ -326,6 +347,7 @@ public:
   bool isEnumerate()         const { return flags & F_isEnumerate; }
   bool isUser()              const { return (flags & (F_isSink | F_isEnumerate)) == 0; }
   bool isInterrupt()         const { return isUser() && (flags & F_isInterrupt); } 
+  //bool isCycle()             const { return isUser() && (flags & F_isCycle); } 
   bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
   void makeFormerlyEnumerate()

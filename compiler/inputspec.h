@@ -184,6 +184,23 @@ namespace input {
       : module(module)
     {}
   };
+
+  //
+  // Statement specifying that a node should
+  // be cyclic with s certain number of layers
+  // in the cycle.
+  //
+  
+  struct CycleStmt {
+    std::string name;
+    unsigned int layers;
+    
+    CycleStmt(const std::string &name,
+		  unsigned int layers)
+      : name(name),
+	layers(layers)
+    {}
+  };
   
   //
   // Statement specifying a mapping other than
@@ -356,6 +373,8 @@ namespace input {
     std::vector<AllThreadsStmt> allthreads;
 
     std::vector<InterruptStmt> interrupt;
+
+    std::vector<CycleStmt> cycle;
     
     std::vector<MappingStmt> mappings;
     

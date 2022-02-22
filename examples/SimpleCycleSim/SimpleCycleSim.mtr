@@ -1,0 +1,36 @@
+//
+// SIMPLECYCLESIM.MTR
+// Demonstrate a simple cycle in MERCATOR
+//
+// MERCATOR
+// Copyright (C) 2022 Washington University in St. Louis; all rights reserved.
+//
+
+Application SimpleCycleSim;
+
+// nodes
+
+Module filter      : size_t         -> {unsigned int};
+Module expand      : {unsigned int} -> {unsigned int} : 2;
+Module otherFilter : {unsigned int} -> {unsigned int};
+//Interrupt expand;
+//AllThreads filter;
+//AllThreads otherFilter;
+
+//NodeState expand::i : {unsigned int};
+
+Node f1  : filter;
+Node e   : expand;
+Node f2  : otherFilter;
+Node snk : Sink<{unsigned int}> ;
+
+Cycle e 8;
+
+Source f1;
+
+// edges
+Edge f1 -> e;
+Edge e  -> f2;
+//Edge e -> e; //Simple cycle on node e.
+Edge f2 -> snk;
+
