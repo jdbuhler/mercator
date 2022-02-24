@@ -357,72 +357,71 @@ App *buildApp(const input::AppSpec *appSpec)
       //Set isCycle for the node to false by default.
       node->set_isCycle(false);
 
-  for (const input::CycleStmt cs : appSpec->cycle)
-    {
-	    /*
       //
-      // VALIDATE that interrupt stmt refers to an extant module
+      // For every node statement, check to see if the node is a simple
+      // cycle, and set the appropriate flag for potential topology modifications.
       //
-      int mId = app->moduleNames.find(cs.module);
-      if (mId == SymbolTable::NOT_FOUND)
-	{
-	  cerr << "ERROR: interrupt statement refers to nonexistent node "
-	       << cs.module
-	       << endl;
-	  abort();
-	}
-      
-      ModuleType *module = app->modules[mId];
-      */
+      for (const input::CycleStmt cs : appSpec->cycle)
+         {
 	    if(cs.name == ns->name) {
 		cout << "cs name: " << cs.name << "\t\tns name: " << ns->name << endl;
       		node->set_isCycle(true);
 		node->set_nLayers(cs.layers);
 	    }
-    }
-      // CYCLE FIXME
+         }
+      
+      //
+      // Modify the application topology if a node is a simple cycle.
+      // By default a simple cycle is unrolled as a pipeline of the same node using
+      // the default output channel (0, __out).
+      // FIXME: Add other cycle implementations (ones that do not modify topology)
+      //
       if(node->get_isCycle())
 	{
 	  Node* previousNode = node;
-	  //node->set_nLayers(1);
 	  unsigned int nLayers = node->get_nLayers();
-	  cout << "node name: " << node->get_name() << endl;
-	  printf("%d Layers\n", nLayers);
 
-	  //Edge* usEdge = node->get_usEdge();
+	  // Remember the outgoing edge of the node, this will be reused for the
+	  // output channel of the last layer in the cycle.
 	  Edge* dsEdge = node->get_dsEdge(0);
-	  //cout << "usNode " << usEdge->usNode->get_name() << " to " << dsEdge->dsNode->get_name() << endl;
+
+	  //
+	  // For each layer, create a new node and the necessary edges.
+	  // We reuse the initial node's name in the pipeline, and so only need
+	  // nLayers - 1 more nodes to complete the cycle.  The first node in the
+	  // pipeline is named exactly as the user defined; subsequent nodes are
+	  // labeled with __l#_, starting at 0.
+	  //
 	  for(unsigned int i = 0; i < nLayers - 1; ++i)
 	   {
-	     //Unroll loop here.
+	     // Create the name of the next node.
 	     string nextNodeName = "__l" + to_string(i);
 	     nextNodeName += "_";
 	     nextNodeName += ns->name;
 
-
-	     cout << "PreviousNode: " << previousNode->get_name() << endl;
-	     cout << "NextNode: " << nextNodeName << endl;
-	  
+	     // Make a new localId for the new node, used for topology seraching.
 	     int nextNLocalId = module->nodes.size() + 1;
 
+	     // Create the next node.
 	     Node* nextNode = new Node(nextNodeName,
 			               module,
 				       nextNLocalId);
+
+	     // Add the node to the app's list of nodes; add the node to the module's list of nodes
 	     app->nodes.push_back(nextNode);
 	     app->nodeNames.insertUnique(nextNodeName, nextNLocalId);
-      	     //app->nodes.push_back(node);
              module->nodes.push_back(nextNode);
 
-	     //Add the new node BEFORE the current one.
+	     // Add the new node AFTER the current one.
 	     Edge* edge = new Edge(previousNode, module->get_channel(0), nextNode);
 	     previousNode->set_dsEdge(0, edge);
 
-	     cout << "Edge from " << previousNode->get_name() << " to " << nextNode->get_name() << endl;
-
 	     previousNode = nextNode;
+
+	     // If we have reached the last layer, set the dsEdge of the final node to the initial
+	     // dsEdge of the simple cycle.
 	     if(i == nLayers - 2) {
 		previousNode->set_dsEdge(0, dsEdge);
-	        //cout << "Edge from " << previousNode->get_name() << " to " << dsEdge->dsNode->get_name() << endl;
 	     }
 	   }
 
@@ -444,6 +443,9 @@ App *buildApp(const input::AppSpec *appSpec)
 
       Node *usNode = app->nodes[usnId];
 
+      //
+      // If the node is a cycle, modify the upstream node of this edge.
+      //
       if (usNode->get_isCycle())
 	{
 	  string loopName = "__l" + to_string(usNode->get_nLayers() - 2);
@@ -455,11 +457,9 @@ App *buildApp(const input::AppSpec *appSpec)
       	    {
 	      cerr << "ERROR: new cycle edge has nonexistent upstream node "
 	           << loopName << endl;
-	      //abort();
+	      abort();
 	    }
-	  cout << "FOUND EDGE LEADING INTO CYCLE\t\tUSNODE: " << usNode->get_name() << "\t\tDSNODE: " << es.to << endl;
 	  usNode = app->nodes[usnId];
-	  cout << "FIXED EDGE LEADING INTO CYCLE\t\tLOOPNAME: " << loopName << "\t\tUSNODE IS NOW " << usNode->get_name() << endl;
 	}
 
       //
@@ -473,7 +473,6 @@ App *buildApp(const input::AppSpec *appSpec)
 	  abort();
 	}
       
-      //Node *usNode = app->nodes[usnId];
       Node *dsNode = app->nodes[dsnId];
       
       //
@@ -516,26 +515,10 @@ App *buildApp(const input::AppSpec *appSpec)
 		   << endl;
 	      abort();
 	    }
-          if (usNode->get_isCycle())
-	    {
-	      string loopName = "__l" + to_string(usNode->get_nLayers() - 1);
-	      loopName += "_";
-	      loopName += usNode->get_name();
-
-	      uscId = mod->channelNames.find(loopName);
-      	      if (uscId == SymbolTable::NOT_FOUND)
-      	        {
-	          cerr << "ERROR: edge has nonexistent upstream channel "
-	               << loopName << endl;
-	          abort();
-	        }
-	      cout << "FOUND CHANNEL LEADING INTO CYCLE\t\tUSNODE: " << usNode->get_name() << "\t\tDSNODE: " << es.to << endl;
-	    }
 	}
       Channel *usChannel = mod->get_channel(uscId);
       
       Edge *edge = new Edge(usNode, usChannel, dsNode);
-      cout << "CREATING NEW EDGE: " << usNode->get_name() << " ---" << usChannel->name << "---> " << dsNode->get_name() << endl;
       
       
       //
@@ -573,7 +556,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	       << usNode->get_name() << ", "
 	       << dsNode->get_name() << ")"
 	       << endl;
-	  //abort();
+	  abort();
 	}
       
       usNode->set_dsEdge(uscId, edge);

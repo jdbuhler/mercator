@@ -218,7 +218,7 @@ private:
   
   unsigned int queueSize;
 
-  bool isCycle;		       // If we are part of a cylce, unroll
+  bool isCycle;		       // the node is a cycle, unroll or compress
   unsigned int nLayers;        // number of layers within the node,
   			       // used when node is a simple cycle.
 
