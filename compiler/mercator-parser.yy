@@ -73,6 +73,7 @@ class mercator_driver;
   APPLICATION "application"
   BUFFER "buffer"
   CYCLE "cycle"
+  COMPACTCYCLE "compactcycle"
   EDGE    "edge"
   ENUMERATE "enumerate"
   FROM    "from"
@@ -153,6 +154,7 @@ stmt:
 | nodestatestmt
 | interruptstmt
 | cyclestmt
+| compactcyclestmt
 ;
 
 // reference stmt: include a C++/CUDA source file to define types
@@ -236,7 +238,6 @@ interruptstmt:
   driver.currApp()->interrupt.push_back(at);
 };
 
-// edge stmt: declare an edge from a channel out of one node into another
 cyclestmt:
 "cycle" nodename "number" ";" 
 {
@@ -247,6 +248,18 @@ cyclestmt:
       exit(EXIT_FAILURE);
    }
   driver.currApp()->cycle.push_back(cyc);
+};
+
+compactcyclestmt:
+"compactcycle" modulename "number" ";" 
+{
+  input::CompactCycleStmt ccyc($2, $3);
+  if (!driver.currApp())
+   {
+      error(yyla.location, "CompactCycle statement outside app context");
+      exit(EXIT_FAILURE);
+   }
+  driver.currApp()->compactcycle.push_back(ccyc);
 };
 
 mappingstmt:

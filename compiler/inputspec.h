@@ -201,6 +201,28 @@ namespace input {
 	layers(layers)
     {}
   };
+
+  //
+  // Statement specifying that a module should
+  // be cyclic with s certain number of layers
+  // in the cycle.  Any node of this module 
+  // type will be of that number of layers.
+  // Internal queue sizes will be determined by
+  // the output gain on the cycle edge.
+  //
+  // Compact cycles are interruptible modules.
+  //
+  
+  struct CompactCycleStmt {
+    std::string moduleName;
+    unsigned int layers;
+    
+    CompactCycleStmt(const std::string &moduleName,
+		  unsigned int layers)
+      : moduleName(moduleName),
+	layers(layers)
+    {}
+  };
   
   //
   // Statement specifying a mapping other than
@@ -375,6 +397,8 @@ namespace input {
     std::vector<InterruptStmt> interrupt;
 
     std::vector<CycleStmt> cycle;
+
+    std::vector<CompactCycleStmt> compactcycle;
     
     std::vector<MappingStmt> mappings;
     

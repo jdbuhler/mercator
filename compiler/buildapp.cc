@@ -320,7 +320,7 @@ App *buildApp(const input::AppSpec *appSpec)
       Node *node = new Node(ns->name,
 			    module,
 			    nLocalId);
-      
+
       app->nodes.push_back(node);
       module->nodes.push_back(node);
       
@@ -354,6 +354,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	  node->set_enumerator(enumNode);
 	}
 
+      
       //Set isCycle for the node to false by default.
       node->set_isCycle(false);
 
@@ -364,7 +365,7 @@ App *buildApp(const input::AppSpec *appSpec)
       for (const input::CycleStmt cs : appSpec->cycle)
          {
 	    if(cs.name == ns->name) {
-		cout << "cs name: " << cs.name << "\t\tns name: " << ns->name << endl;
+		//cout << "cs name: " << cs.name << "\t\tns name: " << ns->name << endl;
       		node->set_isCycle(true);
 		node->set_nLayers(cs.layers);
 	    }
@@ -384,6 +385,13 @@ App *buildApp(const input::AppSpec *appSpec)
 	  // Remember the outgoing edge of the node, this will be reused for the
 	  // output channel of the last layer in the cycle.
 	  Edge* dsEdge = node->get_dsEdge(0);
+
+	  // Add a param to the node for the layer information.
+	  DataItem *v;
+	  
+	  v = new DataItem("__layer",
+	                   new DataType("unsigned int"));
+	  module->nodeParams.push_back(v);
 
 	  //
 	  // For each layer, create a new node and the necessary edges.
@@ -407,6 +415,11 @@ App *buildApp(const input::AppSpec *appSpec)
 			               module,
 				       nextNLocalId);
 
+	     // FIXME: Set the default cycle status to false.
+	     // Necessary to prevent gen_deviceapp_ctor.cc from tyring to set layer
+	     // indices internal to the cycle.
+	     nextNode->set_isCycle(false);
+
 	     // Add the node to the app's list of nodes; add the node to the module's list of nodes
 	     app->nodes.push_back(nextNode);
 	     app->nodeNames.insertUnique(nextNodeName, nextNLocalId);
@@ -426,6 +439,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	   }
 
 	}
+        
     }  
   
   for (const input::EdgeStmt es : appSpec->edges)

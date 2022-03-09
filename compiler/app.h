@@ -218,7 +218,7 @@ private:
   
   unsigned int queueSize;
 
-  bool isCycle;		       // the node is a cycle, unroll or compress
+  bool isCycle;		       // the node is a cycle, unroll cycle
   unsigned int nLayers;        // number of layers within the node,
   			       // used when node is a simple cycle.
 
@@ -255,8 +255,8 @@ public:
     F_isEnumerate         = 0x04,
     F_isFormerlyEnumerate = 0x08,
     F_useAllThreads       = 0x10,
-    F_isInterrupt         = 0x20
-    //F_isCycle             = 0x40,
+    F_isInterrupt         = 0x20,
+    F_isCompactCycle      = 0x40
   };
   
   ModuleType(const std::string &iname,
@@ -293,14 +293,17 @@ public:
   unsigned int get_nThreads() const
   { return nThreads; }
   
+  unsigned int get_nLayers() const
+  { return nLayers; }
+
   bool get_useAllThreads() const
   { return (flags & F_useAllThreads); }
 
   bool get_isInterrupt() const
   { return (flags & F_isInterrupt); }
 
-  //bool get_isCycle() const
-  //{ return (flags & F_isCycle); }
+  bool get_isCompactCycle() const
+  { return (flags & F_isCompactCycle); }
   
   Channel *get_channel(unsigned int cId) const
   { 
@@ -328,14 +331,17 @@ public:
   void set_nThreads(unsigned int nt)
   { nThreads = nt; }
   
+  void set_nLayers(unsigned int nl)
+  { nLayers = nl; }
+
   void set_useAllThreads()
   { flags |= F_useAllThreads; }
 
   void set_isInterrupt()
   { flags |= F_isInterrupt; }
 
-  //void set_isCycle()
-  //{ flags |= F_isCycle; }
+  void set_isCompactCycle()
+  { flags |= F_isCompactCycle; }
   
   void set_channel(unsigned int cId, Channel *c)
   {
@@ -347,7 +353,7 @@ public:
   bool isEnumerate()         const { return flags & F_isEnumerate; }
   bool isUser()              const { return (flags & (F_isSink | F_isEnumerate)) == 0; }
   bool isInterrupt()         const { return isUser() && (flags & F_isInterrupt); } 
-  //bool isCycle()             const { return isUser() && (flags & F_isCycle); } 
+  bool isCompactCycle()      const { return isUser() && (flags & F_isCompactCycle); } 
   bool isFormerlyEnumerate() const { return flags & F_isFormerlyEnumerate; }
   
   void makeFormerlyEnumerate()
@@ -401,6 +407,8 @@ private:
   // for non-1:1 mappings (at most one of these is not 1)
   unsigned int nElements;  // items allocated to each thread
   unsigned int nThreads;   // threads per item
+
+  unsigned int nLayers;    // depth of each node's cycle
 };  
 
 

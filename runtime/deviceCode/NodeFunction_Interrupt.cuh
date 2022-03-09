@@ -1,5 +1,5 @@
-#ifndef __NODEFUNCTION_USER_CUH
-#define __NODEFUNCTION_USER_CUH
+#ifndef __NODEFUNCTION_INTERRUPT_CUH
+#define __NODEFUNCTION_INTERRUPT_CUH
 
 //
 // @file NodeFunction_Interrupt.cuh

@@ -287,7 +287,57 @@ void genDeviceAppConstructor(const App *app,
   
   f.add("// tell device app about all nodes");
   f.add("registerNodes(nodes);");
-  
+
+  /*
+  f.add("");
+
+  // set the layer information for nodes if needed
+  // Note: Layer index starts at 0
+  for (const Node *node : app->nodes)
+    {
+      if(node->get_isCycle()) {
+        //for (const input::CycleStmt cs : appSpec->cycle)
+        //   {
+        //      if(cs.name == node->get_name()) {
+        //          node->set_nLayers(cs.layers);
+	//      }
+        //   }
+	printf("FOUND CYCLE %s\n", node->get_name().c_str());
+        // set the layer for each subsequent node created for the unrolled cycle
+        // set layer info for first node
+	string nodeParamsBegin = "auto __cycleparams = ";
+	string startNodeName = "d" + node->get_name();
+	startNodeName += "Fcn";
+	string assignStartParams = nodeParamsBegin + startNodeName;
+	assignStartParams += "->getParams();";
+	f.add(assignStartParams);
+
+	string setStartParams = "__cycleparams->__layer = 0;";
+	f.add(setStartParams);
+
+	f.add("");
+
+	unsigned int nLayers = node->get_nLayers();
+
+	// loop for later layers
+	for(unsigned int i = 0; i < nLayers - 2; ++i) {
+	   printf("BUILDING LAYER %d\n", i);
+           string nodeName = "d__l" + to_string(i);
+	   nodeName += "_" + node->get_name();
+	   nodeName += "Fcn";
+
+	   string assignParams = "__cycleparams = " + nodeName;
+	   assignParams += "->getParams();";
+	   f.add(assignParams);
+
+	   string setParams = "__cycleparams->__layer = " + to_string(i + 1);
+	   setParams += ";";
+	   f.add(setParams);
+	   f.add("");
+	}
+      }
+    }
+    */  
   f.unindent();
   f.add("}");    
 }
