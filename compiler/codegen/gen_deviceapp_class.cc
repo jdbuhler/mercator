@@ -287,6 +287,7 @@ void genDeviceModuleClass(const App *app,
   // constructor
   genDeviceModuleConstructor(app, mod, f);
   f.add("");
+
   
   if (mod->isUser() || mod->isInterrupt())
     {
@@ -804,7 +805,7 @@ void genDeviceAppSkeleton(const string &skeletonFileName,
 	    {
 	      // generate run function
 	      f.add("__MDECL__");
-	      f.add(genFcnHeader("void",
+	      f.add(genFcnHeader((mod->isInterrupt() ? "unsigned int" : "void"),
 				 DeviceAppClass + "::\n" + 
 				 ModClass + "::run", 
 				 genDeviceModuleRunFcnParams(mod)));

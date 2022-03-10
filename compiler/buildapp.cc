@@ -190,7 +190,7 @@ App *buildApp(const input::AppSpec *appSpec)
 	}
       
       ModuleType *module = app->modules[mId];
-      
+
       module->set_isInterrupt();
     }
 
