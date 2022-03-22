@@ -114,9 +114,17 @@ namespace Mercator  {
       
       unsigned int tid = threadIdx.x;
       unsigned int nFinished = 0;
+      //unsigned int newLimit = view.getOccupancy();
+      //__syncthreads();
+      //if(IS_BOSS()) {
+	//if(newLimit == limit)
+	  //printf("NEWLIMIT = %d\t\tLIMIT = %d\n", newLimit, limit);
+      //}
+      //__syncthreads();
       
       do
 	{
+	  //unsigned int nItems = min(newLimit - nFinished, maxRunSize);
 	  unsigned int nItems = min(limit - nFinished, maxRunSize);
 	  
 	  //
@@ -132,8 +140,10 @@ namespace Mercator  {
 	  
 	  nFinished += nConsumed;
 	  
-	  NODE_OCC_COUNT(nItems, maxRunSize);
+	  //NODE_OCC_COUNT(nItems, maxRunSize);
+	  NODE_OCC_COUNT(nConsumed, maxRunSize);
 	}
+      //while (nFinished < newLimit && !node->isDSActive());
       while (nFinished < limit && !node->isDSActive());
       
       return nFinished;

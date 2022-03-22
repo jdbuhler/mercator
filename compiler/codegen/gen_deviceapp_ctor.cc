@@ -194,10 +194,15 @@ void genNodeChannelInitStmts(const string &nodeObj,
       string dsNodeObj = "d" + dsNode->get_name();
 	  
       unsigned int spaceRequired;
-      if (mod->isUser())
+      if (mod->isUser()) {
 	spaceRequired = channel->maxOutputs * mod->get_inputLimit();
-      else // enumerate can keep going until channel fills
+	if(mod->get_isInterrupt()) { // interrupt can keep going until channel fills
+          spaceRequired = mod->get_inputLimit();
+	}
+      }
+      else { // enumerate can keep going until channel fills
 	spaceRequired = 1; 
+      }
       
       string ChannelType = "Mercator::Channel<" + channel->type->name + ">";
       
