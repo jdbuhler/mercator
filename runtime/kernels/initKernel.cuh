@@ -66,6 +66,11 @@ namespace Mercator {
     if (IS_BOSS_BLOCK())
       DeviceAppClass::printCountsCSVHeader();
 #endif
+
+#ifdef INSTRUMENT_FINE_SCHEDULER_CALLS
+    if (IS_BOSS_BLOCK())
+      DeviceAppClass::printFineSchedLoopCallsCSVHeader();
+#endif
   }
 }    // end Mercator namespace
 

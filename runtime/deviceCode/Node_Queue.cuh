@@ -127,6 +127,7 @@ namespace Mercator  {
     __device__
     void fire()
     {      
+      FINE_SCHEDULE_ADD();
       TIMER_START(overhead);
       
       // # of items available to consume from data queue

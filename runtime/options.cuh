@@ -15,6 +15,9 @@
 // instrument # of trips through scheduling loop?
 //#define INSTRUMENT_SCHED_COUNTS
 
+// instrument # of trips through scheduling loop for each individual node?
+//#define INSTRUMENT_FINE_SCHEDULER_CALLS
+
 // instrument code timing for performance model parameters?
 //#define INSTRUMENT_TIME
 

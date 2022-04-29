@@ -19,6 +19,7 @@
 #include "options.cuh"
 
 #include "instrumentation/occ_counter.cuh"
+#include "instrumentation/fine_sched_counter.cuh"
 
 namespace Mercator  {
   
@@ -222,6 +223,23 @@ namespace Mercator  {
 	     occCounter.totalFullRuns);
     }
 #endif
+
+#ifdef INSTRUMENT_FINE_SCHEDULER_CALLS
+    //
+    // @brief print the contents of the node's scheduler counter
+    // @param nodeId a numerical identifier to print along with the
+    //    output
+    //
+    __device__
+    void printScheduleCSV(unsigned int nodeId) const
+    {
+      assert(IS_BOSS());
+      
+      printf("%d,%u,%llu\n",
+	     blockIdx.x, nodeId,
+	     schCounter.totalSchedulerCalls);
+    }
+#endif
     
 #ifdef INSTRUMENT_TIME
     DeviceTimer overheadTimer;
@@ -231,6 +249,10 @@ namespace Mercator  {
   
 #ifdef INSTRUMENT_OCC
     OccCounter occCounter;
+#endif
+
+#ifdef INSTRUMENT_FINE_SCHEDULER_CALLS
+    FineScheduleCounter schCounter;
 #endif
     
     

@@ -146,6 +146,22 @@ namespace Mercator {
     }
     
 #endif    
+
+#ifdef INSTRUMENT_FINE_SCHEDULER_CALLS
+    __device__
+    void printFineSchedLoopCalls() const
+    {
+      for (unsigned int j = 0; j < numNodes; j++)
+	nodes[j]->printScheduleCSV(j);
+    }
+    
+    __device__
+    static
+    void printFineSchedLoopCallsCSVHeader()
+    {
+      printf("blockIdx,nodeID,totalSchedulerCalls\n");
+    }
+#endif
   protected:
     
     __device__

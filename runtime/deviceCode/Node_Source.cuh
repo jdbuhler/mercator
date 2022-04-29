@@ -143,6 +143,7 @@ namespace Mercator  {
     __device__
     void fire()
     {
+      FINE_SCHEDULE_ADD();
       TIMER_START(overhead);
       
       unsigned int nDataToConsume = nDataPending;
