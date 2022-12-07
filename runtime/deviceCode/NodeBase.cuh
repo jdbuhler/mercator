@@ -191,7 +191,7 @@ namespace Mercator  {
     //    output
     //
     __device__
-    void printTimersCSV(unsigned int nodeId) const
+    void printTimersCSV(unsigned int nodeId)
     {
       assert(IS_BOSS());
       
@@ -201,6 +201,14 @@ namespace Mercator  {
       
       printf("%d,%u,%llu,%llu,%llu\n",
 	     blockIdx.x, nodeId, userTime, pushTime, overheadTime);
+
+      //FIXME: Counters are reset here so if you re-run a
+      //MERCATOR app without re-initializing, garbage isn't read in
+      //the next run.  We should be able to aggregate this instead,
+      //but this is overridden here for now.
+      overheadTimer = DeviceTimer();
+      userTimer = DeviceTimer();
+      pushTimer = DeviceTimer();
     }
   
 #endif
@@ -212,7 +220,7 @@ namespace Mercator  {
     //    output
     //
     __device__
-    void printOccupancyCSV(unsigned int nodeId) const
+    void printOccupancyCSV(unsigned int nodeId)
     {
       assert(IS_BOSS());
       
@@ -221,6 +229,14 @@ namespace Mercator  {
 	     occCounter.totalInputs,
 	     occCounter.totalRuns,
 	     occCounter.totalFullRuns);
+
+      //FIXME: Counters are reset here so if you re-run a
+      //MERCATOR app without re-initializing, garbage isn't read in
+      //the next run.  We should be able to aggregate this instead,
+      //but this is overridden here for now.
+      occCounter.totalInputs = 0;
+      occCounter.totalRuns = 0;
+      occCounter.totalFullRuns = 0;
     }
 #endif
 
@@ -231,13 +247,19 @@ namespace Mercator  {
     //    output
     //
     __device__
-    void printScheduleCSV(unsigned int nodeId) const
+    void printScheduleCSV(unsigned int nodeId)
     {
       assert(IS_BOSS());
       
       printf("%d,%u,%llu\n",
 	     blockIdx.x, nodeId,
 	     schCounter.totalSchedulerCalls);
+
+      //FIXME: Counters are reset here so if you re-run a
+      //MERCATOR app without re-initializing, garbage isn't read in
+      //the next run.  We should be able to aggregate this instead,
+      //but this is overridden here for now.
+      schCounter.totalSchedulerCalls = 0;
     }
 #endif
     
